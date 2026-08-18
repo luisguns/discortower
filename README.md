@@ -5,15 +5,18 @@ Call privada de voz e compartilhamento de tela entre amigos, com uma experiênci
 ## O que já funciona
 
 - lobby sem cadastro, com nome persistido no navegador e código de sala normalizado;
-- chamada de voz, mute/unmute e indicador de participante falando;
-- volume local independente para o microfone de cada participante;
+- chamada de voz, câmera e indicador de participante falando;
+- lobby visual com cartões, iniciais e vídeos dos participantes;
+- volume local e mute independente para o microfone de cada participante;
 - deafen local sem perder os volumes individuais;
 - screen share com vídeo e captura de áudio quando o navegador fornece a track;
 - volume da transmissão separado do volume do microfone de quem transmite;
 - seleção entre múltiplas transmissões simultâneas;
+- Picture-in-Picture da transmissão selecionada;
 - seleção de microfone e saídas separadas para voz/live quando `setSinkId` é suportado;
 - presets 720p30, 1080p30 e 1080p60;
 - tratamento de autoplay, reconexão, permissão negada e cleanup de tracks;
+- layout responsivo para desktop, tablet e celular;
 - deploy estático em GitHub Pages por GitHub Actions.
 
 ## Stack
@@ -68,6 +71,12 @@ Abra o endereço mostrado pelo Vite, normalmente `http://localhost:5173`.
 
 Para validar o fluxo realtime, abra duas janelas/perfis de navegador, use nomes diferentes e informe o mesmo código de sala. Para compartilhar áudio, prefira uma aba do Chrome/Edge e marque **Compartilhar áudio da guia**.
 
+## Qualidade e franquia do LiveKit
+
+A resolução não é puramente local. Resolução, FPS, câmeras, transmissões simultâneas e número de espectadores aumentam os dados enviados pelo LiveKit. O preset 720p30 é o mais econômico; 1080p30 equilibra nitidez e consumo; 1080p60 deve ficar reservado para conteúdo em movimento.
+
+No plano Build gratuito, os limites são compartilhados pelos projetos gratuitos da conta e funcionam como hard cap: ao atingir a franquia, novas solicitações falham em vez de gerar cobrança automática. Consulte [quotas e limites](https://docs.livekit.io/deploy/admin/quotas-and-limits/) e o [guia oficial de estimativa](https://livekit.io/field-guides/guide/estimating-pricing-video-conference-livestream).
+
 ## Validação e build
 
 ```bash
@@ -97,7 +106,8 @@ O arquivo `public/CNAME` preserva o domínio customizado no artefato. A aplicaç
 ## Limitações conhecidas da V1
 
 - o código da sala não é autenticação e qualquer string válida cria/seleciona uma room;
-- não há câmera, chat ou persistência de sala;
+- não há chat ou persistência de sala;
 - captura de áudio do desktop/tela depende do sistema operacional e do navegador;
 - conteúdo protegido por DRM pode bloquear vídeo ou áudio e não é contornado;
 - Safari e Firefox podem não permitir seleção de saída ou captura de áudio do screen share.
+- Picture-in-Picture depende do suporte do navegador.

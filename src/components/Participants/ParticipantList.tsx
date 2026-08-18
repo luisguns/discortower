@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Track, type Participant, type Room } from 'livekit-client'
 import { useParticipantVolume } from '../../hooks/useParticipantVolume'
 import type { RemoteVoice } from '../../types'
@@ -58,7 +59,8 @@ const RemoteParticipantRow = ({
   outputDeviceId,
 }: RemoteParticipantRowProps) => {
   const name = voice.participant.name || voice.participant.identity
-  const [volume, setVolume] = useParticipantVolume(name, 'voice')
+  const [volume, setVolume] = useParticipantVolume(voice.participant.identity, 'voice')
+  const [mutedLocally, setMutedLocally] = useState(false)
 
   return (
     <li className={`participant ${speaking ? 'participant--speaking' : ''}`}>
@@ -75,12 +77,15 @@ const RemoteParticipantRow = ({
 
       <VolumeControl
         label={`Volume do microfone de ${name}`}
+        muted={mutedLocally}
         onChange={setVolume}
+        onMuteToggle={() => setMutedLocally((current) => !current)}
         value={volume}
       />
       <RemoteAudioRenderer
         deafened={deafened}
         outputDeviceId={outputDeviceId}
+        muted={mutedLocally}
         track={voice.track}
         volume={volume}
       />

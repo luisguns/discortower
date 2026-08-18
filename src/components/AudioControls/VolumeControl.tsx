@@ -4,15 +4,37 @@ interface VolumeControlProps {
   label: string
   value: number
   disabled?: boolean
+  muted?: boolean
+  onMuteToggle?: () => void
   onChange: (value: number) => void
 }
 
-export const VolumeControl = ({ label, value, disabled, onChange }: VolumeControlProps) => {
+export const VolumeControl = ({
+  label,
+  value,
+  disabled,
+  muted = false,
+  onMuteToggle,
+  onChange,
+}: VolumeControlProps) => {
   const percentage = Math.round(value * 100)
 
   return (
-    <div className="volume-control">
-      <Icon name="audio" />
+    <div className={`volume-control ${muted ? 'volume-control--muted' : ''}`}>
+      {onMuteToggle ? (
+        <button
+          aria-label={muted ? `${label}: reativar áudio` : `${label}: silenciar`}
+          className="volume-control__mute"
+          disabled={disabled}
+          onClick={onMuteToggle}
+          title={muted ? 'Reativar áudio' : 'Silenciar apenas para mim'}
+          type="button"
+        >
+          <Icon name={muted ? 'volumeOff' : 'audio'} />
+        </button>
+      ) : (
+        <Icon name={muted ? 'volumeOff' : 'audio'} />
+      )}
       <input
         aria-label={label}
         disabled={disabled}
@@ -23,7 +45,7 @@ export const VolumeControl = ({ label, value, disabled, onChange }: VolumeContro
         type="range"
         value={percentage}
       />
-      <span>{percentage}%</span>
+      <span>{muted ? 'Mudo' : `${percentage}%`}</span>
     </div>
   )
 }

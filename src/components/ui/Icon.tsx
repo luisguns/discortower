@@ -2,16 +2,19 @@ import type { SVGProps } from 'react'
 
 export type IconName =
   | 'audio'
+  | 'camera'
   | 'chevron'
   | 'copy'
   | 'deafen'
   | 'expand'
   | 'leave'
   | 'mic'
+  | 'pip'
   | 'screen'
   | 'settings'
   | 'users'
   | 'warning'
+  | 'volumeOff'
   | 'x'
 
 interface IconProps extends SVGProps<SVGSVGElement> {
@@ -24,6 +27,12 @@ const paths: Record<IconName, React.ReactNode> = {
       <path d="M11 5 6 9H3v6h3l5 4V5Z" />
       <path d="M15.5 8.5a5 5 0 0 1 0 7" />
       <path d="M18 6a8.5 8.5 0 0 1 0 12" />
+    </>
+  ),
+  camera: (
+    <>
+      <path d="m16 10 4.6-2.7a.9.9 0 0 1 1.4.8v7.8a.9.9 0 0 1-1.4.8L16 14" />
+      <rect width="13" height="12" x="3" y="6" rx="2" />
     </>
   ),
   chevron: <path d="m9 18 6-6-6-6" />,
@@ -67,6 +76,12 @@ const paths: Record<IconName, React.ReactNode> = {
       <path d="M8 21h8" />
     </>
   ),
+  pip: (
+    <>
+      <rect width="20" height="16" x="2" y="4" rx="2" />
+      <rect width="8" height="6" x="11" y="11" rx="1" />
+    </>
+  ),
   screen: (
     <>
       <rect width="18" height="13" x="3" y="4" rx="2" />
@@ -95,6 +110,13 @@ const paths: Record<IconName, React.ReactNode> = {
       <path d="m21 19-8.3-14.4a.8.8 0 0 0-1.4 0L3 19a.8.8 0 0 0 .7 1.2h16.6A.8.8 0 0 0 21 19Z" />
       <path d="M12 9v4" />
       <path d="M12 17h.01" />
+    </>
+  ),
+  volumeOff: (
+    <>
+      <path d="M11 5 6 9H3v6h3l5 4V5Z" />
+      <path d="m22 9-6 6" />
+      <path d="m16 9 6 6" />
     </>
   ),
   x: (

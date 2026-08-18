@@ -1,18 +1,19 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { LocalVideoTrack, RemoteVideoTrack } from 'livekit-client'
 import { useParticipantVolume } from '../../hooks/useParticipantVolume'
-import type { ScreenShareLive } from '../../types'
+import type { ParticipantMedia, ScreenShareLive } from '../../types'
 import { RemoteAudioRenderer } from '../AudioControls/RemoteAudioRenderer'
 import { VolumeControl } from '../AudioControls/VolumeControl'
+import { ParticipantGallery } from '../Participants/ParticipantGallery'
 import { Icon } from '../ui/Icon'
 
 const VideoRenderer = ({
   track,
+  videoRef,
 }: {
   track: LocalVideoTrack | RemoteVideoTrack
+  videoRef: RefObject<HTMLVideoElement | null>
 }) => {
-  const videoRef = useRef<HTMLVideoElement>(null)
-
   useEffect(() => {
     const element = videoRef.current
     if (!element) return
@@ -36,7 +37,8 @@ interface LiveControlsProps {
 }
 
 const LiveAudioControls = ({ live, deafened, screenOutputId }: LiveControlsProps) => {
-  const [volume, setVolume] = useParticipantVolume(live.participantName, 'screen')
+  const [volume, setVolume] = useParticipantVolume(live.participantIdentity, 'screen')
+  const [mutedLocally, setMutedLocally] = useState(false)
 
   if (live.isLocal) {
     return <span className="live-self-label">Sua transmissão</span>
@@ -47,7 +49,9 @@ const LiveAudioControls = ({ live, deafened, screenOutputId }: LiveControlsProps
       {live.audioTrack ? (
         <VolumeControl
           label={`Volume da live de ${live.participantName}`}
+          muted={mutedLocally || live.muted}
           onChange={setVolume}
+          onMuteToggle={() => setMutedLocally((current) => !current)}
           value={volume}
         />
       ) : (
@@ -55,9 +59,10 @@ const LiveAudioControls = ({ live, deafened, screenOutputId }: LiveControlsProps
       )}
       <RemoteAudioRenderer
         deafened={deafened}
+        muted={mutedLocally || live.muted}
         outputDeviceId={screenOutputId}
         track={live.audioTrack}
-        volume={live.muted ? 0 : volume}
+        volume={volume}
       />
     </>
   )
@@ -65,18 +70,29 @@ const LiveAudioControls = ({ live, deafened, screenOutputId }: LiveControlsProps
 
 interface ScreenShareStageProps {
   lives: ScreenShareLive[]
+  participants: ParticipantMedia[]
+  activeSpeakerIds: Set<string>
   deafened: boolean
   screenOutputId: string
 }
 
 export const ScreenShareStage = ({
   lives,
+  participants,
+  activeSpeakerIds,
   deafened,
   screenOutputId,
 }: ScreenShareStageProps) => {
   const [selectedId, setSelectedId] = useState('')
   const knownIds = useRef<Set<string>>(new Set())
   const stageRef = useRef<HTMLDivElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [pipActive, setPipActive] = useState(false)
+
+  const pipSupported =
+    typeof document !== 'undefined' &&
+    document.pictureInPictureEnabled &&
+    'requestPictureInPicture' in HTMLVideoElement.prototype
 
   useEffect(() => {
     const currentIds = new Set(lives.map((live) => live.id))
@@ -88,18 +104,36 @@ export const ScreenShareStage = ({
 
   const selectedLive = lives.find((live) => live.id === selectedId) ?? lives.at(-1)
 
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    const handleEnter = () => setPipActive(true)
+    const handleLeave = () => setPipActive(false)
+    video.addEventListener('enterpictureinpicture', handleEnter)
+    video.addEventListener('leavepictureinpicture', handleLeave)
+    return () => {
+      video.removeEventListener('enterpictureinpicture', handleEnter)
+      video.removeEventListener('leavepictureinpicture', handleLeave)
+    }
+  }, [selectedLive?.id])
+
+  const togglePictureInPicture = async () => {
+    const video = videoRef.current
+    if (!video || !pipSupported) return
+    try {
+      if (document.pictureInPictureElement) await document.exitPictureInPicture()
+      else await video.requestPictureInPicture()
+    } catch {
+      setPipActive(false)
+    }
+  }
+
   if (!selectedLive) {
     return (
-      <section className="stream-stage stream-stage--empty">
-        <div className="stream-empty__icon">
-          <Icon name="screen" />
-          <span />
-        </div>
-        <p className="eyebrow">PALCO LIVRE</p>
-        <h2>Nenhuma transmissão ativa</h2>
-        <p>Compartilhe uma aba, janela ou tela para começar.</p>
-        <small>Para transmitir som, marque “Compartilhar áudio da guia”.</small>
-      </section>
+      <ParticipantGallery
+        activeSpeakerIds={activeSpeakerIds}
+        participants={participants}
+      />
     )
   }
 
@@ -112,10 +146,21 @@ export const ScreenShareStage = ({
         </div>
         <div className="stream-stage__actions">
           <LiveAudioControls
+            key={selectedLive.id}
             deafened={deafened}
             live={selectedLive}
             screenOutputId={screenOutputId}
           />
+          <button
+            aria-label={pipActive ? 'Fechar Picture-in-Picture' : 'Abrir Picture-in-Picture'}
+            className={`icon-button ${pipActive ? 'icon-button--active' : ''}`}
+            disabled={!pipSupported}
+            onClick={() => void togglePictureInPicture()}
+            title={pipSupported ? 'Picture-in-Picture' : 'PiP não suportado neste navegador'}
+            type="button"
+          >
+            <Icon name="pip" />
+          </button>
           <button
             aria-label="Ver transmissão em tela cheia"
             className="icon-button"
@@ -144,8 +189,14 @@ export const ScreenShareStage = ({
       )}
 
       <div className="stream-stage__video">
-        <VideoRenderer track={selectedLive.videoTrack} />
+        <VideoRenderer track={selectedLive.videoTrack} videoRef={videoRef} />
       </div>
+
+      <ParticipantGallery
+        activeSpeakerIds={activeSpeakerIds}
+        compact
+        participants={participants}
+      />
     </section>
   )
 }

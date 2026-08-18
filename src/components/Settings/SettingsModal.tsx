@@ -144,8 +144,13 @@ export const SettingsModal = ({
               >
                 <span>{streamQualityPresets[qualityId].shortLabel}</span>
                 {streamQualityPresets[qualityId].label}
+                <small>{streamQualityPresets[qualityId].usageLabel}</small>
               </button>
             ))}
+          </div>
+          <div className="settings-note settings-note--quality">
+            <Icon name="warning" />
+            Resolução, FPS, câmeras e quantidade de espectadores aumentam o uso de dados do LiveKit. Use 720p30 para preservar a franquia gratuita.
           </div>
         </div>
 

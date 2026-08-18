@@ -48,21 +48,24 @@ export const fetchConnectionDetails = async (
 
 export const streamQualityPresets: Record<
   StreamQualityId,
-  { label: string; shortLabel: string; preset: VideoPreset }
+  { label: string; shortLabel: string; usageLabel: string; preset: VideoPreset }
 > = {
   '720p30': {
     label: '720p · 30 FPS',
     shortLabel: '720p30',
+    usageLabel: 'Menor consumo',
     preset: new VideoPreset(1280, 720, 2_500_000, 30),
   },
   '1080p30': {
     label: '1080p · 30 FPS',
     shortLabel: '1080p30',
+    usageLabel: 'Equilibrado',
     preset: new VideoPreset(1920, 1080, 4_500_000, 30),
   },
   '1080p60': {
     label: '1080p · 60 FPS',
     shortLabel: '1080p60',
+    usageLabel: 'Alto consumo',
     preset: new VideoPreset(1920, 1080, 7_000_000, 60),
   },
 }

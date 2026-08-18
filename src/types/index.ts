@@ -33,6 +33,15 @@ export interface ScreenShareLive {
   muted: boolean
 }
 
+export interface ParticipantMedia {
+  id: string
+  name: string
+  isLocal: boolean
+  cameraTrack?: LocalVideoTrack | RemoteVideoTrack
+  cameraEnabled: boolean
+  microphoneMuted: boolean
+}
+
 export interface DevicePreferences {
   inputId: string
   voiceOutputId: string

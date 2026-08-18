@@ -8,7 +8,7 @@ import {
   type Participant,
   type Room,
 } from 'livekit-client'
-import type { RemoteVoice, ScreenShareLive } from '../types'
+import type { ParticipantMedia, RemoteVoice, ScreenShareLive } from '../types'
 
 export const useRoomSnapshot = (room: Room) => {
   const [revision, setRevision] = useState(0)
@@ -65,6 +65,24 @@ export const useRoomSnapshot = (room: Room) => {
       },
     )
 
+    const participantMedia: ParticipantMedia[] = participants.map((participant) => {
+      const cameraPublication = participant.getTrackPublication(Track.Source.Camera)
+      const microphonePublication = participant.getTrackPublication(Track.Source.Microphone)
+      const cameraTrack = cameraPublication?.videoTrack
+
+      return {
+        id: participant.identity,
+        name: participant.name || participant.identity,
+        isLocal: participant === room.localParticipant,
+        cameraTrack:
+          cameraTrack instanceof LocalVideoTrack || cameraTrack instanceof RemoteVideoTrack
+            ? cameraTrack
+            : undefined,
+        cameraEnabled: Boolean(cameraPublication && !cameraPublication.isMuted),
+        microphoneMuted: microphonePublication?.isMuted ?? true,
+      }
+    })
+
     const lives: ScreenShareLive[] = []
     const localVideoPublication = room.localParticipant.getTrackPublication(
       Track.Source.ScreenShare,
@@ -100,6 +118,7 @@ export const useRoomSnapshot = (room: Room) => {
 
     return {
       participants,
+      participantMedia,
       remoteVoices,
       lives,
       activeSpeakerIds,

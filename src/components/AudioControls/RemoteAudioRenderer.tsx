@@ -5,6 +5,7 @@ interface RemoteAudioRendererProps {
   track?: RemoteAudioTrack
   volume: number
   deafened: boolean
+  muted?: boolean
   outputDeviceId: string
 }
 
@@ -12,6 +13,7 @@ export const RemoteAudioRenderer = ({
   track,
   volume,
   deafened,
+  muted = false,
   outputDeviceId,
 }: RemoteAudioRendererProps) => {
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -31,9 +33,16 @@ export const RemoteAudioRenderer = ({
   }, [track])
 
   useEffect(() => {
-    if (!track) return
-    track.setVolume(deafened ? 0 : volume)
-  }, [deafened, track, volume])
+    const element = audioRef.current
+    if (!track || !element) return
+
+    const shouldMute = deafened || muted
+    const effectiveVolume = shouldMute ? 0 : volume
+    track.setVolume(effectiveVolume)
+    element.volume = Math.max(0, Math.min(1, volume))
+    element.muted = shouldMute
+    if (!shouldMute) void element.play().catch(() => undefined)
+  }, [deafened, muted, track, volume])
 
   useEffect(() => {
     if (!track) return

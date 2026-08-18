@@ -80,10 +80,13 @@ export const CallScreen = ({
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [quality, setQuality] = useState<StreamQualityId>(getStreamQuality)
   const [micBusy, setMicBusy] = useState(false)
+  const [cameraBusy, setCameraBusy] = useState(false)
+  const [cameraError, setCameraError] = useState('')
   const [copyState, setCopyState] = useState('Copiar')
   const [audioBlocked, setAudioBlocked] = useState(!room.canPlaybackAudio)
   const screenShare = useScreenShare(room, quality)
   const micEnabled = room.localParticipant.isMicrophoneEnabled
+  const cameraEnabled = room.localParticipant.isCameraEnabled
 
   useEffect(() => {
     const handlePlayback = (playing: boolean) => setAudioBlocked(!playing)
@@ -109,6 +112,24 @@ export const CallScreen = ({
       setMicBusy(false)
     }
   }, [onMicrophoneErrorChange, room])
+
+  const toggleCamera = useCallback(async () => {
+    setCameraBusy(true)
+    setCameraError('')
+    try {
+      await room.localParticipant.setCameraEnabled(!room.localParticipant.isCameraEnabled)
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'NotAllowedError') {
+        setCameraError('Permissão da câmera negada. Libere o acesso no navegador.')
+      } else if (error instanceof DOMException && error.name === 'NotFoundError') {
+        setCameraError('Nenhuma câmera foi encontrada neste dispositivo.')
+      } else {
+        setCameraError('Não foi possível alterar o estado da câmera.')
+      }
+    } finally {
+      setCameraBusy(false)
+    }
+  }, [room])
 
   const changeQuality = (nextQuality: StreamQualityId) => {
     setQuality(nextQuality)
@@ -159,6 +180,12 @@ export const CallScreen = ({
           <button onClick={() => void copyRoomCode()} title={copyState} type="button">
             <Icon name="copy" />
           </button>
+          <output
+            aria-live="polite"
+            className={`room-copy-feedback ${copyState !== 'Copiar' ? 'is-visible' : ''}`}
+          >
+            {copyState}
+          </output>
         </div>
 
         <div className={`connection-pill connection-pill--${status}`}>
@@ -190,8 +217,10 @@ export const CallScreen = ({
           voiceOutputId={devices.preferences.voiceOutputId}
         />
         <ScreenShareStage
+          activeSpeakerIds={snapshot.activeSpeakerIds}
           deafened={deafened}
           lives={snapshot.lives}
+          participants={snapshot.participantMedia}
           screenOutputId={devices.preferences.screenOutputId}
         />
       </div>
@@ -200,6 +229,11 @@ export const CallScreen = ({
         {microphoneError && (
           <div className="notice notice--warning">
             <Icon name="warning" /> {microphoneError}
+          </div>
+        )}
+        {cameraError && (
+          <div className="notice notice--warning">
+            <Icon name="warning" /> {cameraError}
           </div>
         )}
         {screenShare.isSharing && !screenShare.hasAudio && !screenShare.isStarting && (
@@ -222,6 +256,15 @@ export const CallScreen = ({
             icon="mic"
             label="Microfone"
             onClick={() => void toggleMicrophone()}
+          />
+          <ControlButton
+            active={!cameraEnabled}
+            detail={cameraBusy ? 'Aguarde' : cameraEnabled ? 'Câmera ligada' : 'Câmera desligada'}
+            disabled={cameraBusy || status === 'reconnecting'}
+            error={Boolean(cameraError)}
+            icon="camera"
+            label="Câmera"
+            onClick={() => void toggleCamera()}
           />
           <ControlButton
             active={deafened}
