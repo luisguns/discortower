@@ -14,7 +14,10 @@ export const Lobby = ({ status, connectionError, onJoin }: LobbyProps) => {
   const [displayName, setDisplayName] = useState(getDisplayName)
   const [roomCode, setRoomCode] = useState('')
   const [validationError, setValidationError] = useState('')
-  const connecting = status === 'connecting'
+  // The LiveKit room can become connected while the microphone permission
+  // prompt is still open; the lobby must remain locked until join() finishes.
+  const connecting =
+    status === 'connecting' || status === 'connected' || status === 'reconnecting'
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
