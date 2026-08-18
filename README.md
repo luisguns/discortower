@@ -8,7 +8,7 @@ Call privada de voz e compartilhamento de tela entre amigos, com uma experiênci
 - links de convite no formato `?room=KIWI-123`, com sala preenchida automaticamente;
 - criação de sala rápida com código aleatório curto no formato `ABC-DEFG-HIJ`;
 - chamada de voz, câmera e indicador de participante falando;
-- galeria responsiva em 16:9, incluindo três participantes em uma única linha no desktop;
+- galeria responsiva com modos locais `Preencher` (até 4:3) e `Priorizar 16:9`, incluindo três participantes do mesmo tamanho;
 - drawer de participantes fechado por padrão e menu contextual no clique ou botão direito;
 - volume local de 0% a 400% e mute independente para voz e transmissão;
 - deafen local sem perder os volumes individuais;

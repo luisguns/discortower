@@ -1,10 +1,16 @@
-import type { AudioChannel, DevicePreferences, StreamQualityId } from '../types'
+import type {
+  AudioChannel,
+  DevicePreferences,
+  GalleryLayoutMode,
+  StreamQualityId,
+} from '../types'
 
 const DISPLAY_NAME_KEY = 'ford-kall:display-name'
 const VOLUMES_KEY = 'ford-kall:participant-volumes'
 const DEVICES_KEY = 'ford-kall:devices'
 const QUALITY_KEY = 'ford-kall:stream-quality'
 const NOISE_SUPPRESSION_KEY = 'ford-kall:noise-suppression'
+const GALLERY_LAYOUT_KEY = 'ford-kall:gallery-layout'
 
 export const MAX_PARTICIPANT_VOLUME = 4
 export const PARTICIPANT_VOLUME_EVENT = 'ford-kall:participant-volume'
@@ -109,3 +115,9 @@ export const getNoiseSuppression = () => safeRead(NOISE_SUPPRESSION_KEY) !== 'fa
 
 export const saveNoiseSuppression = (enabled: boolean) =>
   safeWrite(NOISE_SUPPRESSION_KEY, String(enabled))
+
+export const getGalleryLayout = (): GalleryLayoutMode =>
+  safeRead(GALLERY_LAYOUT_KEY) === 'cinema' ? 'cinema' : 'expanded'
+
+export const saveGalleryLayout = (layout: GalleryLayoutMode) =>
+  safeWrite(GALLERY_LAYOUT_KEY, layout)

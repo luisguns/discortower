@@ -14,6 +14,8 @@ export type ConnectionStatus =
 
 export type StreamQualityId = '720p30' | '1080p30' | '1080p60'
 
+export type GalleryLayoutMode = 'cinema' | 'expanded'
+
 export type AudioChannel = 'voice' | 'screen'
 
 export interface RemoteVoice {

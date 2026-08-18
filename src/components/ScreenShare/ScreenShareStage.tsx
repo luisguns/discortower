@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import type { LocalVideoTrack, RemoteVideoTrack } from 'livekit-client'
 import { useParticipantVolume } from '../../hooks/useParticipantVolume'
-import type { ContextMenuPoint, ParticipantMedia, ScreenShareLive } from '../../types'
+import type {
+  ContextMenuPoint,
+  GalleryLayoutMode,
+  ParticipantMedia,
+  ScreenShareLive,
+} from '../../types'
 import { RemoteAudioRenderer } from '../AudioControls/RemoteAudioRenderer'
 import { VolumeControl } from '../AudioControls/VolumeControl'
 import { ParticipantGallery } from '../Participants/ParticipantGallery'
@@ -44,6 +50,7 @@ interface LiveControlsProps {
   popoutActive: boolean
   fullscreenActive: boolean
   pipSupported: boolean
+  portalTarget: Element | null
 }
 
 const LiveAudioControls = ({
@@ -60,6 +67,7 @@ const LiveAudioControls = ({
   popoutActive,
   fullscreenActive,
   pipSupported,
+  portalTarget,
 }: LiveControlsProps) => {
   const [volume, setVolume] = useParticipantVolume(live.participantIdentity, 'screen')
   const [mutedLocally, setMutedLocally] = useState(false)
@@ -76,53 +84,54 @@ const LiveAudioControls = ({
         />
       )}
 
-      {open && (
+      {open && portalTarget && createPortal(
         <>
-        <button aria-label="Fechar controles da transmissão" className="context-menu-backdrop" onClick={onClose} type="button" />
-        <div
-          aria-label="Controles da transmissão"
-          className="context-menu live-controls-popover"
-          onContextMenu={(event) => event.preventDefault()}
-          role="dialog"
-          style={point ? { left: point.x, right: 'auto', top: point.y } : undefined}
-        >
-          <header>
-            <div>
-              <small>TRANSMISSÃO</small>
-              <strong>{live.participantName}</strong>
-            </div>
-            <button aria-label="Fechar controles da transmissão" className="icon-button" onClick={onClose} type="button">
-              <Icon name="x" />
-            </button>
-          </header>
-
-          {live.isLocal ? (
-            <p>{live.hasAudio ? 'Áudio da tela no ar com proteção anti-retorno.' : 'Esta transmissão está sem áudio compartilhado.'}</p>
-          ) : live.audioTrack ? (
-            <div className="live-controls-popover__section">
+          <button aria-label="Fechar controles da transmissão" className="context-menu-backdrop" onClick={onClose} type="button" />
+          <div
+            aria-label="Controles da transmissão"
+            className="context-menu live-controls-popover"
+            onContextMenu={(event) => event.preventDefault()}
+            role="dialog"
+            style={point ? { left: point.x, right: 'auto', top: point.y } : undefined}
+          >
+            <header>
               <div>
-                <span>Áudio só para você</span>
-                <small>Volume independente da voz</small>
+                <small>TRANSMISSÃO</small>
+                <strong>{live.participantName}</strong>
               </div>
-              <VolumeControl
-                label={`Volume da transmissão de ${live.participantName}`}
-                muted={mutedLocally || live.muted}
-                onChange={setVolume}
-                onMuteToggle={() => setMutedLocally((current) => !current)}
-                value={volume}
-              />
-            </div>
-          ) : (
-            <p>Essa transmissão chegou sem uma faixa de áudio compartilhada.</p>
-          )}
+              <button aria-label="Fechar controles da transmissão" className="icon-button" onClick={onClose} type="button">
+                <Icon name="x" />
+              </button>
+            </header>
 
-          <div className="live-controls-popover__actions">
-            <button disabled={!pipSupported} onClick={() => { onClose(); onPictureInPicture() }} type="button"><Icon name="pip" /><span>{pipActive ? 'Fechar PiP' : 'Picture-in-Picture'}</span></button>
-            <button onClick={() => { onClose(); onPopout() }} type="button"><Icon name="popout" /><span>{popoutActive ? 'Fechar janela' : 'Janela separada'}</span></button>
-            <button onClick={() => { onClose(); onFullscreen() }} type="button"><Icon name={fullscreenActive ? 'collapse' : 'expand'} /><span>{fullscreenActive ? 'Sair da tela cheia' : 'Tela cheia'}</span></button>
+            {live.isLocal ? (
+              <p>{live.hasAudio ? 'Áudio da tela no ar com proteção anti-retorno.' : 'Esta transmissão está sem áudio compartilhado.'}</p>
+            ) : live.audioTrack ? (
+              <div className="live-controls-popover__section">
+                <div>
+                  <span>Áudio só para você</span>
+                  <small>Volume independente da voz</small>
+                </div>
+                <VolumeControl
+                  label={`Volume da transmissão de ${live.participantName}`}
+                  muted={mutedLocally || live.muted}
+                  onChange={setVolume}
+                  onMuteToggle={() => setMutedLocally((current) => !current)}
+                  value={volume}
+                />
+              </div>
+            ) : (
+              <p>Essa transmissão chegou sem uma faixa de áudio compartilhada.</p>
+            )}
+
+            <div className="live-controls-popover__actions">
+              <button disabled={!pipSupported} onClick={() => { onClose(); onPictureInPicture() }} type="button"><Icon name="pip" /><span>{pipActive ? 'Fechar PiP' : 'Picture-in-Picture'}</span></button>
+              <button onClick={() => { onClose(); onPopout() }} type="button"><Icon name="popout" /><span>{popoutActive ? 'Fechar janela' : 'Janela separada'}</span></button>
+              <button onClick={() => { onClose(); onFullscreen() }} type="button"><Icon name={fullscreenActive ? 'collapse' : 'expand'} /><span>{fullscreenActive ? 'Sair da tela cheia' : 'Tela cheia'}</span></button>
+            </div>
           </div>
-        </div>
-        </>
+        </>,
+        portalTarget,
       )}
     </>
   )
@@ -134,6 +143,7 @@ interface ScreenShareStageProps {
   activeSpeakerIds: Set<string>
   deafened: boolean
   screenOutputId: string
+  galleryLayout: GalleryLayoutMode
   onParticipantMenu: (participantId: string, point: ContextMenuPoint) => void
 }
 
@@ -143,6 +153,7 @@ export const ScreenShareStage = ({
   activeSpeakerIds,
   deafened,
   screenOutputId,
+  galleryLayout,
   onParticipantMenu,
 }: ScreenShareStageProps) => {
   const [selectedId, setSelectedId] = useState('')
@@ -158,6 +169,17 @@ export const ScreenShareStage = ({
   const [popoutActive, setPopoutActive] = useState(false)
   const [fullscreenActive, setFullscreenActive] = useState(false)
   const [stageError, setStageError] = useState('')
+
+  const openControlsAt = (x: number, y: number) => {
+    const menuWidth = 328
+    const menuHeight = 284
+    const dockClearance = window.innerWidth > 720 ? 96 : 76
+    setControlsPoint({
+      x: Math.max(8, Math.min(x, window.innerWidth - menuWidth - 8)),
+      y: Math.max(8, Math.min(y, window.innerHeight - menuHeight - dockClearance)),
+    })
+    setControlsOpen(true)
+  }
 
   const pipSupported =
     typeof document !== 'undefined' &&
@@ -311,6 +333,7 @@ export const ScreenShareStage = ({
     return (
       <ParticipantGallery
         activeSpeakerIds={activeSpeakerIds}
+        layoutMode={galleryLayout}
         onParticipantMenu={onParticipantMenu}
         participants={participants}
       />
@@ -337,8 +360,7 @@ export const ScreenShareStage = ({
             }}
             onContextMenu={(event) => {
               event.preventDefault()
-              setControlsPoint({ x: event.clientX, y: event.clientY })
-              setControlsOpen(true)
+              openControlsAt(event.clientX, event.clientY)
             }}
             title="Controles da transmissão"
             type="button"
@@ -370,6 +392,13 @@ export const ScreenShareStage = ({
         pipActive={pipActive}
         pipSupported={pipSupported}
         popoutActive={popoutActive}
+        portalTarget={
+          typeof document === 'undefined'
+            ? null
+            : fullscreenActive && stageRef.current
+              ? stageRef.current
+              : document.body
+        }
         screenOutputId={screenOutputId}
       />
 
@@ -393,11 +422,7 @@ export const ScreenShareStage = ({
           className="stream-stage__video"
           onContextMenu={(event) => {
             event.preventDefault()
-            setControlsPoint({
-              x: Math.max(8, Math.min(event.clientX, window.innerWidth - 328)),
-              y: Math.max(8, Math.min(event.clientY, window.innerHeight - 264)),
-            })
-            setControlsOpen(true)
+            openControlsAt(event.clientX, event.clientY)
           }}
           title="Botão direito para controles da transmissão"
         >

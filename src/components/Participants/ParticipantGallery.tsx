@@ -1,6 +1,10 @@
 import { useEffect, useRef } from 'react'
 import type { LocalVideoTrack, RemoteVideoTrack } from 'livekit-client'
-import type { ContextMenuPoint, ParticipantMedia } from '../../types'
+import type {
+  ContextMenuPoint,
+  GalleryLayoutMode,
+  ParticipantMedia,
+} from '../../types'
 import { Icon } from '../ui/Icon'
 
 const initials = (name: string) =>
@@ -40,6 +44,7 @@ interface ParticipantGalleryProps {
   participants: ParticipantMedia[]
   activeSpeakerIds: Set<string>
   compact?: boolean
+  layoutMode?: GalleryLayoutMode
   onParticipantMenu: (participantId: string, point: ContextMenuPoint) => void
 }
 
@@ -47,11 +52,12 @@ export const ParticipantGallery = ({
   participants,
   activeSpeakerIds,
   compact = false,
+  layoutMode = 'expanded',
   onParticipantMenu,
 }: ParticipantGalleryProps) => (
   <section
     aria-label="Pessoas na call"
-    className={`participant-gallery ${compact ? 'participant-gallery--compact' : ''}`}
+    className={`participant-gallery ${compact ? 'participant-gallery--compact' : `participant-gallery--${layoutMode}`}`}
     data-count={Math.min(participants.length, 6)}
   >
     <div className="participant-gallery__grid">

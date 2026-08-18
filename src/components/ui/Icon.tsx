@@ -13,6 +13,7 @@ export type IconName =
   | 'expand'
   | 'headphones'
   | 'image'
+  | 'layout'
   | 'leave'
   | 'mic'
   | 'micOff'
@@ -122,6 +123,13 @@ const paths: Record<IconName, React.ReactNode> = {
       <rect width="18" height="16" x="3" y="4" rx="2" />
       <circle cx="8.5" cy="9" r="1.5" />
       <path d="m21 15-5-5L5 20" />
+    </>
+  ),
+  layout: (
+    <>
+      <rect width="20" height="18" x="2" y="3" rx="2" />
+      <path d="M2 10h20" />
+      <path d="M9 10v11" />
     </>
   ),
   leave: (

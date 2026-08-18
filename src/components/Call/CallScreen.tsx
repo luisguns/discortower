@@ -7,14 +7,21 @@ import { useRoomChat } from '../../hooks/useRoomChat'
 import { useScreenShare } from '../../hooks/useScreenShare'
 import { createRoomInviteUrl, streamQualityPresets } from '../../services/livekit'
 import {
+  getGalleryLayout,
   getStreamQuality,
+  saveGalleryLayout,
   saveStreamQuality,
 } from '../../storage/preferences'
-import type { ConnectionStatus, StreamQualityId } from '../../types'
-import type { ContextMenuPoint } from '../../types'
+import type {
+  ConnectionStatus,
+  ContextMenuPoint,
+  GalleryLayoutMode,
+  StreamQualityId,
+} from '../../types'
 import { ChatPanel } from '../Chat/ChatPanel'
 import { ParticipantAudioLayer } from '../Participants/ParticipantAudioLayer'
 import { ParticipantContextMenu } from '../Participants/ParticipantContextMenu'
+import { GalleryLayoutMenu } from '../Participants/GalleryLayoutMenu'
 import { ParticipantList } from '../Participants/ParticipantList'
 import { ScreenShareStage } from '../ScreenShare/ScreenShareStage'
 import { SettingsModal } from '../Settings/SettingsModal'
@@ -111,6 +118,8 @@ export const CallScreen = ({
   const [deafened, setDeafened] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [quality, setQuality] = useState<StreamQualityId>(getStreamQuality)
+  const [galleryLayout, setGalleryLayout] = useState<GalleryLayoutMode>(getGalleryLayout)
+  const [layoutMenuPoint, setLayoutMenuPoint] = useState<ContextMenuPoint | null>(null)
   const [micBusy, setMicBusy] = useState(false)
   const [cameraBusy, setCameraBusy] = useState(false)
   const [cameraError, setCameraError] = useState('')
@@ -242,7 +251,13 @@ export const CallScreen = ({
   }
 
   const openParticipantMenu = (participantId: string, point: ContextMenuPoint) => {
+    setLayoutMenuPoint(null)
     setParticipantMenu({ participantId, point })
+  }
+
+  const changeGalleryLayout = (layout: GalleryLayoutMode) => {
+    setGalleryLayout(layout)
+    saveGalleryLayout(layout)
   }
 
   const selectedParticipant = participantMenu
@@ -280,9 +295,25 @@ export const CallScreen = ({
 
         <div className="call-header__actions">
           <button
+            aria-label={`Layout da galeria: ${galleryLayout === 'cinema' ? 'Priorizar 16:9' : 'Preencher'}`}
+            className={`participants-toggle layout-toggle ${layoutMenuPoint ? 'is-active' : ''}`}
+            onClick={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect()
+              setParticipantMenu(null)
+              setChatOpen(false)
+              setParticipantsOpen(false)
+              setLayoutMenuPoint((current) => current ? null : { x: rect.right - 310, y: rect.bottom + 8 })
+            }}
+            title="Layout da galeria"
+            type="button"
+          >
+            <Icon name="layout" />
+          </button>
+          <button
             aria-label={`Abrir participantes, ${snapshot.participants.length} na call`}
             className="participants-toggle"
             onClick={() => {
+              setLayoutMenuPoint(null)
               setChatOpen(false)
               setParticipantsOpen(true)
             }}
@@ -295,6 +326,7 @@ export const CallScreen = ({
             aria-label={`Abrir chat${unreadMessages ? `, ${unreadMessages} novas mensagens` : ''}`}
             className="participants-toggle chat-toggle"
             onClick={() => {
+              setLayoutMenuPoint(null)
               setParticipantsOpen(false)
               setChatOpen(true)
               setUnreadMessages(0)
@@ -328,6 +360,7 @@ export const CallScreen = ({
         <ScreenShareStage
           activeSpeakerIds={snapshot.activeSpeakerIds}
           deafened={deafened}
+          galleryLayout={galleryLayout}
           lives={snapshot.lives}
           onParticipantMenu={openParticipantMenu}
           participants={snapshot.participantMedia}
@@ -358,6 +391,15 @@ export const CallScreen = ({
         outputDeviceId={devices.preferences.voiceOutputId}
         voices={snapshot.remoteVoices}
       />
+
+      {layoutMenuPoint && (
+        <GalleryLayoutMenu
+          layout={galleryLayout}
+          onChange={changeGalleryLayout}
+          onClose={() => setLayoutMenuPoint(null)}
+          point={layoutMenuPoint}
+        />
+      )}
 
       {selectedParticipant && participantMenu && (
         <ParticipantContextMenu
