@@ -8,7 +8,8 @@ Call privada de voz e compartilhamento de tela entre amigos, com uma experiênci
 - links de convite no formato `?room=KIWI-123`, com sala preenchida automaticamente;
 - criação de sala rápida com código aleatório curto no formato `ABC-DEFG-HIJ`;
 - chamada de voz, câmera e indicador de participante falando;
-- lobby visual com cartões, iniciais e vídeos dos participantes;
+- galeria dinâmica com câmeras grandes e foco automático no conteúdo;
+- drawer de participantes fechado por padrão, com controles individuais sob demanda;
 - volume local e mute independente para o microfone de cada participante;
 - deafen local sem perder os volumes individuais;
 - screen share com vídeo e captura de áudio quando o navegador fornece a track;
@@ -112,4 +113,5 @@ O arquivo `public/CNAME` preserva o domínio customizado no artefato. A aplicaç
 - captura de áudio do desktop/tela depende do sistema operacional e do navegador;
 - conteúdo protegido por DRM pode bloquear vídeo ou áudio e não é contornado;
 - Safari e Firefox podem não permitir seleção de saída ou captura de áudio do screen share.
+- transmissão da própria tela no celular depende de `getDisplayMedia`; quando o navegador não oferece a API, a interface informa a limitação sem bloquear câmera ou reprodução.
 - Picture-in-Picture depende do suporte do navegador.

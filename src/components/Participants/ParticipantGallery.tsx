@@ -33,54 +33,42 @@ const CameraRenderer = ({
     }
   }, [track])
 
-  return (
-    <video
-      autoPlay
-      className={isLocal ? 'is-local' : ''}
-      muted
-      playsInline
-      ref={videoRef}
-    />
-  )
+  return <video autoPlay className={isLocal ? 'is-local' : ''} muted playsInline ref={videoRef} />
 }
 
 interface ParticipantGalleryProps {
   participants: ParticipantMedia[]
   activeSpeakerIds: Set<string>
   compact?: boolean
+  onParticipantSelect: (participantId: string) => void
 }
 
 export const ParticipantGallery = ({
   participants,
   activeSpeakerIds,
   compact = false,
+  onParticipantSelect,
 }: ParticipantGalleryProps) => (
-  <section className={`participant-gallery ${compact ? 'participant-gallery--compact' : ''}`}>
-    {!compact && (
-      <header className="participant-gallery__header">
-        <div>
-          <p className="eyebrow">PÁTIO DA CALL</p>
-          <h2>Todo mundo por aqui</h2>
-        </div>
-        <span><i /> {participants.length} online</span>
-      </header>
-    )}
-
+  <section
+    aria-label="Pessoas na call"
+    className={`participant-gallery ${compact ? 'participant-gallery--compact' : ''}`}
+    data-count={Math.min(participants.length, 6)}
+  >
     <div className="participant-gallery__grid">
       {participants.map((participant) => {
         const speaking = activeSpeakerIds.has(participant.id)
         return (
-          <article
+          <button
+            aria-label={`Abrir controles de ${participant.name}`}
             className={`gallery-person ${speaking ? 'gallery-person--speaking' : ''} ${participant.cameraTrack && participant.cameraEnabled ? 'gallery-person--camera' : ''}`}
             key={participant.id}
+            onClick={() => onParticipantSelect(participant.id)}
+            type="button"
           >
             {participant.cameraTrack && participant.cameraEnabled ? (
               <CameraRenderer isLocal={participant.isLocal} track={participant.cameraTrack} />
             ) : (
-              <div className="gallery-person__avatar">
-                <span>{initials(participant.name)}</span>
-                <small>{speaking ? 'Falando agora' : 'Na escuta'}</small>
-              </div>
+              <div className="gallery-person__avatar"><span>{initials(participant.name)}</span></div>
             )}
             <div className="gallery-person__meta">
               <strong>{participant.name}{participant.isLocal ? ' · Você' : ''}</strong>
@@ -88,15 +76,9 @@ export const ParticipantGallery = ({
                 <Icon name="mic" />
               </span>
             </div>
-          </article>
+          </button>
         )
       })}
     </div>
-
-    {!compact && (
-      <footer className="participant-gallery__hint">
-        <Icon name="camera" /> Ligue a câmera ou compartilhe sua tela para ocupar o palco.
-      </footer>
-    )}
   </section>
 )

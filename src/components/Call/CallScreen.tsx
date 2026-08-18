@@ -45,9 +45,11 @@ const ControlButton = ({
   onClick,
 }: ControlButtonProps) => (
   <button
+    aria-label={`${label}: ${detail}`}
     className={`call-control ${active ? 'call-control--active' : ''} ${danger ? 'call-control--danger' : ''} ${error ? 'call-control--error' : ''}`}
     disabled={disabled}
     onClick={onClick}
+    title={`${label} · ${detail}`}
     type="button"
   >
     <span className="call-control__icon"><Icon name={icon} /></span>
@@ -84,6 +86,8 @@ export const CallScreen = ({
   const [cameraError, setCameraError] = useState('')
   const [copyState, setCopyState] = useState('Copiar link')
   const [audioBlocked, setAudioBlocked] = useState(!room.canPlaybackAudio)
+  const [participantsOpen, setParticipantsOpen] = useState(false)
+  const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null)
   const screenShare = useScreenShare(room, quality)
   const micEnabled = room.localParticipant.isMicrophoneEnabled
   const cameraEnabled = room.localParticipant.isCameraEnabled
@@ -163,19 +167,20 @@ export const CallScreen = ({
     }
   }
 
+  const openParticipantControls = (participantId: string) => {
+    setSelectedParticipantId(participantId)
+    setParticipantsOpen(true)
+  }
+
   return (
     <main className="call-shell">
       <header className="call-header">
         <div className="brand brand--compact">
           <span className="brand__mark">FK</span>
-          <div>
-            <p className="brand__eyebrow">PRIVATE COMMS</p>
-            <h1>FORD KALL</h1>
-          </div>
+          <h1>FORD KALL</h1>
         </div>
 
         <div className="room-plate">
-          <span>SALA ATUAL</span>
           <strong>{roomCode}</strong>
           <button
             aria-label="Copiar link de convite"
@@ -193,8 +198,22 @@ export const CallScreen = ({
           </output>
         </div>
 
-        <div className={`connection-pill connection-pill--${status}`}>
-          <i /> {connectionLabel[status]}
+        <div className="call-header__actions">
+          <button
+            aria-label={`Abrir participantes, ${snapshot.participants.length} na call`}
+            className="participants-toggle"
+            onClick={() => {
+              setSelectedParticipantId(null)
+              setParticipantsOpen(true)
+            }}
+            type="button"
+          >
+            <Icon name="users" />
+            <span>{snapshot.participants.length}</span>
+          </button>
+          <div className={`connection-pill connection-pill--${status}`} title={connectionLabel[status]}>
+            <i /> <span>{connectionLabel[status]}</span>
+          </div>
         </div>
       </header>
 
@@ -213,22 +232,36 @@ export const CallScreen = ({
       )}
 
       <div className="call-workspace">
-        <ParticipantList
-          activeSpeakerIds={snapshot.activeSpeakerIds}
-          deafened={deafened}
-          participants={snapshot.participants}
-          remoteVoices={snapshot.remoteVoices}
-          room={room}
-          voiceOutputId={devices.preferences.voiceOutputId}
-        />
         <ScreenShareStage
           activeSpeakerIds={snapshot.activeSpeakerIds}
           deafened={deafened}
           lives={snapshot.lives}
+          onParticipantSelect={openParticipantControls}
           participants={snapshot.participantMedia}
           screenOutputId={devices.preferences.screenOutputId}
         />
       </div>
+
+      {participantsOpen && (
+        <button
+          aria-label="Fechar participantes"
+          className="participant-drawer-backdrop"
+          onClick={() => setParticipantsOpen(false)}
+          type="button"
+        />
+      )}
+      <ParticipantList
+        activeSpeakerIds={snapshot.activeSpeakerIds}
+        deafened={deafened}
+        onClose={() => setParticipantsOpen(false)}
+        onParticipantSelect={setSelectedParticipantId}
+        open={participantsOpen}
+        participants={snapshot.participants}
+        remoteVoices={snapshot.remoteVoices}
+        room={room}
+        selectedParticipantId={selectedParticipantId}
+        voiceOutputId={devices.preferences.voiceOutputId}
+      />
 
       <div className="call-notices" aria-live="polite">
         {microphoneError && (
@@ -254,7 +287,7 @@ export const CallScreen = ({
       <footer className="call-dock">
         <div className="call-dock__group">
           <ControlButton
-            active={!micEnabled}
+            active={micEnabled}
             detail={micBusy ? 'Aguarde' : micEnabled ? 'Transmitindo' : 'Silenciado'}
             disabled={micBusy || status === 'reconnecting'}
             error={Boolean(microphoneError)}
@@ -263,7 +296,7 @@ export const CallScreen = ({
             onClick={() => void toggleMicrophone()}
           />
           <ControlButton
-            active={!cameraEnabled}
+            active={cameraEnabled}
             detail={cameraBusy ? 'Aguarde' : cameraEnabled ? 'Câmera ligada' : 'Câmera desligada'}
             disabled={cameraBusy || status === 'reconnecting'}
             error={Boolean(cameraError)}
@@ -288,7 +321,9 @@ export const CallScreen = ({
                 ? 'Aguarde'
                 : screenShare.isSharing
                   ? 'Transmitindo agora'
-                  : streamQualityPresets[quality].label
+                  : screenShare.isSupported
+                    ? streamQualityPresets[quality].label
+                    : 'Indisponível neste navegador'
             }
             disabled={screenShare.isStarting || status === 'reconnecting'}
             icon="screen"

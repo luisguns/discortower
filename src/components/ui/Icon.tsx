@@ -5,6 +5,7 @@ export type IconName =
   | 'camera'
   | 'chevron'
   | 'copy'
+  | 'controls'
   | 'deafen'
   | 'expand'
   | 'leave'
@@ -40,6 +41,19 @@ const paths: Record<IconName, React.ReactNode> = {
     <>
       <rect width="11" height="11" x="9" y="9" rx="2" />
       <path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3" />
+    </>
+  ),
+  controls: (
+    <>
+      <path d="M4 6h10" />
+      <path d="M18 6h2" />
+      <circle cx="16" cy="6" r="2" />
+      <path d="M4 12h2" />
+      <path d="M10 12h10" />
+      <circle cx="8" cy="12" r="2" />
+      <path d="M4 18h7" />
+      <path d="M15 18h5" />
+      <circle cx="13" cy="18" r="2" />
     </>
   ),
   deafen: (

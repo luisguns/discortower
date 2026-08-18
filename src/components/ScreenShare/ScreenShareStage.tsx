@@ -25,7 +25,7 @@ const VideoRenderer = ({
       element.removeAttribute('src')
       element.load()
     }
-  }, [track])
+  }, [track, videoRef])
 
   return <video autoPlay muted playsInline ref={videoRef} />
 }
@@ -34,36 +34,65 @@ interface LiveControlsProps {
   live: ScreenShareLive
   deafened: boolean
   screenOutputId: string
+  open: boolean
+  onClose: () => void
 }
 
-const LiveAudioControls = ({ live, deafened, screenOutputId }: LiveControlsProps) => {
+const LiveAudioControls = ({
+  live,
+  deafened,
+  screenOutputId,
+  open,
+  onClose,
+}: LiveControlsProps) => {
   const [volume, setVolume] = useParticipantVolume(live.participantIdentity, 'screen')
   const [mutedLocally, setMutedLocally] = useState(false)
 
-  if (live.isLocal) {
-    return <span className="live-self-label">Sua transmissão</span>
-  }
-
   return (
     <>
-      {live.audioTrack ? (
-        <VolumeControl
-          label={`Volume da live de ${live.participantName}`}
+      {!live.isLocal && (
+        <RemoteAudioRenderer
+          deafened={deafened}
           muted={mutedLocally || live.muted}
-          onChange={setVolume}
-          onMuteToggle={() => setMutedLocally((current) => !current)}
-          value={volume}
+          outputDeviceId={screenOutputId}
+          track={live.audioTrack}
+          volume={volume}
         />
-      ) : (
-        <span className="live-no-audio">Sem áudio compartilhado</span>
       )}
-      <RemoteAudioRenderer
-        deafened={deafened}
-        muted={mutedLocally || live.muted}
-        outputDeviceId={screenOutputId}
-        track={live.audioTrack}
-        volume={volume}
-      />
+
+      {open && (
+        <div aria-label="Controles da transmissão" className="live-controls-popover" role="dialog">
+          <header>
+            <div>
+              <small>TRANSMISSÃO</small>
+              <strong>{live.participantName}</strong>
+            </div>
+            <button aria-label="Fechar controles da transmissão" className="icon-button" onClick={onClose} type="button">
+              <Icon name="x" />
+            </button>
+          </header>
+
+          {live.isLocal ? (
+            <p>Sua tela está no ar. Use o botão do dock para encerrar a transmissão.</p>
+          ) : live.audioTrack ? (
+            <div className="live-controls-popover__section">
+              <div>
+                <span>Áudio só para você</span>
+                <small>Volume independente da voz</small>
+              </div>
+              <VolumeControl
+                label={`Volume da transmissão de ${live.participantName}`}
+                muted={mutedLocally || live.muted}
+                onChange={setVolume}
+                onMuteToggle={() => setMutedLocally((current) => !current)}
+                value={volume}
+              />
+            </div>
+          ) : (
+            <p>Essa transmissão chegou sem uma faixa de áudio compartilhada.</p>
+          )}
+        </div>
+      )}
     </>
   )
 }
@@ -74,6 +103,7 @@ interface ScreenShareStageProps {
   activeSpeakerIds: Set<string>
   deafened: boolean
   screenOutputId: string
+  onParticipantSelect: (participantId: string) => void
 }
 
 export const ScreenShareStage = ({
@@ -82,8 +112,10 @@ export const ScreenShareStage = ({
   activeSpeakerIds,
   deafened,
   screenOutputId,
+  onParticipantSelect,
 }: ScreenShareStageProps) => {
   const [selectedId, setSelectedId] = useState('')
+  const [controlsOpen, setControlsOpen] = useState(false)
   const knownIds = useRef<Set<string>>(new Set())
   const stageRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -105,6 +137,7 @@ export const ScreenShareStage = ({
   const selectedLive = lives.find((live) => live.id === selectedId) ?? lives.at(-1)
 
   useEffect(() => {
+    setControlsOpen(false)
     const video = videoRef.current
     if (!video) return
     const handleEnter = () => setPipActive(true)
@@ -132,6 +165,7 @@ export const ScreenShareStage = ({
     return (
       <ParticipantGallery
         activeSpeakerIds={activeSpeakerIds}
+        onParticipantSelect={onParticipantSelect}
         participants={participants}
       />
     )
@@ -140,17 +174,20 @@ export const ScreenShareStage = ({
   return (
     <section className="stream-stage" ref={stageRef}>
       <div className="stream-stage__topbar">
-        <div>
+        <div className="stream-stage__identity">
           <span className="live-badge"><i /> AO VIVO</span>
           <strong>{selectedLive.participantName}</strong>
         </div>
         <div className="stream-stage__actions">
-          <LiveAudioControls
-            key={selectedLive.id}
-            deafened={deafened}
-            live={selectedLive}
-            screenOutputId={screenOutputId}
-          />
+          <button
+            aria-label="Abrir controles da transmissão"
+            className={`icon-button ${controlsOpen ? 'icon-button--active' : ''}`}
+            onClick={() => setControlsOpen((current) => !current)}
+            title="Áudio da transmissão"
+            type="button"
+          >
+            <Icon name="controls" />
+          </button>
           <button
             aria-label={pipActive ? 'Fechar Picture-in-Picture' : 'Abrir Picture-in-Picture'}
             className={`icon-button ${pipActive ? 'icon-button--active' : ''}`}
@@ -172,6 +209,15 @@ export const ScreenShareStage = ({
           </button>
         </div>
       </div>
+
+      <LiveAudioControls
+        key={selectedLive.id}
+        deafened={deafened}
+        live={selectedLive}
+        onClose={() => setControlsOpen(false)}
+        open={controlsOpen}
+        screenOutputId={screenOutputId}
+      />
 
       {lives.length > 1 && (
         <div className="live-switcher" aria-label="Escolher transmissão">
@@ -195,6 +241,7 @@ export const ScreenShareStage = ({
       <ParticipantGallery
         activeSpeakerIds={activeSpeakerIds}
         compact
+        onParticipantSelect={onParticipantSelect}
         participants={participants}
       />
     </section>

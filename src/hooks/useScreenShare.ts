@@ -4,6 +4,9 @@ import { streamQualityPresets } from '../services/livekit'
 import type { StreamQualityId } from '../types'
 
 export const useScreenShare = (room: Room, quality: StreamQualityId) => {
+  const isSupported =
+    typeof navigator !== 'undefined' &&
+    typeof navigator.mediaDevices?.getDisplayMedia === 'function'
   const [isSharing, setIsSharing] = useState(room.localParticipant.isScreenShareEnabled)
   const [isStarting, setIsStarting] = useState(false)
   const [hasAudio, setHasAudio] = useState(
@@ -28,6 +31,10 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
   }, [room, syncState])
 
   const start = useCallback(async () => {
+    if (!isSupported) {
+      setError('Este navegador móvel não oferece compartilhamento de tela para páginas web. Você ainda pode assistir às transmissões e usar a câmera.')
+      return
+    }
     setIsStarting(true)
     setError('')
     const { preset } = streamQualityPresets[quality]
@@ -53,13 +60,17 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
     } catch (shareError) {
       if (shareError instanceof DOMException && shareError.name === 'NotAllowedError') {
         setError('Compartilhamento cancelado ou bloqueado pelo navegador.')
+      } else if (shareError instanceof DOMException && shareError.name === 'NotFoundError') {
+        setError('Este dispositivo não ofereceu nenhuma tela para compartilhar. Em celulares, essa função depende do navegador e do sistema.')
+      } else if (shareError instanceof TypeError) {
+        setError('O navegador não conseguiu iniciar a captura de tela neste dispositivo.')
       } else {
         setError('Não foi possível iniciar a transmissão de tela.')
       }
     } finally {
       setIsStarting(false)
     }
-  }, [quality, room, syncState])
+  }, [isSupported, quality, room, syncState])
 
   const stop = useCallback(async () => {
     setIsStarting(true)
@@ -74,5 +85,5 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
     }
   }, [room, syncState])
 
-  return { isSharing, isStarting, hasAudio, error, start, stop }
+  return { isSharing, isStarting, hasAudio, isSupported, error, start, stop }
 }

@@ -13,6 +13,10 @@ interface ParticipantListProps {
   activeSpeakerIds: Set<string>
   deafened: boolean
   voiceOutputId: string
+  open: boolean
+  selectedParticipantId: string | null
+  onClose: () => void
+  onParticipantSelect: (participantId: string) => void
 }
 
 const initials = (name: string) =>
@@ -23,24 +27,46 @@ const initials = (name: string) =>
     .map((part) => part[0]?.toUpperCase())
     .join('')
 
-const LocalParticipantRow = ({ room, speaking }: { room: Room; speaking: boolean }) => {
+interface LocalParticipantRowProps {
+  room: Room
+  speaking: boolean
+  selected: boolean
+  onSelect: () => void
+}
+
+const LocalParticipantRow = ({
+  room,
+  speaking,
+  selected,
+  onSelect,
+}: LocalParticipantRowProps) => {
   const participant = room.localParticipant
   const name = participant.name || participant.identity
   const publication = participant.getTrackPublication(Track.Source.Microphone)
   const muted = !participant.isMicrophoneEnabled || publication?.isMuted
 
   return (
-    <li className={`participant ${speaking ? 'participant--speaking' : ''}`}>
-      <div className="participant__topline">
+    <li className={`participant ${speaking ? 'participant--speaking' : ''} ${selected ? 'participant--selected' : ''}`}>
+      <button
+        aria-expanded={selected}
+        className="participant__summary"
+        onClick={onSelect}
+        type="button"
+      >
         <span className="participant__avatar">{initials(name)}</span>
         <span className="participant__identity">
           <strong>{name}</strong>
-          <small>Você</small>
+          <small>{speaking ? 'Falando agora' : 'Você'}</small>
         </span>
         <span className={`participant__mic ${muted ? 'participant__mic--muted' : ''}`}>
           <Icon name="mic" />
         </span>
-      </div>
+      </button>
+      {selected && (
+        <div className="participant__details">
+          <p>Seus controles de microfone e câmera ficam no dock da call.</p>
+        </div>
+      )}
     </li>
   )
 }
@@ -50,6 +76,8 @@ interface RemoteParticipantRowProps {
   speaking: boolean
   deafened: boolean
   outputDeviceId: string
+  selected: boolean
+  onSelect: () => void
 }
 
 const RemoteParticipantRow = ({
@@ -57,31 +85,47 @@ const RemoteParticipantRow = ({
   speaking,
   deafened,
   outputDeviceId,
+  selected,
+  onSelect,
 }: RemoteParticipantRowProps) => {
   const name = voice.participant.name || voice.participant.identity
   const [volume, setVolume] = useParticipantVolume(voice.participant.identity, 'voice')
   const [mutedLocally, setMutedLocally] = useState(false)
 
   return (
-    <li className={`participant ${speaking ? 'participant--speaking' : ''}`}>
-      <div className="participant__topline">
+    <li className={`participant ${speaking ? 'participant--speaking' : ''} ${selected ? 'participant--selected' : ''}`}>
+      <button
+        aria-expanded={selected}
+        className="participant__summary"
+        onClick={onSelect}
+        type="button"
+      >
         <span className="participant__avatar">{initials(name)}</span>
         <span className="participant__identity">
           <strong>{name}</strong>
-          <small>{voice.track ? (speaking ? 'Falando' : 'Na escuta') : 'Sem microfone'}</small>
+          <small>{voice.track ? (speaking ? 'Falando agora' : 'Na call') : 'Sem microfone'}</small>
         </span>
         <span className={`participant__mic ${voice.muted ? 'participant__mic--muted' : ''}`}>
           <Icon name="mic" />
         </span>
-      </div>
+      </button>
 
-      <VolumeControl
-        label={`Volume do microfone de ${name}`}
-        muted={mutedLocally}
-        onChange={setVolume}
-        onMuteToggle={() => setMutedLocally((current) => !current)}
-        value={volume}
-      />
+      {selected && (
+        <div className="participant__details">
+          <div className="participant__details-heading">
+            <span>Áudio só para você</span>
+            <small>Não afeta os outros</small>
+          </div>
+          <VolumeControl
+            label={`Volume do microfone de ${name}`}
+            muted={mutedLocally}
+            onChange={setVolume}
+            onMuteToggle={() => setMutedLocally((current) => !current)}
+            value={volume}
+          />
+        </div>
+      )}
+
       <RemoteAudioRenderer
         deafened={deafened}
         outputDeviceId={outputDeviceId}
@@ -100,25 +144,47 @@ export const ParticipantList = ({
   activeSpeakerIds,
   deafened,
   voiceOutputId,
+  open,
+  selectedParticipantId,
+  onClose,
+  onParticipantSelect,
 }: ParticipantListProps) => (
-  <aside className="participants-panel">
+  <aside
+    aria-hidden={!open}
+    aria-label="Participantes da call"
+    className={`participants-panel ${open ? 'is-open' : ''}`}
+  >
     <div className="panel-heading">
-      <span>
-        <Icon name="users" /> Participantes
-      </span>
-      <b>{participants.length.toString().padStart(2, '0')}</b>
+      <span><Icon name="users" /> Pessoas na call</span>
+      <div>
+        <b>{participants.length}</b>
+        <button
+          aria-label="Fechar participantes"
+          className="icon-button"
+          onClick={onClose}
+          type="button"
+        >
+          <Icon name="x" />
+        </button>
+      </div>
     </div>
+
+    <p className="participants-panel__hint">Clique em alguém para abrir os controles individuais.</p>
 
     <ul className="participants-list">
       <LocalParticipantRow
+        onSelect={() => onParticipantSelect(room.localParticipant.identity)}
         room={room}
+        selected={selectedParticipantId === room.localParticipant.identity}
         speaking={activeSpeakerIds.has(room.localParticipant.identity)}
       />
       {remoteVoices.map((voice) => (
         <RemoteParticipantRow
           deafened={deafened}
           key={voice.id}
+          onSelect={() => onParticipantSelect(voice.participant.identity)}
           outputDeviceId={voiceOutputId}
+          selected={selectedParticipantId === voice.participant.identity}
           speaking={activeSpeakerIds.has(voice.participant.identity)}
           voice={voice}
         />
@@ -127,11 +193,9 @@ export const ParticipantList = ({
 
     {participants.length === 1 && (
       <div className="participants-empty">
-        <span className="signal-bars" aria-hidden="true">
-          <i /> <i /> <i />
-        </span>
-        <p>Aguardando os outros pilotos.</p>
-        <small>Compartilhe o código da sala.</small>
+        <span className="signal-bars" aria-hidden="true"><i /> <i /> <i /></span>
+        <p>Só você por enquanto.</p>
+        <small>Copie o link da sala para chamar alguém.</small>
       </div>
     )}
   </aside>
