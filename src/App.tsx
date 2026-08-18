@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CallScreen } from './components/Call/CallScreen'
 import { Lobby } from './components/Lobby/Lobby'
 import { useLiveKitRoom } from './hooks/useLiveKitRoom'
+import { createRoomInviteUrl } from './services/livekit'
 
 function App() {
   const liveKit = useLiveKitRoom()
@@ -9,7 +10,10 @@ function App() {
 
   const join = async (displayName: string, nextRoomCode: string) => {
     const connected = await liveKit.join(nextRoomCode, displayName)
-    if (connected) setRoomCode(nextRoomCode)
+    if (connected) {
+      setRoomCode(nextRoomCode)
+      window.history.replaceState(null, '', createRoomInviteUrl(nextRoomCode))
+    }
     return connected
   }
 

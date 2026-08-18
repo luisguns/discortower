@@ -1,5 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import { normalizeDisplayName, normalizeRoomCode } from '../../services/livekit'
+import {
+  getRoomCodeFromUrl,
+  normalizeDisplayName,
+  normalizeRoomCode,
+} from '../../services/livekit'
 import { getDisplayName } from '../../storage/preferences'
 import type { ConnectionStatus } from '../../types'
 import { Icon } from '../ui/Icon'
@@ -12,7 +16,7 @@ interface LobbyProps {
 
 export const Lobby = ({ status, connectionError, onJoin }: LobbyProps) => {
   const [displayName, setDisplayName] = useState(getDisplayName)
-  const [roomCode, setRoomCode] = useState('')
+  const [roomCode, setRoomCode] = useState(getRoomCodeFromUrl)
   const [validationError, setValidationError] = useState('')
   // The LiveKit room can become connected while the microphone permission
   // prompt is still open; the lobby must remain locked until join() finishes.
@@ -81,6 +85,9 @@ export const Lobby = ({ status, connectionError, onJoin }: LobbyProps) => {
               spellCheck={false}
               value={roomCode}
             />
+            {roomCode && getRoomCodeFromUrl() === normalizeRoomCode(roomCode) && (
+              <small className="room-link-hint">Sala carregada pelo link de convite</small>
+            )}
           </label>
 
           {(validationError || connectionError) && (

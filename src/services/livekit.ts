@@ -11,6 +11,23 @@ export const normalizeDisplayName = (value: string) => value.trim().replace(/\s+
 export const normalizeRoomCode = (value: string) =>
   value.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9_-]/g, '').toUpperCase()
 
+export const getRoomCodeFromUrl = () => {
+  if (typeof window === 'undefined') return ''
+  const room = new URL(window.location.href).searchParams.get('room')
+  return room ? normalizeRoomCode(room) : ''
+}
+
+export const createRoomInviteUrl = (roomCode: string) => {
+  const normalizedRoom = normalizeRoomCode(roomCode)
+  if (typeof window === 'undefined') return `?room=${encodeURIComponent(normalizedRoom)}`
+
+  const url = new URL(window.location.href)
+  url.search = ''
+  url.searchParams.set('room', normalizedRoom)
+  url.hash = ''
+  return url.toString()
+}
+
 const createParticipantIdentity = (displayName: string) => {
   const prefix = displayName
     .normalize('NFD')

@@ -3,7 +3,7 @@ import { RoomEvent, type Room } from 'livekit-client'
 import { useAudioDevices } from '../../hooks/useAudioDevices'
 import { useRoomSnapshot } from '../../hooks/useRoomSnapshot'
 import { useScreenShare } from '../../hooks/useScreenShare'
-import { streamQualityPresets } from '../../services/livekit'
+import { createRoomInviteUrl, streamQualityPresets } from '../../services/livekit'
 import {
   getStreamQuality,
   saveStreamQuality,
@@ -82,7 +82,7 @@ export const CallScreen = ({
   const [micBusy, setMicBusy] = useState(false)
   const [cameraBusy, setCameraBusy] = useState(false)
   const [cameraError, setCameraError] = useState('')
-  const [copyState, setCopyState] = useState('Copiar')
+  const [copyState, setCopyState] = useState('Copiar link')
   const [audioBlocked, setAudioBlocked] = useState(!room.canPlaybackAudio)
   const screenShare = useScreenShare(room, quality)
   const micEnabled = room.localParticipant.isMicrophoneEnabled
@@ -138,11 +138,11 @@ export const CallScreen = ({
 
   const copyRoomCode = async () => {
     try {
-      await navigator.clipboard.writeText(roomCode)
-      setCopyState('Copiado')
-      window.setTimeout(() => setCopyState('Copiar'), 1600)
+      await navigator.clipboard.writeText(createRoomInviteUrl(roomCode))
+      setCopyState('Link copiado')
+      window.setTimeout(() => setCopyState('Copiar link'), 1600)
     } catch {
-      setCopyState('Selecione o código')
+      setCopyState('Copie pela barra do navegador')
     }
   }
 
@@ -177,12 +177,17 @@ export const CallScreen = ({
         <div className="room-plate">
           <span>SALA ATUAL</span>
           <strong>{roomCode}</strong>
-          <button onClick={() => void copyRoomCode()} title={copyState} type="button">
+          <button
+            aria-label="Copiar link de convite"
+            onClick={() => void copyRoomCode()}
+            title={copyState}
+            type="button"
+          >
             <Icon name="copy" />
           </button>
           <output
             aria-live="polite"
-            className={`room-copy-feedback ${copyState !== 'Copiar' ? 'is-visible' : ''}`}
+            className={`room-copy-feedback ${copyState !== 'Copiar link' ? 'is-visible' : ''}`}
           >
             {copyState}
           </output>
