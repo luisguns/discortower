@@ -28,6 +28,16 @@ export const createRoomInviteUrl = (roomCode: string) => {
   return url.toString()
 }
 
+const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+
+export const generateRoomCode = () => {
+  const bytes = crypto.getRandomValues(new Uint8Array(10))
+  const characters = [...bytes].map(
+    (value) => ROOM_CODE_ALPHABET[value % ROOM_CODE_ALPHABET.length],
+  )
+  return `${characters.slice(0, 3).join('')}-${characters.slice(3, 7).join('')}-${characters.slice(7).join('')}`
+}
+
 const createParticipantIdentity = (displayName: string) => {
   const prefix = displayName
     .normalize('NFD')

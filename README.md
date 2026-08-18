@@ -6,6 +6,7 @@ Call privada de voz e compartilhamento de tela entre amigos, com uma experiênci
 
 - lobby sem cadastro, com nome persistido no navegador e código de sala normalizado;
 - links de convite no formato `?room=KIWI-123`, com sala preenchida automaticamente;
+- criação de sala rápida com código aleatório curto no formato `ABC-DEFG-HIJ`;
 - chamada de voz, câmera e indicador de participante falando;
 - lobby visual com cartões, iniciais e vídeos dos participantes;
 - volume local e mute independente para o microfone de cada participante;

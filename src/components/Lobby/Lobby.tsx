@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import {
+  generateRoomCode,
   getRoomCodeFromUrl,
   normalizeDisplayName,
   normalizeRoomCode,
@@ -23,17 +24,13 @@ export const Lobby = ({ status, connectionError, onJoin }: LobbyProps) => {
   const connecting =
     status === 'connecting' || status === 'connected' || status === 'reconnecting'
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault()
+  const joinRoom = async (nextRoomCode: string) => {
     const normalizedName = normalizeDisplayName(displayName)
-    const normalizedRoom = normalizeRoomCode(roomCode)
+    const normalizedRoom = normalizeRoomCode(nextRoomCode)
 
     if (!normalizedName) {
+      setRoomCode(normalizedRoom)
       setValidationError('Diga como seus amigos devem chamar você.')
-      return
-    }
-    if (!normalizedRoom) {
-      setValidationError('Digite o código da sala.')
       return
     }
 
@@ -42,6 +39,20 @@ export const Lobby = ({ status, connectionError, onJoin }: LobbyProps) => {
     setRoomCode(normalizedRoom)
     await onJoin(normalizedName, normalizedRoom)
   }
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault()
+    const normalizedRoom = normalizeRoomCode(roomCode)
+
+    if (!normalizedRoom) {
+      setValidationError('Digite o código da sala.')
+      return
+    }
+
+    await joinRoom(normalizedRoom)
+  }
+
+  const createRoom = async () => joinRoom(generateRoomCode())
 
   return (
     <main className="lobby-shell">
@@ -97,17 +108,28 @@ export const Lobby = ({ status, connectionError, onJoin }: LobbyProps) => {
             </div>
           )}
 
-          <button className="primary-button" disabled={connecting} type="submit">
-            {connecting ? (
-              <>
-                <span className="spinner" /> Conectando
-              </>
-            ) : (
-              <>
-                Entrar na call <Icon name="chevron" />
-              </>
-            )}
-          </button>
+          <div className="lobby-actions">
+            <button className="primary-button" disabled={connecting} type="submit">
+              {connecting ? (
+                <>
+                  <span className="spinner" /> Conectando
+                </>
+              ) : (
+                <>
+                  Entrar na call <Icon name="chevron" />
+                </>
+              )}
+            </button>
+            <span className="lobby-actions__divider">ou</span>
+            <button
+              className="secondary-button"
+              disabled={connecting}
+              onClick={() => void createRoom()}
+              type="button"
+            >
+              <Icon name="users" /> Criar sala nova
+            </button>
+          </div>
         </form>
 
         <footer className="lobby-card__footer">

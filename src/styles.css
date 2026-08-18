@@ -329,6 +329,58 @@ svg {
   height: 18px;
 }
 
+.lobby-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.lobby-actions__divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #555d56;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.lobby-actions__divider::before,
+.lobby-actions__divider::after {
+  height: 1px;
+  flex: 1;
+  background: var(--line-soft);
+  content: "";
+}
+
+.secondary-button {
+  display: flex;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid #343c35;
+  border-radius: 3px;
+  background: #121613;
+  color: #b9c1ba;
+  font-family: "Barlow Condensed", Impact, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+.secondary-button:hover:not(:disabled) {
+  border-color: #56693b;
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.secondary-button svg {
+  width: 16px;
+  height: 16px;
+}
+
 .spinner {
   width: 14px;
   height: 14px;
