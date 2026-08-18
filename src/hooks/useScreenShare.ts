@@ -64,11 +64,14 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
     const shareOperation = room.localParticipant.setScreenShareEnabled(
       true,
       {
-        audio: true,
+        audio: {
+          restrictOwnAudio: true,
+        },
         resolution: preset.resolution,
         contentHint: quality === '1080p60' ? 'motion' : 'detail',
         surfaceSwitching: 'include',
         systemAudio: 'include',
+        selfBrowserSurface: 'exclude',
       },
       {
         screenShareEncoding: preset.encoding,

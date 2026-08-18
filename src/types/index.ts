@@ -30,6 +30,7 @@ export interface ScreenShareLive {
   isLocal: boolean
   videoTrack: LocalVideoTrack | RemoteVideoTrack
   audioTrack?: RemoteAudioTrack
+  hasAudio: boolean
   muted: boolean
 }
 
@@ -46,4 +47,22 @@ export interface DevicePreferences {
   inputId: string
   voiceOutputId: string
   screenOutputId: string
+}
+
+export interface ChatMessage {
+  id: string
+  kind: 'text' | 'image'
+  senderIdentity: string
+  senderName: string
+  isLocal: boolean
+  sentAt: number
+  text?: string
+  imageUrl?: string
+  imageName?: string
+  status?: 'sending' | 'sent' | 'error'
+}
+
+export interface ContextMenuPoint {
+  x: number
+  y: number
 }

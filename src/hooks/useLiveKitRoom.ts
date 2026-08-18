@@ -8,6 +8,7 @@ import {
 } from '../services/livekit'
 import { saveDisplayName } from '../storage/preferences'
 import type { ConnectionStatus } from '../types'
+import { microphoneCaptureOptions } from './useMicrophoneProcessing'
 
 const toConnectionStatus = (state: ConnectionState): ConnectionStatus => {
   if (state === ConnectionState.Connecting) return 'connecting'
@@ -101,7 +102,7 @@ export const useLiveKitRoom = () => {
         }
       }, 12_000)
       void nextRoom.localParticipant
-        .setMicrophoneEnabled(true)
+        .setMicrophoneEnabled(true, microphoneCaptureOptions())
         .then(() => {
           if (
             microphoneRequestRef.current === microphoneRequest &&

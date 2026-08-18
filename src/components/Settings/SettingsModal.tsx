@@ -1,13 +1,16 @@
 import { useEffect } from 'react'
 import type { useAudioDevices } from '../../hooks/useAudioDevices'
+import type { useMicrophoneProcessing } from '../../hooks/useMicrophoneProcessing'
 import { streamQualityPresets } from '../../services/livekit'
 import type { StreamQualityId } from '../../types'
 import { Icon } from '../ui/Icon'
 
 type AudioDevicesState = ReturnType<typeof useAudioDevices>
+type MicrophoneProcessingState = ReturnType<typeof useMicrophoneProcessing>
 
 interface SettingsModalProps {
   devices: AudioDevicesState
+  microphoneProcessing: MicrophoneProcessingState
   quality: StreamQualityId
   onQualityChange: (quality: StreamQualityId) => void
   onClose: () => void
@@ -18,6 +21,7 @@ const deviceName = (device: MediaDeviceInfo, index: number, fallback: string) =>
 
 export const SettingsModal = ({
   devices,
+  microphoneProcessing,
   quality,
   onQualityChange,
   onClose,
@@ -77,6 +81,22 @@ export const SettingsModal = ({
               ))}
             </select>
           </label>
+          <label className={`setting-switch ${!microphoneProcessing.supported ? 'is-disabled' : ''}`}>
+            <span>
+              <strong>Supressão de ruído</strong>
+              <small>Filtro WebRTC local para ventoinha, teclado e ruído contínuo.</small>
+            </span>
+            <input
+              checked={microphoneProcessing.noiseSuppression}
+              disabled={!microphoneProcessing.supported || microphoneProcessing.busy}
+              onChange={(event) => void microphoneProcessing.setEnabled(event.target.checked)}
+              type="checkbox"
+            />
+            <i aria-hidden="true" />
+          </label>
+          {!microphoneProcessing.supported && (
+            <div className="settings-note"><Icon name="warning" />Este navegador não expõe supressão de ruído configurável.</div>
+          )}
         </div>
 
         <div className="settings-section">
@@ -154,7 +174,9 @@ export const SettingsModal = ({
           </div>
         </div>
 
-        {devices.error && <div className="inline-error">{devices.error}</div>}
+        {(devices.error || microphoneProcessing.error) && (
+          <div className="inline-error">{devices.error || microphoneProcessing.error}</div>
+        )}
       </section>
     </div>
   )

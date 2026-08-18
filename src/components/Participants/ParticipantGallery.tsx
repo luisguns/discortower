@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { LocalVideoTrack, RemoteVideoTrack } from 'livekit-client'
-import type { ParticipantMedia } from '../../types'
+import type { ContextMenuPoint, ParticipantMedia } from '../../types'
 import { Icon } from '../ui/Icon'
 
 const initials = (name: string) =>
@@ -40,14 +40,14 @@ interface ParticipantGalleryProps {
   participants: ParticipantMedia[]
   activeSpeakerIds: Set<string>
   compact?: boolean
-  onParticipantSelect: (participantId: string) => void
+  onParticipantMenu: (participantId: string, point: ContextMenuPoint) => void
 }
 
 export const ParticipantGallery = ({
   participants,
   activeSpeakerIds,
   compact = false,
-  onParticipantSelect,
+  onParticipantMenu,
 }: ParticipantGalleryProps) => (
   <section
     aria-label="Pessoas na call"
@@ -62,7 +62,18 @@ export const ParticipantGallery = ({
             aria-label={`Abrir controles de ${participant.name}`}
             className={`gallery-person ${speaking ? 'gallery-person--speaking' : ''} ${participant.cameraTrack && participant.cameraEnabled ? 'gallery-person--camera' : ''}`}
             key={participant.id}
-            onClick={() => onParticipantSelect(participant.id)}
+            onClick={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect()
+              onParticipantMenu(participant.id, {
+                x: event.clientX || rect.right - 10,
+                y: event.clientY || rect.top + 10,
+              })
+            }}
+            onContextMenu={(event) => {
+              event.preventDefault()
+              onParticipantMenu(participant.id, { x: event.clientX, y: event.clientY })
+            }}
+            title="Abrir controles · clique ou botão direito"
             type="button"
           >
             {participant.cameraTrack && participant.cameraEnabled ? (

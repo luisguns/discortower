@@ -4,8 +4,10 @@ const DISPLAY_NAME_KEY = 'ford-kall:display-name'
 const VOLUMES_KEY = 'ford-kall:participant-volumes'
 const DEVICES_KEY = 'ford-kall:devices'
 const QUALITY_KEY = 'ford-kall:stream-quality'
+const NOISE_SUPPRESSION_KEY = 'ford-kall:noise-suppression'
 
-export const MAX_PARTICIPANT_VOLUME = 2
+export const MAX_PARTICIPANT_VOLUME = 4
+export const PARTICIPANT_VOLUME_EVENT = 'ford-kall:participant-volume'
 
 const safeRead = (key: string): string | null => {
   if (typeof window === 'undefined') return null
@@ -64,6 +66,13 @@ export const saveParticipantVolume = (
     Math.max(0, volume),
   )
   safeWrite(VOLUMES_KEY, JSON.stringify(volumes))
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent(PARTICIPANT_VOLUME_EVENT, {
+        detail: { participantName, channel, volume: volumes[volumeKey(participantName, channel)] },
+      }),
+    )
+  }
 }
 
 const defaultDevices: DevicePreferences = {
@@ -95,3 +104,8 @@ export const getStreamQuality = (): StreamQualityId => {
 
 export const saveStreamQuality = (quality: StreamQualityId) =>
   safeWrite(QUALITY_KEY, quality)
+
+export const getNoiseSuppression = () => safeRead(NOISE_SUPPRESSION_KEY) !== 'false'
+
+export const saveNoiseSuppression = (enabled: boolean) =>
+  safeWrite(NOISE_SUPPRESSION_KEY, String(enabled))

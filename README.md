@@ -8,13 +8,15 @@ Call privada de voz e compartilhamento de tela entre amigos, com uma experiênci
 - links de convite no formato `?room=KIWI-123`, com sala preenchida automaticamente;
 - criação de sala rápida com código aleatório curto no formato `ABC-DEFG-HIJ`;
 - chamada de voz, câmera e indicador de participante falando;
-- galeria dinâmica com câmeras grandes e foco automático no conteúdo;
-- drawer de participantes fechado por padrão, com controles individuais sob demanda;
-- volume local de 0% a 200% e mute independente para o microfone de cada participante;
+- galeria responsiva em 16:9, incluindo três participantes em uma única linha no desktop;
+- drawer de participantes fechado por padrão e menu contextual no clique ou botão direito;
+- volume local de 0% a 400% e mute independente para voz e transmissão;
 - deafen local sem perder os volumes individuais;
-- screen share com vídeo e captura de áudio quando o navegador fornece a track;
+- supressão de ruído WebRTC opcional para o microfone;
+- screen share com vídeo, captura de áudio e proteção anti-retorno quando o navegador oferece suporte;
 - volume da transmissão separado do volume do microfone de quem transmite;
 - seleção entre múltiplas transmissões simultâneas;
+- chat realtime de texto e imagens de até 4 MB durante a call;
 - Picture-in-Picture da transmissão selecionada;
 - janela separada, redimensionável e encaixável no desktop para a transmissão selecionada;
 - seleção de microfone e saídas separadas para voz/live quando `setSinkId` é suportado;
@@ -75,6 +77,8 @@ Abra o endereço mostrado pelo Vite, normalmente `http://localhost:5173`.
 
 Para validar o fluxo realtime, abra duas janelas/perfis de navegador, use nomes diferentes e informe o mesmo código de sala. Para compartilhar áudio, prefira uma aba do Chrome/Edge e marque **Compartilhar áudio da guia**.
 
+No Chrome/Edge, a captura solicita `restrictOwnAudio` para evitar que o áudio da própria call volte pela transmissão. Como essa proteção depende do navegador, fones de ouvido continuam sendo a opção mais segura ao compartilhar áudio do sistema.
+
 ## Qualidade e franquia do LiveKit
 
 A resolução não é puramente local. Resolução, FPS, câmeras, transmissões simultâneas e número de espectadores aumentam os dados enviados pelo LiveKit. O preset 720p30 é o mais econômico; 1080p30 equilibra nitidez e consumo; 1080p60 deve ficar reservado para conteúdo em movimento.
@@ -110,11 +114,13 @@ O arquivo `public/CNAME` preserva o domínio customizado no artefato. A aplicaç
 ## Limitações conhecidas da V1
 
 - o código da sala não é autenticação e qualquer string válida cria/seleciona uma room;
-- não há chat ou persistência de sala;
+- chat e imagens são entregues somente aos participantes conectados naquele momento e não possuem histórico persistente;
 - captura de áudio do desktop/tela depende do sistema operacional e do navegador;
+- `restrictOwnAudio` é uma proteção de melhor esforço disponível principalmente em navegadores Chromium;
 - conteúdo protegido por DRM pode bloquear vídeo ou áudio e não é contornado;
 - Safari e Firefox podem não permitir seleção de saída ou captura de áudio do screen share.
 - transmissão da própria tela no celular depende de `getDisplayMedia`; quando o navegador não oferece a API, a interface informa a limitação sem bloquear câmera ou reprodução.
 - Picture-in-Picture depende do suporte do navegador.
-- ganho acima de 100% usa o mixer Web Audio local e pode causar clipping ou distorção; ele não aumenta o consumo do LiveKit.
+- ganho acima de 100% (até 400%) usa o mixer Web Audio local e pode causar clipping ou distorção; ele não aumenta o consumo do LiveKit.
 - a janela separada depende da permissão de pop-ups do navegador.
+- em celulares, a call pode continuar por algum tempo com o navegador minimizado e expõe metadados ao sistema quando suportado, mas uma página web pode ser suspensa pelo sistema; ouvir de forma confiável com o site fechado exige um aplicativo nativo com modo de áudio em segundo plano.

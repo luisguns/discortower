@@ -87,6 +87,9 @@ export const useRoomSnapshot = (room: Room) => {
     const localVideoPublication = room.localParticipant.getTrackPublication(
       Track.Source.ScreenShare,
     )
+    const localAudioPublication = room.localParticipant.getTrackPublication(
+      Track.Source.ScreenShareAudio,
+    )
     if (localVideoPublication?.videoTrack instanceof LocalVideoTrack) {
       lives.push({
         id: `local:${localVideoPublication.trackSid}`,
@@ -94,6 +97,7 @@ export const useRoomSnapshot = (room: Room) => {
         participantName: room.localParticipant.name || room.localParticipant.identity,
         isLocal: true,
         videoTrack: localVideoPublication.videoTrack,
+        hasAudio: Boolean(localAudioPublication && !localAudioPublication.isMuted),
         muted: false,
       })
     }
@@ -112,6 +116,7 @@ export const useRoomSnapshot = (room: Room) => {
           audioPublication?.track instanceof RemoteAudioTrack
             ? audioPublication.track
             : undefined,
+        hasAudio: Boolean(audioPublication && !audioPublication.isMuted),
         muted: audioPublication?.isMuted ?? false,
       })
     }

@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { RoomEvent, type Room } from 'livekit-client'
 import { useAudioDevices } from '../../hooks/useAudioDevices'
 import { useRoomSnapshot } from '../../hooks/useRoomSnapshot'
+import { microphoneCaptureOptions, useMicrophoneProcessing } from '../../hooks/useMicrophoneProcessing'
+import { useRoomChat } from '../../hooks/useRoomChat'
 import { useScreenShare } from '../../hooks/useScreenShare'
 import { createRoomInviteUrl, streamQualityPresets } from '../../services/livekit'
 import {
@@ -9,6 +11,10 @@ import {
   saveStreamQuality,
 } from '../../storage/preferences'
 import type { ConnectionStatus, StreamQualityId } from '../../types'
+import type { ContextMenuPoint } from '../../types'
+import { ChatPanel } from '../Chat/ChatPanel'
+import { ParticipantAudioLayer } from '../Participants/ParticipantAudioLayer'
+import { ParticipantContextMenu } from '../Participants/ParticipantContextMenu'
 import { ParticipantList } from '../Participants/ParticipantList'
 import { ScreenShareStage } from '../ScreenShare/ScreenShareStage'
 import { SettingsModal } from '../Settings/SettingsModal'
@@ -100,6 +106,8 @@ export const CallScreen = ({
 }: CallScreenProps) => {
   const snapshot = useRoomSnapshot(room)
   const devices = useAudioDevices(room)
+  const microphoneProcessing = useMicrophoneProcessing(room)
+  const chat = useRoomChat(room)
   const [deafened, setDeafened] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [quality, setQuality] = useState<StreamQualityId>(getStreamQuality)
@@ -109,15 +117,51 @@ export const CallScreen = ({
   const [copyState, setCopyState] = useState('Copiar link')
   const [audioBlocked, setAudioBlocked] = useState(!room.canPlaybackAudio)
   const [participantsOpen, setParticipantsOpen] = useState(false)
-  const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null)
-  const [screenAudioWarningDismissed, setScreenAudioWarningDismissed] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
+  const [unreadMessages, setUnreadMessages] = useState(0)
+  const lastSeenMessageId = useRef('')
+  const [participantMenu, setParticipantMenu] = useState<{
+    participantId: string
+    point: ContextMenuPoint
+  } | null>(null)
   const screenShare = useScreenShare(room, quality)
   const micEnabled = room.localParticipant.isMicrophoneEnabled
   const cameraEnabled = room.localParticipant.isCameraEnabled
 
   useEffect(() => {
-    if (!screenShare.isSharing) setScreenAudioWarningDismissed(false)
-  }, [screenShare.isSharing])
+    if (!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: `Sala ${roomCode}`,
+      artist: 'Ford Kall',
+      album: 'Call em andamento',
+    })
+    try {
+      navigator.mediaSession.playbackState = 'playing'
+    } catch {
+      // Some mobile browsers expose Media Session without a writable state.
+    }
+
+    return () => {
+      navigator.mediaSession.metadata = null
+      try {
+        navigator.mediaSession.playbackState = 'none'
+      } catch {
+        // The call teardown still disconnects every LiveKit track.
+      }
+    }
+  }, [roomCode])
+
+  useEffect(() => {
+    const previousIndex = lastSeenMessageId.current
+      ? chat.messages.findIndex((message) => message.id === lastSeenMessageId.current)
+      : -1
+    const added = chat.messages.slice(previousIndex + 1)
+    if (!chatOpen) {
+      setUnreadMessages((current) => current + added.filter((message) => !message.isLocal).length)
+    }
+    lastSeenMessageId.current = chat.messages.at(-1)?.id ?? ''
+  }, [chat.messages, chatOpen])
 
   useEffect(() => {
     const handlePlayback = (playing: boolean) => setAudioBlocked(!playing)
@@ -131,7 +175,10 @@ export const CallScreen = ({
   const toggleMicrophone = useCallback(async () => {
     setMicBusy(true)
     try {
-      await room.localParticipant.setMicrophoneEnabled(!room.localParticipant.isMicrophoneEnabled)
+      await room.localParticipant.setMicrophoneEnabled(
+        !room.localParticipant.isMicrophoneEnabled,
+        microphoneCaptureOptions(),
+      )
       onMicrophoneErrorChange('')
     } catch (error) {
       if (error instanceof DOMException && error.name === 'NotAllowedError') {
@@ -194,10 +241,16 @@ export const CallScreen = ({
     }
   }
 
-  const openParticipantControls = (participantId: string) => {
-    setSelectedParticipantId(participantId)
-    setParticipantsOpen(true)
+  const openParticipantMenu = (participantId: string, point: ContextMenuPoint) => {
+    setParticipantMenu({ participantId, point })
   }
+
+  const selectedParticipant = participantMenu
+    ? snapshot.participantMedia.find((participant) => participant.id === participantMenu.participantId)
+    : undefined
+  const selectedVoice = participantMenu
+    ? snapshot.remoteVoices.find((voice) => voice.id === participantMenu.participantId)
+    : undefined
 
   return (
     <main className="call-shell">
@@ -230,13 +283,26 @@ export const CallScreen = ({
             aria-label={`Abrir participantes, ${snapshot.participants.length} na call`}
             className="participants-toggle"
             onClick={() => {
-              setSelectedParticipantId(null)
+              setChatOpen(false)
               setParticipantsOpen(true)
             }}
             type="button"
           >
             <Icon name="users" />
             <span>{snapshot.participants.length}</span>
+          </button>
+          <button
+            aria-label={`Abrir chat${unreadMessages ? `, ${unreadMessages} novas mensagens` : ''}`}
+            className="participants-toggle chat-toggle"
+            onClick={() => {
+              setParticipantsOpen(false)
+              setChatOpen(true)
+              setUnreadMessages(0)
+            }}
+            type="button"
+          >
+            <Icon name="chat" />
+            {unreadMessages > 0 && <span>{Math.min(unreadMessages, 99)}</span>}
           </button>
           <div className={`connection-pill connection-pill--${status}`} title={connectionLabel[status]}>
             <i /> <span>{connectionLabel[status]}</span>
@@ -263,7 +329,7 @@ export const CallScreen = ({
           activeSpeakerIds={snapshot.activeSpeakerIds}
           deafened={deafened}
           lives={snapshot.lives}
-          onParticipantSelect={openParticipantControls}
+          onParticipantMenu={openParticipantMenu}
           participants={snapshot.participantMedia}
           screenOutputId={devices.preferences.screenOutputId}
         />
@@ -279,15 +345,38 @@ export const CallScreen = ({
       )}
       <ParticipantList
         activeSpeakerIds={snapshot.activeSpeakerIds}
-        deafened={deafened}
         onClose={() => setParticipantsOpen(false)}
-        onParticipantSelect={setSelectedParticipantId}
+        onParticipantMenu={openParticipantMenu}
         open={participantsOpen}
         participants={snapshot.participants}
         remoteVoices={snapshot.remoteVoices}
         room={room}
-        selectedParticipantId={selectedParticipantId}
-        voiceOutputId={devices.preferences.voiceOutputId}
+      />
+
+      <ParticipantAudioLayer
+        deafened={deafened}
+        outputDeviceId={devices.preferences.voiceOutputId}
+        voices={snapshot.remoteVoices}
+      />
+
+      {selectedParticipant && participantMenu && (
+        <ParticipantContextMenu
+          onClose={() => setParticipantMenu(null)}
+          participant={selectedParticipant}
+          point={participantMenu.point}
+          voice={selectedVoice}
+        />
+      )}
+
+      {chatOpen && <button aria-label="Fechar chat" className="participant-drawer-backdrop" onClick={() => setChatOpen(false)} type="button" />}
+      <ChatPanel
+        error={chat.error}
+        messages={chat.messages}
+        onClose={() => setChatOpen(false)}
+        onErrorClose={chat.clearError}
+        onSendImage={chat.sendImage}
+        onSendText={chat.sendText}
+        open={chatOpen}
       />
 
       <div className="call-notices" aria-live="polite">
@@ -297,10 +386,8 @@ export const CallScreen = ({
         {cameraError && (
           <Notice onClose={() => setCameraError('')} warning>{cameraError}</Notice>
         )}
-        {screenShare.isSharing && !screenShare.hasAudio && !screenShare.isStarting && !screenAudioWarningDismissed && (
-          <Notice onClose={() => setScreenAudioWarningDismissed(true)}>
-            Sua tela está sendo transmitida sem áudio. Em uma aba, marque “Compartilhar áudio”.
-          </Notice>
+        {microphoneProcessing.error && (
+          <Notice onClose={microphoneProcessing.clearError} warning>{microphoneProcessing.error}</Notice>
         )}
         {screenShare.error && (
           <Notice onClose={screenShare.clearError} warning>{screenShare.error}</Notice>
@@ -377,6 +464,7 @@ export const CallScreen = ({
       {settingsOpen && (
         <SettingsModal
           devices={devices}
+          microphoneProcessing={microphoneProcessing}
           onClose={() => setSettingsOpen(false)}
           onQualityChange={changeQuality}
           quality={quality}

@@ -4,6 +4,7 @@ export type IconName =
   | 'audio'
   | 'camera'
   | 'cameraOff'
+  | 'chat'
   | 'chevron'
   | 'collapse'
   | 'copy'
@@ -11,12 +12,14 @@ export type IconName =
   | 'deafen'
   | 'expand'
   | 'headphones'
+  | 'image'
   | 'leave'
   | 'mic'
   | 'micOff'
   | 'pip'
   | 'popout'
   | 'screen'
+  | 'send'
   | 'settings'
   | 'users'
   | 'warning'
@@ -46,6 +49,13 @@ const paths: Record<IconName, React.ReactNode> = {
       <path d="m16 10 4.6-2.7a.9.9 0 0 1 1.4.8v7.8a.9.9 0 0 1-.3.7" />
       <rect width="13" height="12" x="3" y="6" rx="2" />
       <path d="m3 3 18 18" />
+    </>
+  ),
+  chat: (
+    <>
+      <path d="M21 15a4 4 0 0 1-4 4H8l-5 3v-6a4 4 0 0 1-1-2.7V7a4 4 0 0 1 4-4h11a4 4 0 0 1 4 4v8Z" />
+      <path d="M7 9h10" />
+      <path d="M7 13h6" />
     </>
   ),
   chevron: <path d="m9 18 6-6-6-6" />,
@@ -107,6 +117,13 @@ const paths: Record<IconName, React.ReactNode> = {
       <path d="M6 14h3v7H8a2 2 0 0 1-2-2v-5Z" />
     </>
   ),
+  image: (
+    <>
+      <rect width="18" height="16" x="3" y="4" rx="2" />
+      <circle cx="8.5" cy="9" r="1.5" />
+      <path d="m21 15-5-5L5 20" />
+    </>
+  ),
   leave: (
     <>
       <path d="M10 8a6 6 0 0 1 8 0" />
@@ -152,6 +169,12 @@ const paths: Record<IconName, React.ReactNode> = {
       <path d="M12 17v4" />
       <path d="m9 10 3-3 3 3" />
       <path d="M12 7v6" />
+    </>
+  ),
+  send: (
+    <>
+      <path d="m22 2-7 20-4-9-9-4 20-7Z" />
+      <path d="M22 2 11 13" />
     </>
   ),
   settings: (

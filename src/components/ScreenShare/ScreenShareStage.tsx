@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import type { LocalVideoTrack, RemoteVideoTrack } from 'livekit-client'
 import { useParticipantVolume } from '../../hooks/useParticipantVolume'
-import type { ParticipantMedia, ScreenShareLive } from '../../types'
+import type { ContextMenuPoint, ParticipantMedia, ScreenShareLive } from '../../types'
 import { RemoteAudioRenderer } from '../AudioControls/RemoteAudioRenderer'
 import { VolumeControl } from '../AudioControls/VolumeControl'
 import { ParticipantGallery } from '../Participants/ParticipantGallery'
@@ -35,7 +35,15 @@ interface LiveControlsProps {
   deafened: boolean
   screenOutputId: string
   open: boolean
+  point: ContextMenuPoint | null
   onClose: () => void
+  onPictureInPicture: () => void
+  onPopout: () => void
+  onFullscreen: () => void
+  pipActive: boolean
+  popoutActive: boolean
+  fullscreenActive: boolean
+  pipSupported: boolean
 }
 
 const LiveAudioControls = ({
@@ -43,7 +51,15 @@ const LiveAudioControls = ({
   deafened,
   screenOutputId,
   open,
+  point,
   onClose,
+  onPictureInPicture,
+  onPopout,
+  onFullscreen,
+  pipActive,
+  popoutActive,
+  fullscreenActive,
+  pipSupported,
 }: LiveControlsProps) => {
   const [volume, setVolume] = useParticipantVolume(live.participantIdentity, 'screen')
   const [mutedLocally, setMutedLocally] = useState(false)
@@ -61,7 +77,15 @@ const LiveAudioControls = ({
       )}
 
       {open && (
-        <div aria-label="Controles da transmissão" className="live-controls-popover" role="dialog">
+        <>
+        <button aria-label="Fechar controles da transmissão" className="context-menu-backdrop" onClick={onClose} type="button" />
+        <div
+          aria-label="Controles da transmissão"
+          className="context-menu live-controls-popover"
+          onContextMenu={(event) => event.preventDefault()}
+          role="dialog"
+          style={point ? { left: point.x, right: 'auto', top: point.y } : undefined}
+        >
           <header>
             <div>
               <small>TRANSMISSÃO</small>
@@ -73,7 +97,7 @@ const LiveAudioControls = ({
           </header>
 
           {live.isLocal ? (
-            <p>Sua tela está no ar. Use o botão do dock para encerrar a transmissão.</p>
+            <p>{live.hasAudio ? 'Áudio da tela no ar com proteção anti-retorno.' : 'Esta transmissão está sem áudio compartilhado.'}</p>
           ) : live.audioTrack ? (
             <div className="live-controls-popover__section">
               <div>
@@ -91,7 +115,14 @@ const LiveAudioControls = ({
           ) : (
             <p>Essa transmissão chegou sem uma faixa de áudio compartilhada.</p>
           )}
+
+          <div className="live-controls-popover__actions">
+            <button disabled={!pipSupported} onClick={() => { onClose(); onPictureInPicture() }} type="button"><Icon name="pip" /><span>{pipActive ? 'Fechar PiP' : 'Picture-in-Picture'}</span></button>
+            <button onClick={() => { onClose(); onPopout() }} type="button"><Icon name="popout" /><span>{popoutActive ? 'Fechar janela' : 'Janela separada'}</span></button>
+            <button onClick={() => { onClose(); onFullscreen() }} type="button"><Icon name={fullscreenActive ? 'collapse' : 'expand'} /><span>{fullscreenActive ? 'Sair da tela cheia' : 'Tela cheia'}</span></button>
+          </div>
         </div>
+        </>
       )}
     </>
   )
@@ -103,7 +134,7 @@ interface ScreenShareStageProps {
   activeSpeakerIds: Set<string>
   deafened: boolean
   screenOutputId: string
-  onParticipantSelect: (participantId: string) => void
+  onParticipantMenu: (participantId: string, point: ContextMenuPoint) => void
 }
 
 export const ScreenShareStage = ({
@@ -112,10 +143,11 @@ export const ScreenShareStage = ({
   activeSpeakerIds,
   deafened,
   screenOutputId,
-  onParticipantSelect,
+  onParticipantMenu,
 }: ScreenShareStageProps) => {
   const [selectedId, setSelectedId] = useState('')
   const [controlsOpen, setControlsOpen] = useState(false)
+  const [controlsPoint, setControlsPoint] = useState<ContextMenuPoint | null>(null)
   const knownIds = useRef<Set<string>>(new Set())
   const stageRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -279,7 +311,7 @@ export const ScreenShareStage = ({
     return (
       <ParticipantGallery
         activeSpeakerIds={activeSpeakerIds}
-        onParticipantSelect={onParticipantSelect}
+        onParticipantMenu={onParticipantMenu}
         participants={participants}
       />
     )
@@ -293,43 +325,25 @@ export const ScreenShareStage = ({
           <strong>{selectedLive.participantName}</strong>
         </div>
         <div className="stream-stage__actions">
+          {!selectedLive.hasAudio && (
+            <span className="live-audio-state" title="Transmissão sem áudio"><Icon name="volumeOff" /></span>
+          )}
           <button
             aria-label="Abrir controles da transmissão"
             className={`icon-button ${controlsOpen ? 'icon-button--active' : ''}`}
-            onClick={() => setControlsOpen((current) => !current)}
-            title="Áudio da transmissão"
+            onClick={() => {
+              setControlsPoint(null)
+              setControlsOpen((current) => !current)
+            }}
+            onContextMenu={(event) => {
+              event.preventDefault()
+              setControlsPoint({ x: event.clientX, y: event.clientY })
+              setControlsOpen(true)
+            }}
+            title="Controles da transmissão"
             type="button"
           >
             <Icon name="controls" />
-          </button>
-          <button
-            aria-label={pipActive ? 'Fechar Picture-in-Picture' : 'Abrir Picture-in-Picture'}
-            className={`icon-button ${pipActive ? 'icon-button--active' : ''}`}
-            disabled={!pipSupported}
-            onClick={() => void togglePictureInPicture()}
-            title={pipSupported ? 'Picture-in-Picture' : 'PiP não suportado neste navegador'}
-            type="button"
-          >
-            <Icon name="pip" />
-          </button>
-          <button
-            aria-label={popoutActive ? 'Fechar janela separada' : 'Abrir transmissão em janela separada'}
-            className={`icon-button ${popoutActive ? 'icon-button--active' : ''}`}
-            onClick={togglePopout}
-            title={popoutActive ? 'Fechar janela separada' : 'Abrir em janela separada'}
-            type="button"
-          >
-            <Icon name="popout" />
-          </button>
-          <button
-            aria-label={fullscreenActive ? 'Sair da tela cheia' : 'Ver transmissão em tela cheia'}
-            className={`icon-button ${fullscreenActive ? 'icon-button--active' : ''}`}
-            disabled={!document.fullscreenEnabled}
-            onClick={() => void toggleFullscreen()}
-            title={fullscreenActive ? 'Sair da tela cheia' : 'Tela cheia'}
-            type="button"
-          >
-            <Icon name={fullscreenActive ? 'collapse' : 'expand'} />
           </button>
         </div>
       </div>
@@ -347,7 +361,15 @@ export const ScreenShareStage = ({
         deafened={deafened}
         live={selectedLive}
         onClose={() => setControlsOpen(false)}
+        onFullscreen={() => void toggleFullscreen()}
+        onPictureInPicture={() => void togglePictureInPicture()}
+        onPopout={togglePopout}
         open={controlsOpen}
+        point={controlsPoint}
+        fullscreenActive={fullscreenActive}
+        pipActive={pipActive}
+        pipSupported={pipSupported}
+        popoutActive={popoutActive}
         screenOutputId={screenOutputId}
       />
 
@@ -367,14 +389,25 @@ export const ScreenShareStage = ({
       )}
 
       <div className="stream-stage__content">
-        <div className="stream-stage__video">
+        <div
+          className="stream-stage__video"
+          onContextMenu={(event) => {
+            event.preventDefault()
+            setControlsPoint({
+              x: Math.max(8, Math.min(event.clientX, window.innerWidth - 328)),
+              y: Math.max(8, Math.min(event.clientY, window.innerHeight - 264)),
+            })
+            setControlsOpen(true)
+          }}
+          title="Botão direito para controles da transmissão"
+        >
           <VideoRenderer track={selectedLive.videoTrack} videoRef={videoRef} />
         </div>
 
         <ParticipantGallery
           activeSpeakerIds={activeSpeakerIds}
           compact
-          onParticipantSelect={onParticipantSelect}
+          onParticipantMenu={onParticipantMenu}
           participants={participants}
         />
       </div>
