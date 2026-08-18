@@ -10,12 +10,13 @@ Call privada de voz e compartilhamento de tela entre amigos, com uma experiênci
 - chamada de voz, câmera e indicador de participante falando;
 - galeria dinâmica com câmeras grandes e foco automático no conteúdo;
 - drawer de participantes fechado por padrão, com controles individuais sob demanda;
-- volume local e mute independente para o microfone de cada participante;
+- volume local de 0% a 200% e mute independente para o microfone de cada participante;
 - deafen local sem perder os volumes individuais;
 - screen share com vídeo e captura de áudio quando o navegador fornece a track;
 - volume da transmissão separado do volume do microfone de quem transmite;
 - seleção entre múltiplas transmissões simultâneas;
 - Picture-in-Picture da transmissão selecionada;
+- janela separada, redimensionável e encaixável no desktop para a transmissão selecionada;
 - seleção de microfone e saídas separadas para voz/live quando `setSinkId` é suportado;
 - presets 720p30, 1080p30 e 1080p60;
 - tratamento de autoplay, reconexão, permissão negada e cleanup de tracks;
@@ -115,3 +116,5 @@ O arquivo `public/CNAME` preserva o domínio customizado no artefato. A aplicaç
 - Safari e Firefox podem não permitir seleção de saída ou captura de áudio do screen share.
 - transmissão da própria tela no celular depende de `getDisplayMedia`; quando o navegador não oferece a API, a interface informa a limitação sem bloquear câmera ou reprodução.
 - Picture-in-Picture depende do suporte do navegador.
+- ganho acima de 100% usa o mixer Web Audio local e pode causar clipping ou distorção; ele não aumenta o consumo do LiveKit.
+- a janela separada depende da permissão de pop-ups do navegador.

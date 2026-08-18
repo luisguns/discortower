@@ -3,14 +3,19 @@ import type { SVGProps } from 'react'
 export type IconName =
   | 'audio'
   | 'camera'
+  | 'cameraOff'
   | 'chevron'
+  | 'collapse'
   | 'copy'
   | 'controls'
   | 'deafen'
   | 'expand'
+  | 'headphones'
   | 'leave'
   | 'mic'
+  | 'micOff'
   | 'pip'
+  | 'popout'
   | 'screen'
   | 'settings'
   | 'users'
@@ -36,7 +41,26 @@ const paths: Record<IconName, React.ReactNode> = {
       <rect width="13" height="12" x="3" y="6" rx="2" />
     </>
   ),
+  cameraOff: (
+    <>
+      <path d="m16 10 4.6-2.7a.9.9 0 0 1 1.4.8v7.8a.9.9 0 0 1-.3.7" />
+      <rect width="13" height="12" x="3" y="6" rx="2" />
+      <path d="m3 3 18 18" />
+    </>
+  ),
   chevron: <path d="m9 18 6-6-6-6" />,
+  collapse: (
+    <>
+      <path d="M9 3v6H3" />
+      <path d="m3 9 6-6" />
+      <path d="M15 3v6h6" />
+      <path d="m21 9-6-6" />
+      <path d="M9 21v-6H3" />
+      <path d="m3 15 6 6" />
+      <path d="M15 21v-6h6" />
+      <path d="m21 15-6 6" />
+    </>
+  ),
   copy: (
     <>
       <rect width="11" height="11" x="9" y="9" rx="2" />
@@ -76,6 +100,13 @@ const paths: Record<IconName, React.ReactNode> = {
       <path d="m21 21-6-6" />
     </>
   ),
+  headphones: (
+    <>
+      <path d="M4 14v-2a8 8 0 0 1 16 0v2" />
+      <path d="M18 19c0 1.1-.9 2-2 2h-1v-7h3a2 2 0 0 1 2 2v3Z" />
+      <path d="M6 14h3v7H8a2 2 0 0 1-2-2v-5Z" />
+    </>
+  ),
   leave: (
     <>
       <path d="M10 8a6 6 0 0 1 8 0" />
@@ -90,10 +121,28 @@ const paths: Record<IconName, React.ReactNode> = {
       <path d="M8 21h8" />
     </>
   ),
+  micOff: (
+    <>
+      <path d="M9 9v2a3 3 0 0 0 5.1 2.1" />
+      <path d="M15.9 10.4V7a4 4 0 0 0-7.6-1.7" />
+      <path d="M5 11a7 7 0 0 0 11.9 5" />
+      <path d="M19 11a7 7 0 0 1-.7 3.1" />
+      <path d="M12 18v3" />
+      <path d="M8 21h8" />
+      <path d="m3 3 18 18" />
+    </>
+  ),
   pip: (
     <>
       <rect width="20" height="16" x="2" y="4" rx="2" />
       <rect width="8" height="6" x="11" y="11" rx="1" />
+    </>
+  ),
+  popout: (
+    <>
+      <rect width="18" height="15" x="3" y="5" rx="2" />
+      <path d="M14 3h7v7" />
+      <path d="m13 11 8-8" />
     </>
   ),
   screen: (

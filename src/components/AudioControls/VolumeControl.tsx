@@ -1,4 +1,5 @@
 import { Icon } from '../ui/Icon'
+import { MAX_PARTICIPANT_VOLUME } from '../../storage/preferences'
 
 interface VolumeControlProps {
   label: string
@@ -18,6 +19,7 @@ export const VolumeControl = ({
   onChange,
 }: VolumeControlProps) => {
   const percentage = Math.round(value * 100)
+  const fillPercentage = Math.round((value / MAX_PARTICIPANT_VOLUME) * 100)
 
   return (
     <div className={`volume-control ${muted ? 'volume-control--muted' : ''}`}>
@@ -38,10 +40,10 @@ export const VolumeControl = ({
       <input
         aria-label={label}
         disabled={disabled}
-        max="100"
+        max={MAX_PARTICIPANT_VOLUME * 100}
         min="0"
         onChange={(event) => onChange(Number(event.target.value) / 100)}
-        style={{ '--volume': `${percentage}%` } as React.CSSProperties}
+        style={{ '--volume': `${fillPercentage}%` } as React.CSSProperties}
         type="range"
         value={percentage}
       />

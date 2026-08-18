@@ -19,6 +19,7 @@ interface CallScreenProps {
   roomCode: string
   status: ConnectionStatus
   microphoneError: string
+  microphoneStarting: boolean
   onMicrophoneErrorChange: (message: string) => void
   onLeave: () => Promise<void>
 }
@@ -28,6 +29,7 @@ interface ControlButtonProps {
   label: string
   detail: string
   active?: boolean
+  muted?: boolean
   danger?: boolean
   disabled?: boolean
   error?: boolean
@@ -39,6 +41,7 @@ const ControlButton = ({
   label,
   detail,
   active,
+  muted,
   danger,
   disabled,
   error,
@@ -46,7 +49,7 @@ const ControlButton = ({
 }: ControlButtonProps) => (
   <button
     aria-label={`${label}: ${detail}`}
-    className={`call-control ${active ? 'call-control--active' : ''} ${danger ? 'call-control--danger' : ''} ${error ? 'call-control--error' : ''}`}
+    className={`call-control ${active ? 'call-control--active' : ''} ${muted ? 'call-control--muted' : ''} ${danger ? 'call-control--danger' : ''} ${error ? 'call-control--error' : ''}`}
     disabled={disabled}
     onClick={onClick}
     title={`${label} · ${detail}`}
@@ -58,6 +61,24 @@ const ControlButton = ({
       <small>{detail}</small>
     </span>
   </button>
+)
+
+const Notice = ({
+  children,
+  warning = false,
+  onClose,
+}: {
+  children: React.ReactNode
+  warning?: boolean
+  onClose: () => void
+}) => (
+  <div className={`notice ${warning ? 'notice--warning' : ''}`} role={warning ? 'alert' : 'status'}>
+    <Icon name="warning" />
+    <span>{children}</span>
+    <button aria-label="Fechar aviso" onClick={onClose} title="Fechar aviso" type="button">
+      <Icon name="x" />
+    </button>
+  </div>
 )
 
 const connectionLabel: Record<ConnectionStatus, string> = {
@@ -73,6 +94,7 @@ export const CallScreen = ({
   roomCode,
   status,
   microphoneError,
+  microphoneStarting,
   onMicrophoneErrorChange,
   onLeave,
 }: CallScreenProps) => {
@@ -88,9 +110,14 @@ export const CallScreen = ({
   const [audioBlocked, setAudioBlocked] = useState(!room.canPlaybackAudio)
   const [participantsOpen, setParticipantsOpen] = useState(false)
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null)
+  const [screenAudioWarningDismissed, setScreenAudioWarningDismissed] = useState(false)
   const screenShare = useScreenShare(room, quality)
   const micEnabled = room.localParticipant.isMicrophoneEnabled
   const cameraEnabled = room.localParticipant.isCameraEnabled
+
+  useEffect(() => {
+    if (!screenShare.isSharing) setScreenAudioWarningDismissed(false)
+  }, [screenShare.isSharing])
 
   useEffect(() => {
     const handlePlayback = (playing: boolean) => setAudioBlocked(!playing)
@@ -265,50 +292,46 @@ export const CallScreen = ({
 
       <div className="call-notices" aria-live="polite">
         {microphoneError && (
-          <div className="notice notice--warning">
-            <Icon name="warning" /> {microphoneError}
-          </div>
+          <Notice onClose={() => onMicrophoneErrorChange('')} warning>{microphoneError}</Notice>
         )}
         {cameraError && (
-          <div className="notice notice--warning">
-            <Icon name="warning" /> {cameraError}
-          </div>
+          <Notice onClose={() => setCameraError('')} warning>{cameraError}</Notice>
         )}
-        {screenShare.isSharing && !screenShare.hasAudio && !screenShare.isStarting && (
-          <div className="notice">
-            <Icon name="warning" /> Sua tela está sendo transmitida sem áudio. Em uma aba, marque “Compartilhar áudio”.
-          </div>
+        {screenShare.isSharing && !screenShare.hasAudio && !screenShare.isStarting && !screenAudioWarningDismissed && (
+          <Notice onClose={() => setScreenAudioWarningDismissed(true)}>
+            Sua tela está sendo transmitida sem áudio. Em uma aba, marque “Compartilhar áudio”.
+          </Notice>
         )}
         {screenShare.error && (
-          <div className="notice notice--warning"><Icon name="warning" /> {screenShare.error}</div>
+          <Notice onClose={screenShare.clearError} warning>{screenShare.error}</Notice>
         )}
       </div>
 
       <footer className="call-dock">
         <div className="call-dock__group">
           <ControlButton
-            active={micEnabled}
-            detail={micBusy ? 'Aguarde' : micEnabled ? 'Transmitindo' : 'Silenciado'}
-            disabled={micBusy || status === 'reconnecting'}
+            detail={micBusy || microphoneStarting ? 'Aguarde' : micEnabled ? 'Transmitindo' : 'Silenciado'}
+            disabled={micBusy || microphoneStarting || status === 'reconnecting'}
             error={Boolean(microphoneError)}
-            icon="mic"
+            icon={micEnabled ? 'mic' : 'micOff'}
             label="Microfone"
+            muted={!micEnabled}
             onClick={() => void toggleMicrophone()}
           />
           <ControlButton
-            active={cameraEnabled}
             detail={cameraBusy ? 'Aguarde' : cameraEnabled ? 'Câmera ligada' : 'Câmera desligada'}
             disabled={cameraBusy || status === 'reconnecting'}
             error={Boolean(cameraError)}
-            icon="camera"
+            icon={cameraEnabled ? 'camera' : 'cameraOff'}
             label="Câmera"
+            muted={!cameraEnabled}
             onClick={() => void toggleCamera()}
           />
           <ControlButton
-            active={deafened}
             detail={deafened ? 'Áudio remoto mudo' : 'Áudio remoto ativo'}
-            icon="deafen"
+            icon={deafened ? 'deafen' : 'headphones'}
             label="Deafen"
+            muted={deafened}
             onClick={() => setDeafened((current) => !current)}
           />
         </div>

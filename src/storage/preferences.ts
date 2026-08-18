@@ -5,6 +5,8 @@ const VOLUMES_KEY = 'ford-kall:participant-volumes'
 const DEVICES_KEY = 'ford-kall:devices'
 const QUALITY_KEY = 'ford-kall:stream-quality'
 
+export const MAX_PARTICIPANT_VOLUME = 2
+
 const safeRead = (key: string): string | null => {
   if (typeof window === 'undefined') return null
   try {
@@ -45,7 +47,7 @@ const readVolumes = (): Record<string, number> => {
 export const getParticipantVolume = (participantName: string, channel: AudioChannel) => {
   const volume = readVolumes()[volumeKey(participantName, channel)]
   return typeof volume === 'number' && Number.isFinite(volume)
-    ? Math.min(1, Math.max(0, volume))
+    ? Math.min(MAX_PARTICIPANT_VOLUME, Math.max(0, volume))
     : channel === 'screen'
       ? 0.85
       : 0.8
@@ -57,7 +59,10 @@ export const saveParticipantVolume = (
   volume: number,
 ) => {
   const volumes = readVolumes()
-  volumes[volumeKey(participantName, channel)] = Math.min(1, Math.max(0, volume))
+  volumes[volumeKey(participantName, channel)] = Math.min(
+    MAX_PARTICIPANT_VOLUME,
+    Math.max(0, volume),
+  )
   safeWrite(VOLUMES_KEY, JSON.stringify(volumes))
 }
 

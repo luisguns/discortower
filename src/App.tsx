@@ -21,6 +21,7 @@ function App() {
     return (
       <CallScreen
         microphoneError={liveKit.microphoneError}
+        microphoneStarting={liveKit.microphoneStarting}
         onLeave={liveKit.leave}
         onMicrophoneErrorChange={liveKit.setMicrophoneError}
         room={liveKit.room}

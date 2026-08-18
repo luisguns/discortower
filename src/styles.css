@@ -2853,3 +2853,243 @@ svg {
     height: 36px;
   }
 }
+
+/* Media robustness and unobstructed stream stage */
+
+.stream-stage {
+  gap: 9px;
+  padding: 70px 14px 88px;
+}
+
+.stream-stage__topbar {
+  position: relative;
+  z-index: 8;
+  top: auto;
+  right: auto;
+  left: auto;
+  width: 100%;
+  flex: 0 0 auto;
+  padding: 0;
+}
+
+.stream-stage__content {
+  display: grid;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) clamp(164px, 17vw, 220px);
+  gap: 9px;
+}
+
+.stream-stage__video {
+  width: 100%;
+  height: 100%;
+  border: 1px solid #242a25;
+  border-radius: 16px;
+}
+
+.live-switcher {
+  position: relative;
+  top: auto;
+  left: auto;
+  max-width: 100%;
+  flex: 0 0 auto;
+  align-self: center;
+  transform: none;
+}
+
+.live-controls-popover {
+  top: 121px;
+  right: 14px;
+}
+
+.stream-stage__message {
+  position: absolute;
+  z-index: 13;
+  top: 121px;
+  left: 50%;
+  display: grid;
+  width: min(520px, calc(100% - 28px));
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 11px;
+  border: 1px solid #5b3032;
+  border-radius: 12px;
+  background: rgba(36, 20, 22, 0.97);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42);
+  color: #e5a9ab;
+  font-size: 9px;
+  line-height: 1.45;
+  transform: translateX(-50%);
+}
+
+.stream-stage__message > svg {
+  width: 15px;
+  height: 15px;
+  color: var(--danger);
+}
+
+.stream-stage__message button,
+.notice > button {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: currentColor;
+}
+
+.stream-stage__message button:hover,
+.notice > button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.stream-stage__message button svg,
+.notice > button svg {
+  width: 13px;
+  height: 13px;
+  color: currentColor;
+}
+
+.participant-gallery--compact {
+  position: relative;
+  z-index: 1;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+}
+
+.participant-gallery--compact .participant-gallery__grid {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 2px 0 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  pointer-events: auto;
+}
+
+.participant-gallery--compact .gallery-person,
+.participant-gallery--compact[data-count] .gallery-person {
+  width: 100%;
+  height: auto;
+  min-height: 96px;
+  flex: 0 0 auto;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+}
+
+.stream-stage:fullscreen {
+  gap: 9px;
+  padding: 12px;
+}
+
+.stream-stage:fullscreen .live-controls-popover,
+.stream-stage:fullscreen .stream-stage__message {
+  top: 62px;
+}
+
+.call-control--muted {
+  color: #ff8589;
+}
+
+.call-control--muted .call-control__icon {
+  border: 0;
+  background: rgba(255, 90, 95, 0.16);
+  color: #ff8589;
+}
+
+.call-notices {
+  z-index: 30;
+  pointer-events: none;
+}
+
+.notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.notice > span {
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .field input {
+    font-size: 16px;
+  }
+
+  .stream-stage {
+    gap: 7px;
+    padding: 62px 8px 70px;
+  }
+
+  .stream-stage__topbar {
+    top: auto;
+    right: auto;
+    left: auto;
+  }
+
+  .stream-stage__content {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) 88px;
+    gap: 7px;
+  }
+
+  .stream-stage__video {
+    border-radius: 13px;
+  }
+
+  .participant-gallery--compact {
+    right: auto;
+    bottom: auto;
+    left: auto;
+    width: 100%;
+    height: 88px;
+  }
+
+  .participant-gallery--compact .participant-gallery__grid {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 7px;
+    padding: 0 0 2px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .participant-gallery--compact .gallery-person,
+  .participant-gallery--compact[data-count] .gallery-person {
+    width: 132px;
+    height: 84px;
+    min-height: 84px;
+    flex: 0 0 132px;
+    aspect-ratio: auto;
+  }
+
+  .live-controls-popover,
+  .stream-stage__message {
+    top: 108px;
+  }
+
+  .stream-stage:fullscreen {
+    padding: 8px;
+  }
+
+  .stream-stage:fullscreen .stream-stage__content {
+    grid-template-rows: minmax(0, 1fr) 88px;
+  }
+}

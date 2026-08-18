@@ -54,6 +54,7 @@ export const createLiveKitRoom = () =>
     adaptiveStream: true,
     dynacast: true,
     disconnectOnPageLeave: true,
+    webAudioMix: true,
   })
 
 export const fetchConnectionDetails = async (

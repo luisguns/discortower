@@ -39,8 +39,6 @@ export const RemoteAudioRenderer = ({
     const shouldMute = deafened || muted
     const effectiveVolume = shouldMute ? 0 : volume
     track.setVolume(effectiveVolume)
-    element.volume = Math.max(0, Math.min(1, volume))
-    element.muted = shouldMute
     if (!shouldMute) void element.play().catch(() => undefined)
   }, [deafened, muted, track, volume])
 

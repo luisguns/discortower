@@ -26,17 +26,21 @@ export const useLiveKitRoom = () => {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected')
   const [error, setError] = useState('')
   const [microphoneError, setMicrophoneError] = useState('')
+  const [microphoneStarting, setMicrophoneStarting] = useState(false)
   const roomRef = useRef<Room | null>(null)
   const leavingRef = useRef(false)
+  const microphoneRequestRef = useRef(0)
 
   const leave = useCallback(async () => {
     const activeRoom = roomRef.current
+    microphoneRequestRef.current += 1
     leavingRef.current = true
     roomRef.current = null
     setRoom(null)
     setStatus('disconnected')
     setError('')
     setMicrophoneError('')
+    setMicrophoneStarting(false)
 
     if (activeRoom) {
       activeRoom.removeAllListeners()
@@ -78,16 +82,52 @@ export const useLiveKitRoom = () => {
         displayName,
       )
       await nextRoom.connect(serverUrl, participantToken)
-
-      try {
-        await nextRoom.localParticipant.setMicrophoneEnabled(true)
-      } catch (microphoneFailure) {
-        setMicrophoneError(friendlyMicrophoneError(microphoneFailure))
-      }
-
       saveDisplayName(displayName)
       setRoom(nextRoom)
       setStatus('connected')
+
+      // Microphone permission belongs to the call controls, not to the room
+      // connection. Keeping it detached prevents a native browser prompt from
+      // leaving the lobby locked even though LiveKit is already connected.
+      const microphoneRequest = ++microphoneRequestRef.current
+      setMicrophoneStarting(true)
+      const microphoneTimer = window.setTimeout(() => {
+        if (
+          microphoneRequestRef.current === microphoneRequest &&
+          roomRef.current === nextRoom
+        ) {
+          setMicrophoneStarting(false)
+          setMicrophoneError('A permissão do microfone continua aberta no navegador. Feche o aviso e tente novamente pelo botão da call.')
+        }
+      }, 12_000)
+      void nextRoom.localParticipant
+        .setMicrophoneEnabled(true)
+        .then(() => {
+          if (
+            microphoneRequestRef.current === microphoneRequest &&
+            roomRef.current === nextRoom
+          ) {
+            setMicrophoneError('')
+          }
+        })
+        .catch((microphoneFailure) => {
+          if (
+            microphoneRequestRef.current === microphoneRequest &&
+            roomRef.current === nextRoom
+          ) {
+            setMicrophoneError(friendlyMicrophoneError(microphoneFailure))
+          }
+        })
+        .finally(() => {
+          window.clearTimeout(microphoneTimer)
+          if (
+            microphoneRequestRef.current === microphoneRequest &&
+            roomRef.current === nextRoom
+          ) {
+            setMicrophoneStarting(false)
+          }
+        })
+
       return true
     } catch (connectionFailure) {
       nextRoom.removeAllListeners()
@@ -117,6 +157,7 @@ export const useLiveKitRoom = () => {
     status,
     error,
     microphoneError,
+    microphoneStarting,
     setMicrophoneError,
     join,
     leave,
