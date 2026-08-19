@@ -5,10 +5,13 @@ import { useRoomSnapshot } from '../../hooks/useRoomSnapshot'
 import { microphoneCaptureOptions, useMicrophoneProcessing } from '../../hooks/useMicrophoneProcessing'
 import { useRoomChat } from '../../hooks/useRoomChat'
 import { useScreenShare } from '../../hooks/useScreenShare'
+import { playCallSound, primeCallSounds } from '../../services/callSounds'
 import { createRoomInviteUrl, streamQualityPresets } from '../../services/livekit'
 import {
+  getCallSoundsEnabled,
   getGalleryLayout,
   getStreamQuality,
+  saveCallSoundsEnabled,
   saveGalleryLayout,
   saveStreamQuality,
 } from '../../storage/preferences'
@@ -116,6 +119,7 @@ export const CallScreen = ({
   const microphoneProcessing = useMicrophoneProcessing(room)
   const chat = useRoomChat(room)
   const [deafened, setDeafened] = useState(false)
+  const [callSoundsEnabled, setCallSoundsEnabled] = useState(getCallSoundsEnabled)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [quality, setQuality] = useState<StreamQualityId>(getStreamQuality)
   const [galleryLayout, setGalleryLayout] = useState<GalleryLayoutMode>(getGalleryLayout)
@@ -136,6 +140,20 @@ export const CallScreen = ({
   const screenShare = useScreenShare(room, quality)
   const micEnabled = room.localParticipant.isMicrophoneEnabled
   const cameraEnabled = room.localParticipant.isCameraEnabled
+
+  useEffect(() => {
+    const handleParticipantConnected = () => playCallSound('join')
+    const handleParticipantDisconnected = () => playCallSound('leave')
+
+    room.on(RoomEvent.ParticipantConnected, handleParticipantConnected)
+    room.on(RoomEvent.ParticipantDisconnected, handleParticipantDisconnected)
+    playCallSound('join')
+
+    return () => {
+      room.off(RoomEvent.ParticipantConnected, handleParticipantConnected)
+      room.off(RoomEvent.ParticipantDisconnected, handleParticipantDisconnected)
+    }
+  }, [room])
 
   useEffect(() => {
     if (!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return
@@ -184,11 +202,13 @@ export const CallScreen = ({
   const toggleMicrophone = useCallback(async () => {
     setMicBusy(true)
     try {
+      const enabling = !room.localParticipant.isMicrophoneEnabled
       await room.localParticipant.setMicrophoneEnabled(
-        !room.localParticipant.isMicrophoneEnabled,
+        enabling,
         microphoneCaptureOptions(),
       )
       onMicrophoneErrorChange('')
+      playCallSound(enabling ? 'unmute' : 'mute')
     } catch (error) {
       if (error instanceof DOMException && error.name === 'NotAllowedError') {
         onMicrophoneErrorChange('Permissão do microfone negada. Libere o acesso no navegador.')
@@ -223,6 +243,22 @@ export const CallScreen = ({
     saveStreamQuality(nextQuality)
   }
 
+  const changeCallSounds = (enabled: boolean) => {
+    if (!enabled) playCallSound('mute')
+    saveCallSoundsEnabled(enabled)
+    setCallSoundsEnabled(enabled)
+    if (enabled) {
+      primeCallSounds()
+      playCallSound('unmute')
+    }
+  }
+
+  const toggleDeafen = () => {
+    const nextDeafened = !deafened
+    setDeafened(nextDeafened)
+    playCallSound(nextDeafened ? 'deafen' : 'undeafen')
+  }
+
   const copyRoomCode = async () => {
     try {
       await navigator.clipboard.writeText(createRoomInviteUrl(roomCode))
@@ -243,6 +279,7 @@ export const CallScreen = ({
   }
 
   const leaveCall = async () => {
+    playCallSound('leave')
     try {
       if (screenShare.isSharing) await screenShare.stop()
     } finally {
@@ -461,7 +498,7 @@ export const CallScreen = ({
             icon={deafened ? 'deafen' : 'headphones'}
             label="Deafen"
             muted={deafened}
-            onClick={() => setDeafened((current) => !current)}
+            onClick={toggleDeafen}
           />
         </div>
 
@@ -505,8 +542,10 @@ export const CallScreen = ({
 
       {settingsOpen && (
         <SettingsModal
+          callSoundsEnabled={callSoundsEnabled}
           devices={devices}
           microphoneProcessing={microphoneProcessing}
+          onCallSoundsChange={changeCallSounds}
           onClose={() => setSettingsOpen(false)}
           onQualityChange={changeQuality}
           quality={quality}

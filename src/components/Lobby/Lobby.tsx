@@ -5,6 +5,7 @@ import {
   normalizeDisplayName,
   normalizeRoomCode,
 } from '../../services/livekit'
+import { primeCallSounds } from '../../services/callSounds'
 import { getDisplayName } from '../../storage/preferences'
 import type { ConnectionStatus } from '../../types'
 import { Icon } from '../ui/Icon'
@@ -38,6 +39,7 @@ export const Lobby = ({ status, connectionError, onJoin }: LobbyProps) => {
       document.activeElement.blur()
     }
     window.scrollTo({ top: 0, behavior: 'instant' })
+    primeCallSounds()
     await onJoin(normalizedName, normalizedRoom)
   }
 

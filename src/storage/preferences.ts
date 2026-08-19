@@ -11,6 +11,7 @@ const DEVICES_KEY = 'ford-kall:devices'
 const QUALITY_KEY = 'ford-kall:stream-quality'
 const NOISE_SUPPRESSION_KEY = 'ford-kall:noise-suppression'
 const GALLERY_LAYOUT_KEY = 'ford-kall:gallery-layout'
+const CALL_SOUNDS_KEY = 'ford-kall:call-sounds'
 
 export const MAX_PARTICIPANT_VOLUME = 4
 export const PARTICIPANT_VOLUME_EVENT = 'ford-kall:participant-volume'
@@ -121,3 +122,8 @@ export const getGalleryLayout = (): GalleryLayoutMode =>
 
 export const saveGalleryLayout = (layout: GalleryLayoutMode) =>
   safeWrite(GALLERY_LAYOUT_KEY, layout)
+
+export const getCallSoundsEnabled = () => safeRead(CALL_SOUNDS_KEY) !== 'false'
+
+export const saveCallSoundsEnabled = (enabled: boolean) =>
+  safeWrite(CALL_SOUNDS_KEY, String(enabled))

@@ -11,7 +11,9 @@ type MicrophoneProcessingState = ReturnType<typeof useMicrophoneProcessing>
 interface SettingsModalProps {
   devices: AudioDevicesState
   microphoneProcessing: MicrophoneProcessingState
+  callSoundsEnabled: boolean
   quality: StreamQualityId
+  onCallSoundsChange: (enabled: boolean) => void
   onQualityChange: (quality: StreamQualityId) => void
   onClose: () => void
 }
@@ -22,7 +24,9 @@ const deviceName = (device: MediaDeviceInfo, index: number, fallback: string) =>
 export const SettingsModal = ({
   devices,
   microphoneProcessing,
+  callSoundsEnabled,
   quality,
+  onCallSoundsChange,
   onQualityChange,
   onClose,
 }: SettingsModalProps) => {
@@ -149,6 +153,28 @@ export const SettingsModal = ({
         <div className="settings-section">
           <div className="settings-section__heading">
             <span>03</span>
+            <div>
+              <h3>Sons da interface</h3>
+              <p>Feedback local para presença e controles da call.</p>
+            </div>
+          </div>
+          <label className="setting-switch">
+            <span>
+              <strong>Efeitos sonoros</strong>
+              <small>Entrada, saída, microfone e deafen. Não são enviados pelo LiveKit.</small>
+            </span>
+            <input
+              checked={callSoundsEnabled}
+              onChange={(event) => onCallSoundsChange(event.target.checked)}
+              type="checkbox"
+            />
+            <i aria-hidden="true" />
+          </label>
+        </div>
+
+        <div className="settings-section">
+          <div className="settings-section__heading">
+            <span>04</span>
             <div>
               <h3>Qualidade da transmissão</h3>
               <p>A configuração será aplicada na próxima transmissão.</p>
