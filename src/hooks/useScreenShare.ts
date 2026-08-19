@@ -3,6 +3,43 @@ import { AudioPresets, RoomEvent, Track, type Room } from 'livekit-client'
 import { streamQualityPresets } from '../services/livekit'
 import type { StreamQualityId } from '../types'
 
+interface WindowAudioDisplayMediaOptions extends DisplayMediaStreamOptions {
+  windowAudio?: 'exclude' | 'window' | 'system'
+  audioSelection?: 'preferred'
+}
+
+const preferIsolatedWindowAudio = () => {
+  const mediaDevices = navigator.mediaDevices
+  const originalGetDisplayMedia = mediaDevices.getDisplayMedia
+  let installed = false
+
+  const restore = () => {
+    if (!installed || mediaDevices.getDisplayMedia !== wrappedGetDisplayMedia) return
+    mediaDevices.getDisplayMedia = originalGetDisplayMedia
+    installed = false
+  }
+
+  const wrappedGetDisplayMedia: typeof mediaDevices.getDisplayMedia = (options) => {
+    restore()
+    const enhancedOptions: WindowAudioDisplayMediaOptions = {
+      ...options,
+      windowAudio: 'window',
+      audioSelection: 'preferred',
+    }
+    return originalGetDisplayMedia.call(mediaDevices, enhancedOptions)
+  }
+
+  try {
+    mediaDevices.getDisplayMedia = wrappedGetDisplayMedia
+    installed = mediaDevices.getDisplayMedia === wrappedGetDisplayMedia
+  } catch {
+    // Some browsers expose getDisplayMedia as read-only. The regular LiveKit
+    // capture path remains available without the newer window-audio hint.
+  }
+
+  return restore
+}
+
 export const useScreenShare = (room: Room, quality: StreamQualityId) => {
   const isSupported =
     typeof navigator !== 'undefined' &&
@@ -61,11 +98,15 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
     setIsStarting(true)
     setError('')
     const { preset } = streamQualityPresets[quality]
+    const restoreDisplayMedia = preferIsolatedWindowAudio()
     const shareOperation = room.localParticipant.setScreenShareEnabled(
       true,
       {
         audio: {
           restrictOwnAudio: true,
+        },
+        video: {
+          displaySurface: 'window',
         },
         resolution: preset.resolution,
         contentHint: quality === '1080p60' ? 'motion' : 'detail',
@@ -92,6 +133,7 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
         timeoutId = window.setTimeout(() => resolve({ kind: 'timeout' }), 15_000)
       }),
     ])
+    restoreDisplayMedia()
 
     if (outcome.kind === 'timeout') {
       setIsStarting(false)
