@@ -2046,6 +2046,8 @@ svg {
   right: 14px;
   left: auto;
   width: 318px;
+  z-index: 55;
+  pointer-events: auto;
 }
 
 .live-controls-popover__actions {
