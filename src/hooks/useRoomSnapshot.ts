@@ -22,6 +22,7 @@ export const useRoomSnapshot = (room: Room) => {
     room.on(RoomEvent.TrackUnpublished, refresh)
     room.on(RoomEvent.TrackSubscribed, refresh)
     room.on(RoomEvent.TrackUnsubscribed, refresh)
+    room.on(RoomEvent.TrackSubscriptionStatusChanged, refresh)
     room.on(RoomEvent.TrackMuted, refresh)
     room.on(RoomEvent.TrackUnmuted, refresh)
     room.on(RoomEvent.LocalTrackPublished, refresh)
@@ -36,6 +37,7 @@ export const useRoomSnapshot = (room: Room) => {
       room.off(RoomEvent.TrackUnpublished, refresh)
       room.off(RoomEvent.TrackSubscribed, refresh)
       room.off(RoomEvent.TrackUnsubscribed, refresh)
+      room.off(RoomEvent.TrackSubscriptionStatusChanged, refresh)
       room.off(RoomEvent.TrackMuted, refresh)
       room.off(RoomEvent.TrackUnmuted, refresh)
       room.off(RoomEvent.LocalTrackPublished, refresh)
@@ -97,6 +99,7 @@ export const useRoomSnapshot = (room: Room) => {
         participantName: room.localParticipant.name || room.localParticipant.identity,
         isLocal: true,
         videoTrack: localVideoPublication.videoTrack,
+        subscribed: true,
         hasAudio: Boolean(localAudioPublication && !localAudioPublication.isMuted),
         muted: false,
       })
@@ -104,18 +107,24 @@ export const useRoomSnapshot = (room: Room) => {
 
     for (const participant of room.remoteParticipants.values()) {
       const videoPublication = participant.getTrackPublication(Track.Source.ScreenShare)
-      if (!(videoPublication?.videoTrack instanceof RemoteVideoTrack)) continue
+      if (!videoPublication) continue
       const audioPublication = participant.getTrackPublication(Track.Source.ScreenShareAudio)
       lives.push({
         id: `${participant.identity}:${videoPublication.trackSid}`,
         participantIdentity: participant.identity,
         participantName: participant.name || participant.identity,
         isLocal: false,
-        videoTrack: videoPublication.videoTrack,
+        videoTrack:
+          videoPublication.videoTrack instanceof RemoteVideoTrack
+            ? videoPublication.videoTrack
+            : undefined,
         audioTrack:
           audioPublication?.track instanceof RemoteAudioTrack
             ? audioPublication.track
             : undefined,
+        videoPublication,
+        audioPublication,
+        subscribed: videoPublication.isDesired,
         hasAudio: Boolean(audioPublication && !audioPublication.isMuted),
         muted: audioPublication?.isMuted ?? false,
       })

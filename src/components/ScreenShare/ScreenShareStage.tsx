@@ -46,11 +46,13 @@ interface LiveControlsProps {
   onPictureInPicture: () => void
   onPopout: () => void
   onFullscreen: () => void
+  onWatchingChange: (watching: boolean) => void
   pipActive: boolean
   popoutActive: boolean
   fullscreenActive: boolean
   pipSupported: boolean
   portalTarget: Element | null
+  watching: boolean
 }
 
 const LiveAudioControls = ({
@@ -63,18 +65,20 @@ const LiveAudioControls = ({
   onPictureInPicture,
   onPopout,
   onFullscreen,
+  onWatchingChange,
   pipActive,
   popoutActive,
   fullscreenActive,
   pipSupported,
   portalTarget,
+  watching,
 }: LiveControlsProps) => {
   const [volume, setVolume] = useParticipantVolume(live.participantIdentity, 'screen')
   const [mutedLocally, setMutedLocally] = useState(false)
 
   return (
     <>
-      {!live.isLocal && (
+      {!live.isLocal && watching && (
         <RemoteAudioRenderer
           deafened={deafened}
           muted={mutedLocally || live.muted}
@@ -106,6 +110,8 @@ const LiveAudioControls = ({
 
             {live.isLocal ? (
               <p>{live.hasAudio ? 'Áudio da tela no ar com proteção anti-retorno.' : 'Esta transmissão está sem áudio compartilhado.'}</p>
+            ) : !watching ? (
+              <p>Vídeo e áudio desconectados para você. Esta transmissão não está consumindo sua banda.</p>
             ) : live.audioTrack ? (
               <div className="live-controls-popover__section">
                 <div>
@@ -120,14 +126,23 @@ const LiveAudioControls = ({
                   value={volume}
                 />
               </div>
+            ) : live.hasAudio ? (
+              <p>Reconectando à faixa de áudio compartilhada…</p>
             ) : (
               <p>Essa transmissão chegou sem uma faixa de áudio compartilhada.</p>
             )}
 
             <div className="live-controls-popover__actions">
-              <button disabled={!pipSupported} onClick={() => { onClose(); onPictureInPicture() }} type="button"><Icon name="pip" /><span>{pipActive ? 'Fechar PiP' : 'Picture-in-Picture'}</span></button>
-              <button onClick={() => { onClose(); onPopout() }} type="button"><Icon name="popout" /><span>{popoutActive ? 'Fechar janela' : 'Janela separada'}</span></button>
-              <button onClick={() => { onClose(); onFullscreen() }} type="button"><Icon name={fullscreenActive ? 'collapse' : 'expand'} /><span>{fullscreenActive ? 'Sair da tela cheia' : 'Tela cheia'}</span></button>
+              {!live.isLocal && (
+                <button className="live-controls-popover__subscription" onClick={() => { onClose(); onWatchingChange(!watching) }} type="button"><Icon name={watching ? 'eyeOff' : 'eye'} /><span>{watching ? 'Parar de assistir' : 'Assistir transmissão'}</span></button>
+              )}
+              {watching && live.videoTrack && (
+                <>
+                  <button disabled={!pipSupported} onClick={() => { onClose(); onPictureInPicture() }} type="button"><Icon name="pip" /><span>{pipActive ? 'Fechar PiP' : 'Picture-in-Picture'}</span></button>
+                  <button onClick={() => { onClose(); onPopout() }} type="button"><Icon name="popout" /><span>{popoutActive ? 'Fechar janela' : 'Janela separada'}</span></button>
+                  <button onClick={() => { onClose(); onFullscreen() }} type="button"><Icon name={fullscreenActive ? 'collapse' : 'expand'} /><span>{fullscreenActive ? 'Sair da tela cheia' : 'Tela cheia'}</span></button>
+                </>
+              )}
             </div>
           </div>
         </>,
@@ -195,6 +210,17 @@ export const ScreenShareStage = ({
   }, [lives, selectedId])
 
   const selectedLive = lives.find((live) => live.id === selectedId) ?? lives.at(-1)
+  const watchingSelectedLive = Boolean(
+    selectedLive && (selectedLive.isLocal || selectedLive.subscribed),
+  )
+
+  useEffect(() => {
+    for (const live of lives) {
+      if (!live.isLocal && !live.subscribed && live.audioPublication?.isDesired) {
+        live.audioPublication.setSubscribed(false)
+      }
+    }
+  }, [lives])
 
   const closePopout = useCallback((shouldCloseWindow = true) => {
     const popup = popoutWindowRef.current
@@ -216,6 +242,21 @@ export const ScreenShareStage = ({
     setPopoutActive(false)
     if (shouldCloseWindow && popup && !popup.closed) popup.close()
   }, [])
+
+  const changeWatching = useCallback((watching: boolean) => {
+    if (!selectedLive || selectedLive.isLocal) return
+
+    if (!watching) {
+      if (document.pictureInPictureElement) {
+        void document.exitPictureInPicture().catch(() => undefined)
+      }
+      closePopout()
+    }
+
+    selectedLive.videoPublication?.setSubscribed(watching)
+    selectedLive.audioPublication?.setSubscribed(watching)
+    setStageError('')
+  }, [closePopout, selectedLive])
 
   useEffect(() => {
     setControlsOpen(false)
@@ -269,7 +310,7 @@ export const ScreenShareStage = ({
   }
 
   const togglePopout = () => {
-    if (!selectedLive) return
+    if (!selectedLive?.videoTrack) return
     if (popoutWindowRef.current && !popoutWindowRef.current.closed) {
       closePopout()
       return
@@ -348,8 +389,19 @@ export const ScreenShareStage = ({
           <strong>{selectedLive.participantName}</strong>
         </div>
         <div className="stream-stage__actions">
-          {!selectedLive.hasAudio && (
+          {watchingSelectedLive && !selectedLive.hasAudio && (
             <span className="live-audio-state" title="Transmissão sem áudio"><Icon name="volumeOff" /></span>
+          )}
+          {!selectedLive.isLocal && (
+            <button
+              aria-label={watchingSelectedLive ? 'Parar de assistir transmissão' : 'Assistir transmissão'}
+              className={`icon-button ${!watchingSelectedLive ? 'icon-button--paused' : ''}`}
+              onClick={() => changeWatching(!watchingSelectedLive)}
+              title={watchingSelectedLive ? 'Desconectar vídeo e áudio desta live' : 'Reconectar à transmissão'}
+              type="button"
+            >
+              <Icon name={watchingSelectedLive ? 'eyeOff' : 'eye'} />
+            </button>
           )}
           <button
             aria-label="Abrir controles da transmissão"
@@ -386,6 +438,7 @@ export const ScreenShareStage = ({
         onFullscreen={() => void toggleFullscreen()}
         onPictureInPicture={() => void togglePictureInPicture()}
         onPopout={togglePopout}
+        onWatchingChange={changeWatching}
         open={controlsOpen}
         point={controlsPoint}
         fullscreenActive={fullscreenActive}
@@ -400,18 +453,19 @@ export const ScreenShareStage = ({
               : document.body
         }
         screenOutputId={screenOutputId}
+        watching={watchingSelectedLive}
       />
 
       {lives.length > 1 && (
         <div className="live-switcher" aria-label="Escolher transmissão">
           {lives.map((live) => (
             <button
-              className={live.id === selectedLive.id ? 'is-active' : ''}
+              className={`${live.id === selectedLive.id ? 'is-active' : ''} ${!live.isLocal && !live.subscribed ? 'is-paused' : ''}`}
               key={live.id}
               onClick={() => setSelectedId(live.id)}
               type="button"
             >
-              <i /> {live.participantName}
+              <i /> {live.participantName}{!live.isLocal && !live.subscribed ? ' · pausada' : ''}
             </button>
           ))}
         </div>
@@ -426,7 +480,22 @@ export const ScreenShareStage = ({
           }}
           title="Botão direito para controles da transmissão"
         >
-          <VideoRenderer track={selectedLive.videoTrack} videoRef={videoRef} />
+          {watchingSelectedLive && selectedLive.videoTrack ? (
+            <VideoRenderer track={selectedLive.videoTrack} videoRef={videoRef} />
+          ) : watchingSelectedLive ? (
+            <div className="stream-stage__subscription-state" role="status">
+              <span className="spinner" />
+              <strong>Conectando à transmissão</strong>
+              <small>Pedindo os tracks de vídeo e áudio ao LiveKit…</small>
+            </div>
+          ) : (
+            <div className="stream-stage__subscription-state stream-stage__subscription-state--paused">
+              <span><Icon name="eyeOff" /></span>
+              <strong>Transmissão desconectada</strong>
+              <small>Você continua na call, mas não recebe vídeo nem áudio desta live.</small>
+              <button onClick={() => changeWatching(true)} type="button"><Icon name="eye" /> Assistir transmissão</button>
+            </div>
+          )}
         </div>
 
         <ParticipantGallery

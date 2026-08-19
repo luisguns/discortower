@@ -11,6 +11,8 @@ export type IconName =
   | 'controls'
   | 'deafen'
   | 'expand'
+  | 'eye'
+  | 'eyeOff'
   | 'headphones'
   | 'image'
   | 'layout'
@@ -109,6 +111,20 @@ const paths: Record<IconName, React.ReactNode> = {
       <path d="m3 21 6-6" />
       <path d="M16 21h5v-5" />
       <path d="m21 21-6-6" />
+    </>
+  ),
+  eye: (
+    <>
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  eyeOff: (
+    <>
+      <path d="M3 3l18 18" />
+      <path d="M10.6 6.2A10.7 10.7 0 0 1 12 6c6.5 0 10 6 10 6a17 17 0 0 1-2.2 3" />
+      <path d="M6.6 6.6C3.7 8.4 2 12 2 12s3.5 6 10 6c1 0 2-.2 2.8-.4" />
+      <path d="M9.8 9.8A3 3 0 0 0 14.2 14.2" />
     </>
   ),
   headphones: (

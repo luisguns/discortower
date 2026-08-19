@@ -2,6 +2,7 @@ import type {
   LocalVideoTrack,
   RemoteAudioTrack,
   RemoteParticipant,
+  RemoteTrackPublication,
   RemoteVideoTrack,
 } from 'livekit-client'
 
@@ -30,8 +31,11 @@ export interface ScreenShareLive {
   participantIdentity: string
   participantName: string
   isLocal: boolean
-  videoTrack: LocalVideoTrack | RemoteVideoTrack
+  videoTrack?: LocalVideoTrack | RemoteVideoTrack
   audioTrack?: RemoteAudioTrack
+  videoPublication?: RemoteTrackPublication
+  audioPublication?: RemoteTrackPublication
+  subscribed: boolean
   hasAudio: boolean
   muted: boolean
 }

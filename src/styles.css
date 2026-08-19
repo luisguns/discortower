@@ -1299,6 +1299,12 @@ svg {
   color: var(--accent);
 }
 
+.icon-button--paused {
+  border-color: rgba(255, 189, 89, 0.32);
+  background: rgba(255, 189, 89, 0.09);
+  color: var(--warning);
+}
+
 .icon-button svg {
   width: 15px;
   height: 15px;
@@ -1331,6 +1337,15 @@ svg {
   color: var(--accent);
 }
 
+.live-switcher button.is-paused {
+  color: #777e78;
+}
+
+.live-switcher button.is-paused i {
+  background: #626963;
+  box-shadow: none;
+}
+
 .stream-stage__video {
   position: relative;
   display: grid;
@@ -1350,6 +1365,67 @@ svg {
   height: 100%;
   object-fit: contain;
   object-position: center center;
+}
+
+.stream-stage__subscription-state {
+  display: grid;
+  width: min(440px, calc(100% - 32px));
+  justify-items: center;
+  gap: 9px;
+  color: #8e978f;
+  text-align: center;
+}
+
+.stream-stage__subscription-state > strong {
+  color: #d7ddd7;
+  font-size: 12px;
+}
+
+.stream-stage__subscription-state > small {
+  max-width: 360px;
+  color: #707871;
+  font-size: 8px;
+  line-height: 1.6;
+}
+
+.stream-stage__subscription-state--paused > span {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border: 1px solid #303732;
+  border-radius: 15px;
+  background: #111512;
+  color: #929a93;
+}
+
+.stream-stage__subscription-state--paused > span svg {
+  width: 22px;
+  height: 22px;
+}
+
+.stream-stage__subscription-state--paused > button {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  padding: 0 13px;
+  border: 1px solid rgba(185, 239, 58, 0.32);
+  border-radius: 10px;
+  background: rgba(185, 239, 58, 0.09);
+  color: var(--accent);
+  font-size: 8px;
+}
+
+.stream-stage__subscription-state--paused > button:hover {
+  border-color: rgba(185, 239, 58, 0.56);
+  background: rgba(185, 239, 58, 0.14);
+}
+
+.stream-stage__subscription-state--paused > button svg {
+  width: 14px;
+  height: 14px;
 }
 
 .stream-stage:fullscreen {
@@ -2076,6 +2152,10 @@ svg {
 .live-controls-popover__actions button:hover:not(:disabled) {
   background: #202521;
   color: var(--text);
+}
+
+.live-controls-popover__actions .live-controls-popover__subscription {
+  color: #d0d6d0;
 }
 
 .live-controls-popover__actions button svg {
