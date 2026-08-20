@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import {
   generateRoomCode,
   getRoomCodeFromUrl,
@@ -14,14 +14,19 @@ import { Icon } from '../ui/Icon'
 interface LobbyProps {
   status: ConnectionStatus
   connectionError: string
+  initialRoomCode: string
   onJoin: (displayName: string, roomCode: string) => Promise<boolean>
 }
 
-export const Lobby = ({ status, connectionError, onJoin }: LobbyProps) => {
+export const Lobby = ({ status, connectionError, initialRoomCode, onJoin }: LobbyProps) => {
   const [displayName, setDisplayName] = useState(getDisplayName)
-  const [roomCode, setRoomCode] = useState(getRoomCodeFromUrl)
+  const [roomCode, setRoomCode] = useState(() => initialRoomCode || getRoomCodeFromUrl())
   const [validationError, setValidationError] = useState('')
   const connecting = status === 'connecting' || status === 'reconnecting'
+
+  useEffect(() => {
+    if (initialRoomCode) setRoomCode(initialRoomCode)
+  }, [initialRoomCode])
 
   const joinRoom = async (nextRoomCode: string) => {
     const normalizedName = normalizeDisplayName(displayName)
@@ -138,7 +143,7 @@ export const Lobby = ({ status, connectionError, onJoin }: LobbyProps) => {
 
         <footer className="lobby-card__footer">
           <span className="status-dot" /> LiveKit Cloud
-          <span>Chrome / Edge desktop</span>
+          <span>{window.fordKallDesktop ? 'Aplicativo Windows' : 'Chrome / Edge desktop'}</span>
         </footer>
       </section>
     </main>

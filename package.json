@@ -1,14 +1,22 @@
 {
   "name": "ford-kall",
+  "productName": "Ford Kall",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
+  "description": "Call privada de voz, camera e compartilhamento de tela entre amigos.",
+  "author": "Matheus Torres",
+  "homepage": "https://fordkall.11a3.dev/",
+  "main": "electron/main.cjs",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"
   },
   "scripts": {
     "dev": "vite",
+    "desktop:dev": "concurrently --kill-others --success first \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron . --dev\"",
     "build": "tsc -b && vite build",
+    "desktop:pack": "npm run build && electron-builder --dir",
+    "desktop:dist:windows": "npm run build && electron-builder --win nsis portable --x64",
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false"
   },
@@ -21,7 +29,101 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.5",
+    "concurrently": "^10.0.5",
+    "electron": "^43.4.1",
+    "electron-builder": "^26.15.3",
+    "sharp": "^0.34.5",
     "typescript": "7.0.2",
-    "vite": "8.2.1"
+    "vite": "8.2.1",
+    "wait-on": "^9.1.0"
+  },
+  "build": {
+    "appId": "dev.11a3.fordkall",
+    "productName": "Ford Kall",
+    "copyright": "Copyright © 2026 Matheus Torres",
+    "asar": true,
+    "npmRebuild": false,
+    "electronLanguages": [
+      "pt-BR",
+      "en-US"
+    ],
+    "directories": {
+      "buildResources": "build",
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/icon.png",
+        "to": "desktop-assets/icon.png"
+      }
+    ],
+    "protocols": [
+      {
+        "name": "Sala do Ford Kall",
+        "schemes": [
+          "fordkall"
+        ]
+      }
+    ],
+    "artifactName": "Ford-Kall-Portable-${version}-${arch}.${ext}",
+    "mac": {
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "O Ford Kall usa o microfone para transmitir sua voz durante a call.",
+        "NSCameraUsageDescription": "O Ford Kall usa a câmera quando você decide ligá-la durante a call.",
+        "NSAudioCaptureUsageDescription": "O Ford Kall pode capturar o áudio da tela quando você escolhe compartilhá-lo."
+      }
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "executableName": "Ford Kall",
+      "requestedExecutionLevel": "asInvoker",
+      "signExecutable": false,
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "artifactName": "Ford-Kall-Setup-${version}-${arch}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "Ford Kall",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "installerLanguages": [
+        "pt_BR"
+      ]
+    },
+    "portable": {
+      "requestExecutionLevel": "user"
+    },
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "grantFileProtocolExtraPrivileges": false
+    }
   }
 }

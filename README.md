@@ -24,6 +24,9 @@ Call privada de voz e compartilhamento de tela entre amigos, com uma experiênci
 - tratamento de autoplay, reconexão, permissão negada e cleanup de tracks;
 - layout responsivo para desktop, tablet e celular;
 - deploy estático em GitHub Pages por GitHub Actions.
+- aplicativo Windows baseado em Electron, com instalador e executável portátil;
+- seletor desktop próprio de telas/janelas, captura opcional do áudio do sistema e deep link `fordkall://`;
+- bandeja do sistema e modo de fundo que mantém a voz, suspende vídeos e reduz atualizações visuais enquanto o app está minimizado.
 
 ## Stack
 
@@ -33,6 +36,7 @@ Call privada de voz e compartilhamento de tela entre amigos, com uma experiênci
 - CSS próprio
 - LiveKit Cloud
 - GitHub Pages + GitHub Actions
+- Electron + electron-builder (Windows)
 
 ## Requisitos
 
@@ -95,6 +99,29 @@ npm run preview
 
 O build estático é gerado em `dist/`.
 
+## Aplicativo Windows
+
+Para testar o Electron durante o desenvolvimento:
+
+```bash
+npm run desktop:dev
+```
+
+Para gerar o instalador assistido e o executável portátil de Windows x64:
+
+```bash
+npm run desktop:dist:windows
+```
+
+Os artefatos são gerados em `release/`:
+
+- `Ford-Kall-Setup-<versão>-x64.exe`: instalador com atalhos no Desktop e menu Iniciar;
+- `Ford-Kall-Portable-<versão>-x64.exe`: versão que roda sem instalação.
+
+O aplicativo carrega o frontend empacotado localmente e continua usando o LiveKit Cloud para a call. Ao fechar a janela durante uma call, ele permanece na bandeja do Windows; **Sair do Ford Kall** no menu do ícone encerra de fato o processo. Quando minimizado ou oculto, publicações remotas de vídeo são suspensas e restauradas ao abrir a janela, reduzindo uso de GPU e banda sem interromper a voz.
+
+O workflow [`.github/workflows/windows.yml`](.github/workflows/windows.yml) gera os dois executáveis manualmente ou ao enviar uma tag `v*`. Builds sem certificado funcionam normalmente, mas o Windows SmartScreen pode mostrar o aviso de editor desconhecido; assinatura de código elimina esse aviso em releases futuras.
+
 ## Deploy no GitHub Pages
 
 O workflow [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) executa em todo push para `main`:
@@ -109,7 +136,7 @@ Antes do primeiro deploy:
 2. Em **Settings → Secrets and variables → Actions → Variables**, crie a variável de repositório `VITE_LIVEKIT_TOKEN_SERVER_ID`.
 3. Confirme o domínio customizado `fordkall.11a3.dev` em **Settings → Pages**.
 
-O arquivo `public/CNAME` preserva o domínio customizado no artefato. A aplicação é uma SPA sem rotas reais e o Vite usa `base: '/'`, portanto não depende de fallback de servidor.
+O arquivo `public/CNAME` preserva o domínio customizado no artefato. A aplicação é uma SPA sem rotas reais e usa assets relativos para funcionar tanto no domínio quanto dentro do protocolo local seguro do Electron.
 
 ## Limitações conhecidas da V1
 

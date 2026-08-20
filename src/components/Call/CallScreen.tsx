@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { RoomEvent, type Room } from 'livekit-client'
 import { useAudioDevices } from '../../hooks/useAudioDevices'
+import { useDesktopPerformanceMode } from '../../hooks/useDesktopPerformanceMode'
 import { useRoomSnapshot } from '../../hooks/useRoomSnapshot'
 import { microphoneCaptureOptions, useMicrophoneProcessing } from '../../hooks/useMicrophoneProcessing'
 import { useRoomChat } from '../../hooks/useRoomChat'
@@ -116,6 +117,7 @@ export const CallScreen = ({
   onLeave,
 }: CallScreenProps) => {
   const snapshot = useRoomSnapshot(room)
+  useDesktopPerformanceMode(room)
   const devices = useAudioDevices(room)
   const microphoneProcessing = useMicrophoneProcessing(room)
   const chat = useRoomChat(room)

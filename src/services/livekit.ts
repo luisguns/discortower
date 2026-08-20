@@ -21,11 +21,23 @@ export const createRoomInviteUrl = (roomCode: string) => {
   const normalizedRoom = normalizeRoomCode(roomCode)
   if (typeof window === 'undefined') return `?room=${encodeURIComponent(normalizedRoom)}`
 
-  const url = new URL(window.location.href)
+  const url = new URL(
+    window.fordKallDesktop ? 'https://fordkall.11a3.dev/' : window.location.href,
+  )
   url.search = ''
   url.searchParams.set('room', normalizedRoom)
   url.hash = ''
   return url.toString()
+}
+
+export const replaceRoomCodeInCurrentUrl = (roomCode: string) => {
+  if (typeof window === 'undefined') return
+  const normalizedRoom = normalizeRoomCode(roomCode)
+  const url = new URL(window.location.href)
+  url.search = ''
+  if (normalizedRoom) url.searchParams.set('room', normalizedRoom)
+  url.hash = ''
+  window.history.replaceState(null, '', url)
 }
 
 const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'

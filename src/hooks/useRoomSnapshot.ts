@@ -15,6 +15,12 @@ export const useRoomSnapshot = (room: Room) => {
 
   useEffect(() => {
     const refresh = () => setRevision((current) => current + 1)
+    const refreshActiveSpeakers = () => {
+      if (!document.hidden) refresh()
+    }
+    const refreshWhenVisible = () => {
+      if (!document.hidden) refresh()
+    }
 
     room.on(RoomEvent.ParticipantConnected, refresh)
     room.on(RoomEvent.ParticipantDisconnected, refresh)
@@ -27,8 +33,9 @@ export const useRoomSnapshot = (room: Room) => {
     room.on(RoomEvent.TrackUnmuted, refresh)
     room.on(RoomEvent.LocalTrackPublished, refresh)
     room.on(RoomEvent.LocalTrackUnpublished, refresh)
-    room.on(RoomEvent.ActiveSpeakersChanged, refresh)
+    room.on(RoomEvent.ActiveSpeakersChanged, refreshActiveSpeakers)
     room.on(RoomEvent.ParticipantNameChanged, refresh)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
 
     return () => {
       room.off(RoomEvent.ParticipantConnected, refresh)
@@ -42,8 +49,9 @@ export const useRoomSnapshot = (room: Room) => {
       room.off(RoomEvent.TrackUnmuted, refresh)
       room.off(RoomEvent.LocalTrackPublished, refresh)
       room.off(RoomEvent.LocalTrackUnpublished, refresh)
-      room.off(RoomEvent.ActiveSpeakersChanged, refresh)
+      room.off(RoomEvent.ActiveSpeakersChanged, refreshActiveSpeakers)
       room.off(RoomEvent.ParticipantNameChanged, refresh)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
     }
   }, [room])
 

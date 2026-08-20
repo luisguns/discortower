@@ -1,18 +1,35 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CallScreen } from './components/Call/CallScreen'
 import { Lobby } from './components/Lobby/Lobby'
 import { useLiveKitRoom } from './hooks/useLiveKitRoom'
-import { createRoomInviteUrl } from './services/livekit'
+import { getRoomCodeFromUrl, replaceRoomCodeInCurrentUrl } from './services/livekit'
 
 function App() {
   const liveKit = useLiveKitRoom()
-  const [roomCode, setRoomCode] = useState('')
+  const [roomCode, setRoomCode] = useState(getRoomCodeFromUrl)
+
+  useEffect(() => {
+    const desktop = window.fordKallDesktop
+    if (!desktop) return
+    desktop.setInCall(Boolean(liveKit.room))
+    return () => desktop.setInCall(false)
+  }, [liveKit.room])
+
+  useEffect(() => {
+    const desktop = window.fordKallDesktop
+    if (!desktop) return
+    return desktop.onOpenRoom((nextRoomCode) => {
+      if (liveKit.room) return
+      setRoomCode(nextRoomCode)
+      replaceRoomCodeInCurrentUrl(nextRoomCode)
+    })
+  }, [liveKit.room])
 
   const join = async (displayName: string, nextRoomCode: string) => {
     const connected = await liveKit.join(nextRoomCode, displayName)
     if (connected) {
       setRoomCode(nextRoomCode)
-      window.history.replaceState(null, '', createRoomInviteUrl(nextRoomCode))
+      replaceRoomCodeInCurrentUrl(nextRoomCode)
     }
     return connected
   }
@@ -34,6 +51,7 @@ function App() {
   return (
     <Lobby
       connectionError={liveKit.error}
+      initialRoomCode={roomCode}
       onJoin={join}
       status={liveKit.status}
     />

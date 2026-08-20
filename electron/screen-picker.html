@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Escolher o que compartilhar · Ford Kall</title>
+    <link rel="stylesheet" href="screen-picker.css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand-mark" aria-hidden="true">FK</div>
+      <div>
+        <small>TRANSMISSÃO</small>
+        <h1>O que você quer compartilhar?</h1>
+        <p>Escolha uma tela inteira ou apenas a janela do jogo.</p>
+      </div>
+    </header>
+
+    <main>
+      <div class="source-tabs" aria-label="Filtrar fontes">
+        <button class="is-active" data-filter="all" type="button">Tudo</button>
+        <button data-filter="screen" type="button">Telas</button>
+        <button data-filter="window" type="button">Janelas</button>
+      </div>
+      <section class="source-grid" id="source-grid" aria-live="polite">
+        <div class="loading"><i></i> Procurando telas e janelas…</div>
+      </section>
+    </main>
+
+    <footer>
+      <label class="audio-option">
+        <input id="with-audio" type="checkbox" checked />
+        <span>
+          <strong>Compartilhar áudio do sistema</strong>
+          <small id="audio-description">Inclui o som do jogo. O Ford Kall tenta remover o próprio áudio da call.</small>
+        </span>
+      </label>
+      <button class="cancel-button" id="cancel" type="button">Cancelar</button>
+    </footer>
+
+    <script src="screen-picker.js"></script>
+  </body>
+</html>
