@@ -8,6 +8,7 @@ import {
 import { primeCallSounds } from '../../services/callSounds'
 import { getDisplayName } from '../../storage/preferences'
 import type { ConnectionStatus } from '../../types'
+import { BrandMark } from '../ui/BrandMark'
 import { Icon } from '../ui/Icon'
 
 interface LobbyProps {
@@ -62,7 +63,7 @@ export const Lobby = ({ status, connectionError, onJoin }: LobbyProps) => {
       <div className="lobby-grid" aria-hidden="true" />
       <section className="lobby-card" aria-labelledby="lobby-title">
         <div className="brand brand--large">
-          <span className="brand__mark">FK</span>
+          <BrandMark />
           <div>
             <p className="brand__eyebrow">PRIVATE COMMS</p>
             <h1 id="lobby-title">FORD KALL</h1>

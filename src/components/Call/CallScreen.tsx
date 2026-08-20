@@ -28,6 +28,7 @@ import { GalleryLayoutMenu } from '../Participants/GalleryLayoutMenu'
 import { ParticipantList } from '../Participants/ParticipantList'
 import { ScreenShareStage } from '../ScreenShare/ScreenShareStage'
 import { SettingsModal } from '../Settings/SettingsModal'
+import { BrandMark } from '../ui/BrandMark'
 import { Icon, type IconName } from '../ui/Icon'
 
 interface CallScreenProps {
@@ -308,7 +309,7 @@ export const CallScreen = ({
     <main className="call-shell">
       <header className="call-header">
         <div className="brand brand--compact">
-          <span className="brand__mark">FK</span>
+          <BrandMark />
           <h1>FORD KALL</h1>
         </div>
 

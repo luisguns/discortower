@@ -50,14 +50,54 @@ const tone = (
   oscillator.stop(start + duration + 0.02)
 }
 
+const hornVoice = (
+  context: AudioContext,
+  frequency: number,
+  start: number,
+  duration: number,
+  volume: number,
+) => {
+  const reed = context.createOscillator()
+  const harmonic = context.createOscillator()
+  const harmonicGain = context.createGain()
+  const filter = context.createBiquadFilter()
+  const gain = context.createGain()
+
+  reed.type = 'sawtooth'
+  harmonic.type = 'square'
+  reed.frequency.setValueAtTime(frequency * 0.96, start)
+  reed.frequency.exponentialRampToValueAtTime(frequency, start + 0.022)
+  harmonic.frequency.setValueAtTime(frequency * 2, start)
+  harmonicGain.gain.setValueAtTime(0.13, start)
+  filter.type = 'lowpass'
+  filter.frequency.setValueAtTime(1_650, start)
+  filter.Q.setValueAtTime(0.8, start)
+
+  gain.gain.setValueAtTime(0.0001, start)
+  gain.gain.exponentialRampToValueAtTime(volume, start + 0.012)
+  gain.gain.setValueAtTime(volume, start + duration - 0.065)
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration)
+
+  reed.connect(filter)
+  harmonic.connect(harmonicGain)
+  harmonicGain.connect(filter)
+  filter.connect(gain)
+  gain.connect(context.destination)
+  reed.start(start)
+  harmonic.start(start)
+  reed.stop(start + duration + 0.02)
+  harmonic.stop(start + duration + 0.02)
+}
+
 const playPattern = (context: AudioContext, sound: CallSound) => {
   const now = context.currentTime + 0.015
 
   switch (sound) {
     case 'join':
-      tone(context, 392, now, 0.17, 0.045, 'triangle')
-      tone(context, 523.25, now + 0.105, 0.23, 0.052, 'triangle')
-      tone(context, 659.25, now + 0.105, 0.23, 0.018, 'sine')
+      // Compact dual-tone car horn: obvious enough to land the Ford Kall joke,
+      // short and filtered enough not to punish everyone already in the room.
+      hornVoice(context, 370, now, 0.34, 0.034)
+      hornVoice(context, 466.16, now, 0.34, 0.029)
       break
     case 'leave':
       tone(context, 523.25, now, 0.17, 0.043, 'triangle')
