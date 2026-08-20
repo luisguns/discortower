@@ -16,6 +16,7 @@ const path = require('node:path')
 const APP_ID = 'dev.11a3.fordkall'
 const APP_SCHEME = 'fordkall-app'
 const APP_ORIGIN = `${APP_SCHEME}://app`
+const PICKER_ORIGIN = `${APP_SCHEME}://picker`
 const PUBLIC_APP_URL = 'https://fordkall.11a3.dev/'
 const DEV_SERVER_URL = 'http://127.0.0.1:5173'
 const isDevelopment = process.argv.includes('--dev') || !app.isPackaged
@@ -147,14 +148,24 @@ const contentTypeFor = (filePath) => {
 
 const installAppProtocol = () => {
   const rendererRoot = path.resolve(app.getAppPath(), 'dist')
+  const pickerRoot = path.resolve(app.getAppPath(), 'electron')
   protocol.handle(APP_SCHEME, async (request) => {
     try {
       const url = new URL(request.url)
-      let pathname = decodeURIComponent(url.pathname)
-      if (!pathname || pathname === '/') pathname = '/index.html'
+      const resourceRoot = url.hostname === 'app'
+        ? rendererRoot
+        : url.hostname === 'picker'
+          ? pickerRoot
+          : null
+      if (!resourceRoot) return new Response('Not found', { status: 404 })
 
-      const filePath = path.resolve(rendererRoot, `.${pathname}`)
-      if (filePath !== rendererRoot && !filePath.startsWith(`${rendererRoot}${path.sep}`)) {
+      let pathname = decodeURIComponent(url.pathname)
+      if (!pathname || pathname === '/') {
+        pathname = url.hostname === 'picker' ? '/screen-picker.html' : '/index.html'
+      }
+
+      const filePath = path.resolve(resourceRoot, `.${pathname}`)
+      if (filePath !== resourceRoot && !filePath.startsWith(`${resourceRoot}${path.sep}`)) {
         return new Response('Not found', { status: 404 })
       }
 
@@ -164,14 +175,21 @@ const installAppProtocol = () => {
         'Cross-Origin-Resource-Policy': 'same-site',
       })
       if (path.extname(filePath).toLowerCase() === '.html') {
-        headers.set(
-          'Content-Security-Policy',
-          "default-src 'self'; connect-src 'self' https: wss:; img-src 'self' data: blob:; media-src 'self' blob:; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; worker-src 'self' blob:; frame-src 'self' blob: about:; object-src 'none'; base-uri 'self'; form-action 'self'",
-        )
-        headers.set(
-          'Permissions-Policy',
-          'camera=(self), microphone=(self), display-capture=(self), fullscreen=(self), picture-in-picture=(self)',
-        )
+        if (url.hostname === 'app') {
+          headers.set(
+            'Content-Security-Policy',
+            "default-src 'self'; connect-src 'self' https: wss:; img-src 'self' data: blob:; media-src 'self' blob:; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; worker-src 'self' blob:; frame-src 'self' blob: about:; object-src 'none'; base-uri 'self'; form-action 'self'",
+          )
+          headers.set(
+            'Permissions-Policy',
+            'camera=(self), microphone=(self), display-capture=(self), fullscreen=(self), picture-in-picture=(self)',
+          )
+        } else {
+          headers.set(
+            'Content-Security-Policy',
+            "default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'",
+          )
+        }
       }
       return new Response(data, { status: 200, headers })
     } catch {
@@ -234,8 +252,33 @@ const openCapturePicker = async () => {
   pickerWindow.once('closed', () => {
     if (activePicker?.window === pickerWindow) finishPicker(null)
   })
-  await pickerWindow.loadFile(path.join(__dirname, 'screen-picker.html'))
+  pickerWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  pickerWindow.webContents.on('will-navigate', (event, url) => {
+    const allowedUrl = isDevelopment
+      ? url.startsWith('file:')
+      : url.startsWith(`${PICKER_ORIGIN}/`)
+    if (!allowedUrl) event.preventDefault()
+  })
+
+  try {
+    if (isDevelopment) {
+      await pickerWindow.loadFile(path.join(__dirname, 'screen-picker.html'))
+    } else {
+      await pickerWindow.loadURL(`${PICKER_ORIGIN}/screen-picker.html`)
+    }
+  } catch (error) {
+    if (activePicker?.window === pickerWindow) finishPicker(null)
+    throw error
+  }
   return result
+}
+
+const rejectDisplayRequest = (callback) => {
+  try {
+    void Promise.resolve(callback({})).catch(() => undefined)
+  } catch {
+    // The renderer receives NotAllowedError when Chromium rejects the request.
+  }
 }
 
 const installCapturePicker = () => {
@@ -295,15 +338,20 @@ const installSessionSecurity = () => {
   })
 
   appSession.setDisplayMediaRequestHandler(async (request, callback) => {
-    if (!isTrustedRendererUrl(request.securityOrigin)) {
-      callback({})
+    const trusted = hasTrustedRendererUrl(
+      request.securityOrigin,
+      request.frame?.url,
+      request.frame?.origin,
+    )
+    if (!trusted) {
+      rejectDisplayRequest(callback)
       return
     }
 
     try {
       const selection = await openCapturePicker()
       if (!selection) {
-        callback({})
+        rejectDisplayRequest(callback)
         return
       }
 
@@ -312,7 +360,7 @@ const installSessionSecurity = () => {
         ...(request.audioRequested && selection.withAudio ? { audio: 'loopback' } : {}),
       })
     } catch {
-      callback({})
+      rejectDisplayRequest(callback)
     }
   })
 }

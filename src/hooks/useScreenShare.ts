@@ -98,7 +98,10 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
     setIsStarting(true)
     setError('')
     const { preset } = streamQualityPresets[quality]
-    const restoreDisplayMedia = preferIsolatedWindowAudio()
+    const isDesktopApp = Boolean(window.fordKallDesktop)
+    const restoreDisplayMedia = isDesktopApp
+      ? () => undefined
+      : preferIsolatedWindowAudio()
     const shareOperation = room.localParticipant.setScreenShareEnabled(
       true,
       {
@@ -130,14 +133,21 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
         (shareError: unknown) => ({ kind: 'error' as const, shareError }),
       ),
       new Promise<{ kind: 'timeout' }>((resolve) => {
-        timeoutId = window.setTimeout(() => resolve({ kind: 'timeout' }), 15_000)
+        timeoutId = window.setTimeout(
+          () => resolve({ kind: 'timeout' }),
+          isDesktopApp ? 120_000 : 15_000,
+        )
       }),
     ])
     restoreDisplayMedia()
 
     if (outcome.kind === 'timeout') {
       setIsStarting(false)
-      setError('O Chrome não concluiu o seletor de tela. Feche a janela de seleção ou pressione Esc; o botão já foi liberado.')
+      setError(
+        isDesktopApp
+          ? 'O seletor do Ford Kall não concluiu a captura. Feche a janela de seleção e tente novamente.'
+          : 'O Chrome não concluiu o seletor de tela. Feche a janela de seleção ou pressione Esc; o botão já foi liberado.',
+      )
 
       // Browsers do not expose a way to cancel a getDisplayMedia prompt. If it
       // eventually resolves, immediately unpublish it so a timed-out request
