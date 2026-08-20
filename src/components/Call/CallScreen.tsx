@@ -84,15 +84,22 @@ const ControlButton = ({
 const Notice = ({
   children,
   warning = false,
+  actionLabel,
+  onAction,
   onClose,
 }: {
   children: React.ReactNode
   warning?: boolean
+  actionLabel?: string
+  onAction?: () => void
   onClose: () => void
 }) => (
   <div className={`notice ${warning ? 'notice--warning' : ''}`} role={warning ? 'alert' : 'status'}>
     <Icon name="warning" />
     <span>{children}</span>
+    {actionLabel && onAction && (
+      <button className="notice__action" onClick={onAction} type="button">{actionLabel}</button>
+    )}
     <button aria-label="Fechar aviso" onClick={onClose} title="Fechar aviso" type="button">
       <Icon name="x" />
     </button>
@@ -214,7 +221,11 @@ export const CallScreen = ({
       playCallSound(enabling ? 'unmute' : 'mute')
     } catch (error) {
       if (error instanceof DOMException && error.name === 'NotAllowedError') {
-        onMicrophoneErrorChange('Permissão do microfone negada. Libere o acesso no navegador.')
+        onMicrophoneErrorChange(
+          window.fordKallDesktop?.platform === 'win32'
+            ? 'Permissão do microfone negada. Libere o acesso no Windows e tente novamente.'
+            : 'Permissão do microfone negada. Libere o acesso no navegador.',
+        )
       } else {
         onMicrophoneErrorChange('Não foi possível alterar o estado do microfone.')
       }
@@ -463,7 +474,23 @@ export const CallScreen = ({
 
       <div className="call-notices" aria-live="polite">
         {microphoneError && (
-          <Notice onClose={() => onMicrophoneErrorChange('')} warning>{microphoneError}</Notice>
+          <Notice
+            actionLabel={
+              window.fordKallDesktop?.platform === 'win32' &&
+              microphoneError.includes('Permissão')
+                ? 'Abrir permissões'
+                : undefined
+            }
+            onAction={
+              microphoneError.includes('Permissão')
+                ? window.fordKallDesktop?.openMicrophoneSettings
+                : undefined
+            }
+            onClose={() => onMicrophoneErrorChange('')}
+            warning
+          >
+            {microphoneError}
+          </Notice>
         )}
         {cameraError && (
           <Notice onClose={() => setCameraError('')} warning>{cameraError}</Notice>

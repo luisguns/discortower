@@ -18,6 +18,7 @@ interface FordKallDesktopApi {
   readonly isDesktop: true
   readonly platform: string
   minimize: () => void
+  openMicrophoneSettings: () => void
   setInCall: (inCall: boolean) => void
   getInfo: () => Promise<FordKallDesktopInfo | null>
   onOpenRoom: (listener: (roomCode: string) => void) => () => void

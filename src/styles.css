@@ -3558,6 +3558,18 @@ svg {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.notice > .notice__action {
+  display: inline-flex;
+  width: auto;
+  height: 30px;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  font: 700 9px/1 var(--font-mono);
+  white-space: nowrap;
+}
+
 .stream-stage__message button svg,
 .notice > button svg {
   width: 13px;
@@ -3629,7 +3641,7 @@ svg {
 
 .notice {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
   pointer-events: auto;
 }

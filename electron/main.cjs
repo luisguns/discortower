@@ -111,14 +111,21 @@ const iconPath = () => app.isPackaged
 const isTrustedRendererUrl = (value) => {
   try {
     const url = new URL(value)
+    if (!isDevelopment && url.protocol === `${APP_SCHEME}:` && url.hostname === 'app') {
+      return true
+    }
     if (isDevelopment) {
       return url.origin === DEV_SERVER_URL || url.origin === 'http://localhost:5173'
     }
-    return url.origin === APP_ORIGIN
+    return false
   } catch {
     return false
   }
 }
+
+const hasTrustedRendererUrl = (...values) => values.some((value) =>
+  typeof value === 'string' && isTrustedRendererUrl(value),
+)
 
 const contentTypeFor = (filePath) => {
   const extension = path.extname(filePath).toLowerCase()
@@ -269,18 +276,22 @@ const installSessionSecurity = () => {
   ])
 
   appSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
-    const requestingUrl =
-      details.requestingUrl ||
-      details.securityOrigin ||
-      requestingOrigin ||
-      webContents?.getURL() ||
-      ''
-    return allowedPermissions.has(permission) && isTrustedRendererUrl(requestingUrl)
+    const trusted = hasTrustedRendererUrl(
+      details.requestingUrl,
+      details.securityOrigin,
+      requestingOrigin,
+      webContents?.getURL(),
+    )
+    return allowedPermissions.has(permission) && trusted
   })
 
   appSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
-    const requestingUrl = details.requestingUrl || webContents.getURL()
-    callback(allowedPermissions.has(permission) && isTrustedRendererUrl(requestingUrl))
+    const trusted = hasTrustedRendererUrl(
+      details.requestingUrl,
+      details.securityOrigin,
+      webContents.getURL(),
+    )
+    callback(allowedPermissions.has(permission) && trusted)
   })
 
   appSession.setDisplayMediaRequestHandler(async (request, callback) => {
@@ -316,6 +327,13 @@ const installRendererIpc = () => {
   ipcMain.on('desktop:minimize', (event) => {
     if (!mainWindow || event.sender !== mainWindow.webContents) return
     mainWindow.minimize()
+  })
+
+  ipcMain.on('desktop:open-microphone-settings', (event) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents) return
+    if (process.platform === 'win32') {
+      void shell.openExternal('ms-settings:privacy-microphone')
+    }
   })
 
   ipcMain.handle('desktop:get-info', (event) => {

@@ -125,7 +125,9 @@ export const friendlyConnectionError = (error: unknown) => {
 
 export const friendlyMicrophoneError = (error: unknown) => {
   if (error instanceof DOMException && error.name === 'NotAllowedError') {
-    return 'Permissão do microfone negada. Você entrou apenas para ouvir.'
+    return window.fordKallDesktop?.platform === 'win32'
+      ? 'Permissão do microfone negada. Libere o acesso no Windows e clique no microfone para tentar novamente.'
+      : 'Permissão do microfone negada. Você entrou apenas para ouvir.'
   }
   if (error instanceof DOMException && error.name === 'NotFoundError') {
     return 'Nenhum microfone foi encontrado neste dispositivo.'
