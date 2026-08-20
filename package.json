@@ -2,7 +2,7 @@
   "name": "ford-kall",
   "productName": "Ford Kall",
   "private": true,
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Call privada de voz, camera e compartilhamento de tela entre amigos.",
   "author": "Matheus Torres",
   "homepage": "https://fordkall.11a3.dev/",
@@ -16,7 +16,7 @@
     "desktop:dev": "concurrently --kill-others --success first \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron . --dev\"",
     "build": "tsc -b && vite build",
     "desktop:pack": "npm run build && electron-builder --dir",
-    "desktop:dist:windows": "npm run build && electron-builder --win nsis portable --x64",
+    "desktop:dist:windows": "npm run build && electron-builder --win nsis portable --x64 --publish never",
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false"
   },
