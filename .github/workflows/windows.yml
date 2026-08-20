@@ -26,7 +26,16 @@ jobs:
         run: npm ci
 
       - name: Build installer and portable app
-        run: npm run desktop:dist:windows
+        shell: pwsh
+        run: |
+          npm run desktop:dist:windows 2>&1 | Tee-Object -FilePath desktop-build.log
+          $desktopExitCode = $LASTEXITCODE
+          if ($desktopExitCode -ne 0) {
+            $desktopError = (Get-Content desktop-build.log -Tail 40) -join "`n"
+            $desktopError = $desktopError.Replace("%", "%25").Replace("`r", "%0D").Replace("`n", "%0A")
+            Write-Output "::error title=Windows desktop packaging failed::$desktopError"
+            exit $desktopExitCode
+          }
         env:
           VITE_LIVEKIT_TOKEN_SERVER_ID: ${{ vars.VITE_LIVEKIT_TOKEN_SERVER_ID }}
 
