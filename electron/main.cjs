@@ -6,10 +6,12 @@ const {
   Menu,
   nativeImage,
   protocol,
+  screen,
   session,
   shell,
   Tray,
 } = require('electron')
+const { spawn } = require('node:child_process')
 const fs = require('node:fs/promises')
 const path = require('node:path')
 
@@ -17,6 +19,7 @@ const APP_ID = 'dev.11a3.fordkall'
 const APP_SCHEME = 'fordkall-app'
 const APP_ORIGIN = `${APP_SCHEME}://app`
 const PICKER_ORIGIN = `${APP_SCHEME}://picker`
+const OVERLAY_ORIGIN = `${APP_SCHEME}://overlay`
 const PUBLIC_APP_URL = 'https://fordkall.11a3.dev/'
 const DEV_SERVER_URL = 'http://127.0.0.1:5173'
 const isDevelopment = process.argv.includes('--dev') || !app.isPackaged
@@ -28,6 +31,12 @@ let isInCall = false
 let trayHintShown = false
 let pendingRoomCode = ''
 let activePicker = null
+let overlayWindow = null
+let overlayTargetBounds = null
+let gameWatcher = null
+let gameWatcherBuffer = ''
+let gameWatcherRestartTimer = null
+let overlayState = { enabled: false, participants: [] }
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -148,20 +157,24 @@ const contentTypeFor = (filePath) => {
 
 const installAppProtocol = () => {
   const rendererRoot = path.resolve(app.getAppPath(), 'dist')
-  const pickerRoot = path.resolve(app.getAppPath(), 'electron')
+  const electronRoot = path.resolve(app.getAppPath(), 'electron')
   protocol.handle(APP_SCHEME, async (request) => {
     try {
       const url = new URL(request.url)
       const resourceRoot = url.hostname === 'app'
         ? rendererRoot
-        : url.hostname === 'picker'
-          ? pickerRoot
+        : url.hostname === 'picker' || url.hostname === 'overlay'
+          ? electronRoot
           : null
       if (!resourceRoot) return new Response('Not found', { status: 404 })
 
       let pathname = decodeURIComponent(url.pathname)
       if (!pathname || pathname === '/') {
-        pathname = url.hostname === 'picker' ? '/screen-picker.html' : '/index.html'
+        pathname = url.hostname === 'picker'
+          ? '/screen-picker.html'
+          : url.hostname === 'overlay'
+            ? '/game-overlay.html'
+            : '/index.html'
       }
 
       const filePath = path.resolve(resourceRoot, `.${pathname}`)
@@ -212,6 +225,9 @@ const openCapturePicker = async () => {
   const ownSourceIds = new Set()
   if (mainWindow && !mainWindow.isDestroyed()) {
     ownSourceIds.add(mainWindow.getMediaSourceId())
+  }
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    ownSourceIds.add(overlayWindow.getMediaSourceId())
   }
 
   const sources = (await desktopCapturer.getSources({
@@ -365,11 +381,275 @@ const installSessionSecurity = () => {
   })
 }
 
+const excludedOverlayProcesses = new Set([
+  'applicationframehost',
+  'brave',
+  'chrome',
+  'code',
+  'discord',
+  'dwm',
+  'electron',
+  'explorer',
+  'firefox',
+  'ford kall',
+  'msedge',
+  'opera',
+  'searchhost',
+  'shellexperiencehost',
+  'startmenuexperiencehost',
+  'vivaldi',
+])
+
+const foregroundWatcherScript = String.raw`
+$source = @'
+using System;
+using System.Runtime.InteropServices;
+public static class FordKallForegroundWindow {
+  [StructLayout(LayoutKind.Sequential)]
+  public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr handle, out RECT rect);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
+}
+'@
+Add-Type -TypeDefinition $source
+while ($true) {
+  $handle = [FordKallForegroundWindow]::GetForegroundWindow()
+  $rect = New-Object FordKallForegroundWindow+RECT
+  $processId = [uint32]0
+  if ($handle -ne [IntPtr]::Zero -and [FordKallForegroundWindow]::GetWindowRect($handle, [ref]$rect)) {
+    [void][FordKallForegroundWindow]::GetWindowThreadProcessId($handle, [ref]$processId)
+    $processName = ''
+    try { $processName = (Get-Process -Id $processId -ErrorAction Stop).ProcessName } catch {}
+    [PSCustomObject]@{
+      x = $rect.Left
+      y = $rect.Top
+      width = $rect.Right - $rect.Left
+      height = $rect.Bottom - $rect.Top
+      process = $processName
+    } | ConvertTo-Json -Compress
+  }
+  Start-Sleep -Milliseconds 850
+}
+`
+
+const sanitizeOverlayState = (value) => ({
+  enabled: value?.enabled === true,
+  participants: Array.isArray(value?.participants)
+    ? value.participants.slice(0, 8).map((participant, index) => ({
+        id: String(participant?.id || index).slice(0, 128),
+        name: String(participant?.name || 'Participante').slice(0, 64),
+        isLocal: participant?.isLocal === true,
+        muted: participant?.muted !== false,
+        speaking: participant?.speaking === true,
+      }))
+    : [],
+})
+
+const destroyGameOverlay = () => {
+  overlayTargetBounds = null
+  if (!overlayWindow || overlayWindow.isDestroyed()) {
+    overlayWindow = null
+    return
+  }
+  const window = overlayWindow
+  overlayWindow = null
+  window.destroy()
+}
+
+const ensureGameOverlay = () => {
+  if (overlayWindow && !overlayWindow.isDestroyed()) return overlayWindow
+
+  const window = new BrowserWindow({
+    width: 320,
+    height: 420,
+    show: false,
+    frame: false,
+    transparent: true,
+    focusable: false,
+    resizable: false,
+    movable: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    roundedCorners: false,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      preload: path.join(__dirname, 'overlay-preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      backgroundThrottling: false,
+    },
+  })
+  overlayWindow = window
+  window.setAlwaysOnTop(true, 'screen-saver', 1)
+  window.setIgnoreMouseEvents(true, { forward: false })
+  window.setContentProtection(true)
+  window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  window.webContents.on('will-navigate', (event, url) => {
+    const allowedUrl = isDevelopment
+      ? url.startsWith('file:')
+      : url.startsWith(`${OVERLAY_ORIGIN}/`)
+    if (!allowedUrl) event.preventDefault()
+  })
+  window.webContents.on('did-finish-load', () => {
+    if (window.isDestroyed()) return
+    window.webContents.send('game-overlay:state', overlayState)
+    if (overlayTargetBounds) {
+      window.setBounds(overlayTargetBounds)
+      window.showInactive()
+      window.moveTop()
+    }
+  })
+  window.on('closed', () => {
+    if (overlayWindow === window) overlayWindow = null
+  })
+
+  if (isDevelopment) {
+    void window.loadFile(path.join(__dirname, 'game-overlay.html'))
+  } else {
+    void window.loadURL(`${OVERLAY_ORIGIN}/game-overlay.html`)
+  }
+  return window
+}
+
+const hideGameOverlay = () => {
+  overlayTargetBounds = null
+  if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.hide()
+}
+
+const showGameOverlay = (display) => {
+  const rowCount = Math.max(1, Math.min(8, overlayState.participants.length))
+  overlayTargetBounds = {
+    x: display.bounds.x + 12,
+    y: display.bounds.y + 12,
+    width: 320,
+    height: Math.min(430, 20 + rowCount * 49),
+  }
+  const window = ensureGameOverlay()
+  window.webContents.send('game-overlay:state', overlayState)
+  window.setBounds(overlayTargetBounds)
+  if (!window.webContents.isLoading()) {
+    window.showInactive()
+    window.moveTop()
+  }
+}
+
+const updateOverlayForForegroundWindow = (foreground) => {
+  if (!overlayState.enabled || !isInCall || !overlayState.participants.length) {
+    hideGameOverlay()
+    return
+  }
+
+  const bounds = {
+    x: Math.round(Number(foreground?.x) || 0),
+    y: Math.round(Number(foreground?.y) || 0),
+    width: Math.max(0, Math.round(Number(foreground?.width) || 0)),
+    height: Math.max(0, Math.round(Number(foreground?.height) || 0)),
+  }
+  const processName = String(foreground?.process || '').toLocaleLowerCase()
+  if (!bounds.width || !bounds.height || excludedOverlayProcesses.has(processName)) {
+    hideGameOverlay()
+    return
+  }
+
+  const display = screen.getDisplayMatching(bounds)
+  const widthCoverage = bounds.width / display.bounds.width
+  const heightCoverage = bounds.height / display.bounds.height
+  const nearDisplayOrigin =
+    Math.abs(bounds.x - display.bounds.x) <= 40 &&
+    Math.abs(bounds.y - display.bounds.y) <= 40
+  const isFullscreenOrBorderless =
+    nearDisplayOrigin && widthCoverage >= 0.9 && heightCoverage >= 0.88
+
+  if (isFullscreenOrBorderless) showGameOverlay(display)
+  else hideGameOverlay()
+}
+
+const stopGameWatcher = () => {
+  if (gameWatcherRestartTimer) {
+    clearTimeout(gameWatcherRestartTimer)
+    gameWatcherRestartTimer = null
+  }
+  if (gameWatcher) {
+    const watcher = gameWatcher
+    gameWatcher = null
+    watcher.kill()
+  }
+  gameWatcherBuffer = ''
+  hideGameOverlay()
+}
+
+const shouldRunGameWatcher = () =>
+  process.platform === 'win32' && overlayState.enabled && isInCall
+
+const startGameWatcher = () => {
+  if (!shouldRunGameWatcher() || gameWatcher) return
+  const watcher = spawn('powershell.exe', [
+    '-NoLogo',
+    '-NoProfile',
+    '-NonInteractive',
+    '-WindowStyle',
+    'Hidden',
+    '-Command',
+    foregroundWatcherScript,
+  ], {
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'ignore'],
+  })
+  gameWatcher = watcher
+
+  watcher.stdout.setEncoding('utf8')
+  watcher.stdout.on('data', (chunk) => {
+    gameWatcherBuffer += chunk
+    const lines = gameWatcherBuffer.split(/\r?\n/)
+    gameWatcherBuffer = lines.pop() || ''
+    lines.forEach((line) => {
+      try {
+        updateOverlayForForegroundWindow(JSON.parse(line))
+      } catch {
+        // Ignore incomplete or unexpected PowerShell output.
+      }
+    })
+  })
+  watcher.on('error', () => undefined)
+  watcher.on('close', () => {
+    if (gameWatcher === watcher) gameWatcher = null
+    hideGameOverlay()
+    if (shouldRunGameWatcher() && !gameWatcherRestartTimer) {
+      gameWatcherRestartTimer = setTimeout(() => {
+        gameWatcherRestartTimer = null
+        startGameWatcher()
+      }, 2000)
+    }
+  })
+}
+
+const syncGameOverlayRuntime = () => {
+  if (shouldRunGameWatcher()) {
+    startGameWatcher()
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send('game-overlay:state', overlayState)
+    }
+    return
+  }
+  stopGameWatcher()
+  destroyGameOverlay()
+}
+
 const installRendererIpc = () => {
   ipcMain.on('desktop:set-in-call', (event, value) => {
     if (!mainWindow || event.sender !== mainWindow.webContents) return
     isInCall = value === true
     rebuildTrayMenu()
+    syncGameOverlayRuntime()
+  })
+
+  ipcMain.on('desktop:set-game-overlay-state', (event, value) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents) return
+    overlayState = sanitizeOverlayState(value)
+    syncGameOverlayRuntime()
   })
 
   ipcMain.on('desktop:minimize', (event) => {
@@ -550,6 +830,8 @@ app.whenReady().then(async () => {
 app.on('before-quit', () => {
   isQuitting = true
   if (activePicker) finishPicker(null)
+  stopGameWatcher()
+  destroyGameOverlay()
 })
 
 app.on('window-all-closed', () => {

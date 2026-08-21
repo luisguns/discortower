@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { RoomEvent, type Room } from 'livekit-client'
 import { useAudioDevices } from '../../hooks/useAudioDevices'
+import { useDesktopGameOverlay } from '../../hooks/useDesktopGameOverlay'
 import { useDesktopPerformanceMode } from '../../hooks/useDesktopPerformanceMode'
+import { useMicrophoneMonitor } from '../../hooks/useMicrophoneMonitor'
 import { useRoomSnapshot } from '../../hooks/useRoomSnapshot'
 import { microphoneCaptureOptions, useMicrophoneProcessing } from '../../hooks/useMicrophoneProcessing'
 import { useRoomChat } from '../../hooks/useRoomChat'
@@ -10,9 +12,11 @@ import { playCallSound, primeCallSounds } from '../../services/callSounds'
 import { createRoomInviteUrl, streamQualityPresets } from '../../services/livekit'
 import {
   getCallSoundsEnabled,
+  getGameOverlayEnabled,
   getGalleryLayout,
   getStreamQuality,
   saveCallSoundsEnabled,
+  saveGameOverlayEnabled,
   saveGalleryLayout,
   saveStreamQuality,
 } from '../../storage/preferences'
@@ -127,9 +131,15 @@ export const CallScreen = ({
   useDesktopPerformanceMode(room)
   const devices = useAudioDevices(room)
   const microphoneProcessing = useMicrophoneProcessing(room)
+  const microphoneMonitor = useMicrophoneMonitor(
+    room,
+    devices.preferences.voiceOutputId,
+    `${devices.selectedInput}:${microphoneProcessing.noiseSuppression}`,
+  )
   const chat = useRoomChat(room)
   const [deafened, setDeafened] = useState(false)
   const [callSoundsEnabled, setCallSoundsEnabled] = useState(getCallSoundsEnabled)
+  const [gameOverlayEnabled, setGameOverlayEnabled] = useState(getGameOverlayEnabled)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [quality, setQuality] = useState<StreamQualityId>(getStreamQuality)
   const [galleryLayout, setGalleryLayout] = useState<GalleryLayoutMode>(getGalleryLayout)
@@ -150,6 +160,7 @@ export const CallScreen = ({
   const screenShare = useScreenShare(room, quality)
   const micEnabled = room.localParticipant.isMicrophoneEnabled
   const cameraEnabled = room.localParticipant.isCameraEnabled
+  useDesktopGameOverlay(room, gameOverlayEnabled)
 
   useEffect(() => {
     const handleParticipantConnected = () => playCallSound('join')
@@ -265,6 +276,11 @@ export const CallScreen = ({
       primeCallSounds()
       playCallSound('unmute')
     }
+  }
+
+  const changeGameOverlay = (enabled: boolean) => {
+    saveGameOverlayEnabled(enabled)
+    setGameOverlayEnabled(enabled)
   }
 
   const toggleDeafen = () => {
@@ -498,6 +514,9 @@ export const CallScreen = ({
         {microphoneProcessing.error && (
           <Notice onClose={microphoneProcessing.clearError} warning>{microphoneProcessing.error}</Notice>
         )}
+        {microphoneMonitor.error && (
+          <Notice onClose={microphoneMonitor.clearError} warning>{microphoneMonitor.error}</Notice>
+        )}
         {screenShare.error && (
           <Notice onClose={screenShare.clearError} warning>{screenShare.error}</Notice>
         )}
@@ -574,9 +593,12 @@ export const CallScreen = ({
         <SettingsModal
           callSoundsEnabled={callSoundsEnabled}
           devices={devices}
+          gameOverlayEnabled={gameOverlayEnabled}
+          microphoneMonitor={microphoneMonitor}
           microphoneProcessing={microphoneProcessing}
           onCallSoundsChange={changeCallSounds}
           onClose={() => setSettingsOpen(false)}
+          onGameOverlayChange={changeGameOverlay}
           onQualityChange={changeQuality}
           quality={quality}
         />

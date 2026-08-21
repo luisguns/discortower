@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('fordKallDesktop', {
   minimize: () => ipcRenderer.send('desktop:minimize'),
   openMicrophoneSettings: () => ipcRenderer.send('desktop:open-microphone-settings'),
   setInCall: (inCall) => ipcRenderer.send('desktop:set-in-call', inCall === true),
+  setGameOverlayState: (state) => ipcRenderer.send('desktop:set-game-overlay-state', state),
   getInfo: () => ipcRenderer.invoke('desktop:get-info'),
   onOpenRoom: (listener) => {
     const wrappedListener = (_event, roomCode) => listener(roomCode)

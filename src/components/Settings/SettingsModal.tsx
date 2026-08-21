@@ -1,19 +1,24 @@
 import { useEffect } from 'react'
 import type { useAudioDevices } from '../../hooks/useAudioDevices'
+import type { useMicrophoneMonitor } from '../../hooks/useMicrophoneMonitor'
 import type { useMicrophoneProcessing } from '../../hooks/useMicrophoneProcessing'
 import { streamQualityPresets } from '../../services/livekit'
 import type { StreamQualityId } from '../../types'
 import { Icon } from '../ui/Icon'
 
 type AudioDevicesState = ReturnType<typeof useAudioDevices>
+type MicrophoneMonitorState = ReturnType<typeof useMicrophoneMonitor>
 type MicrophoneProcessingState = ReturnType<typeof useMicrophoneProcessing>
 
 interface SettingsModalProps {
   devices: AudioDevicesState
+  gameOverlayEnabled: boolean
+  microphoneMonitor: MicrophoneMonitorState
   microphoneProcessing: MicrophoneProcessingState
   callSoundsEnabled: boolean
   quality: StreamQualityId
   onCallSoundsChange: (enabled: boolean) => void
+  onGameOverlayChange: (enabled: boolean) => void
   onQualityChange: (quality: StreamQualityId) => void
   onClose: () => void
 }
@@ -23,10 +28,13 @@ const deviceName = (device: MediaDeviceInfo, index: number, fallback: string) =>
 
 export const SettingsModal = ({
   devices,
+  gameOverlayEnabled,
+  microphoneMonitor,
   microphoneProcessing,
   callSoundsEnabled,
   quality,
   onCallSoundsChange,
+  onGameOverlayChange,
   onQualityChange,
   onClose,
 }: SettingsModalProps) => {
@@ -101,6 +109,37 @@ export const SettingsModal = ({
           {!microphoneProcessing.supported && (
             <div className="settings-note"><Icon name="warning" />Este navegador não expõe supressão de ruído configurável.</div>
           )}
+          <label className={`setting-switch ${!microphoneMonitor.supported ? 'is-disabled' : ''}`}>
+            <span>
+              <strong>Ouvir meu microfone</strong>
+              <small>Retorno local para testar exatamente a captura com os filtros atuais.</small>
+            </span>
+            <input
+              checked={microphoneMonitor.enabled}
+              disabled={!microphoneMonitor.supported}
+              onChange={(event) => microphoneMonitor.setEnabled(event.target.checked)}
+              type="checkbox"
+            />
+            <i aria-hidden="true" />
+          </label>
+          {microphoneMonitor.enabled && (
+            <div className="monitor-control">
+              <label htmlFor="microphone-monitor-volume">
+                <span>Volume do retorno</span>
+                <output>{Math.round(microphoneMonitor.volume * 100)}%</output>
+              </label>
+              <input
+                id="microphone-monitor-volume"
+                max="2"
+                min="0"
+                onChange={(event) => microphoneMonitor.setVolume(Number(event.target.value))}
+                step="0.05"
+                type="range"
+                value={microphoneMonitor.volume}
+              />
+              <small>Use fones: caixas de som podem causar microfonia. O áudio fica neste dispositivo e não usa dados do LiveKit.</small>
+            </div>
+          )}
         </div>
 
         <div className="settings-section">
@@ -172,9 +211,37 @@ export const SettingsModal = ({
           </label>
         </div>
 
+        {window.fordKallDesktop?.platform === 'win32' && (
+          <div className="settings-section">
+            <div className="settings-section__heading">
+              <span>04</span>
+              <div>
+                <h3>Overlay nos jogos</h3>
+                <p>Presença da call por cima do jogo.</p>
+              </div>
+            </div>
+            <label className="setting-switch">
+              <span>
+                <strong>Mostrar participantes</strong>
+                <small>Exibe nome, microfone e quem está falando em jogos fullscreen ou borderless.</small>
+              </span>
+              <input
+                checked={gameOverlayEnabled}
+                onChange={(event) => onGameOverlayChange(event.target.checked)}
+                type="checkbox"
+              />
+              <i aria-hidden="true" />
+            </label>
+            <div className="settings-note">
+              <Icon name="warning" />
+              Overlay transparente e sem cliques. Alguns jogos em fullscreen exclusivo ou com anti-cheat podem cobri-lo.
+            </div>
+          </div>
+        )}
+
         <div className="settings-section">
           <div className="settings-section__heading">
-            <span>04</span>
+            <span>{window.fordKallDesktop?.platform === 'win32' ? '05' : '04'}</span>
             <div>
               <h3>Qualidade da transmissão</h3>
               <p>A configuração será aplicada na próxima transmissão.</p>
@@ -200,8 +267,8 @@ export const SettingsModal = ({
           </div>
         </div>
 
-        {(devices.error || microphoneProcessing.error) && (
-          <div className="inline-error">{devices.error || microphoneProcessing.error}</div>
+        {(devices.error || microphoneProcessing.error || microphoneMonitor.error) && (
+          <div className="inline-error">{devices.error || microphoneProcessing.error || microphoneMonitor.error}</div>
         )}
       </section>
     </div>

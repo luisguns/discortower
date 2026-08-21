@@ -12,6 +12,8 @@ const QUALITY_KEY = 'ford-kall:stream-quality'
 const NOISE_SUPPRESSION_KEY = 'ford-kall:noise-suppression'
 const GALLERY_LAYOUT_KEY = 'ford-kall:gallery-layout'
 const CALL_SOUNDS_KEY = 'ford-kall:call-sounds'
+const MICROPHONE_MONITOR_VOLUME_KEY = 'ford-kall:microphone-monitor-volume'
+const GAME_OVERLAY_KEY = 'ford-kall:game-overlay'
 
 export const MAX_PARTICIPANT_VOLUME = 4
 export const PARTICIPANT_VOLUME_EVENT = 'ford-kall:participant-volume'
@@ -127,3 +129,18 @@ export const getCallSoundsEnabled = () => safeRead(CALL_SOUNDS_KEY) !== 'false'
 
 export const saveCallSoundsEnabled = (enabled: boolean) =>
   safeWrite(CALL_SOUNDS_KEY, String(enabled))
+
+export const getMicrophoneMonitorVolume = () => {
+  const raw = safeRead(MICROPHONE_MONITOR_VOLUME_KEY)
+  if (raw === null) return 1
+  const stored = Number(raw)
+  return Number.isFinite(stored) ? Math.min(2, Math.max(0, stored)) : 1
+}
+
+export const saveMicrophoneMonitorVolume = (volume: number) =>
+  safeWrite(MICROPHONE_MONITOR_VOLUME_KEY, String(Math.min(2, Math.max(0, volume))))
+
+export const getGameOverlayEnabled = () => safeRead(GAME_OVERLAY_KEY) === 'true'
+
+export const saveGameOverlayEnabled = (enabled: boolean) =>
+  safeWrite(GAME_OVERLAY_KEY, String(enabled))
