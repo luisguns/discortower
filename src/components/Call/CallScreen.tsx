@@ -309,7 +309,6 @@ export const CallScreen = ({
   }
 
   const leaveCall = async () => {
-    playCallSound('leave')
     try {
       if (screenShare.isSharing) await screenShare.stop()
     } finally {
