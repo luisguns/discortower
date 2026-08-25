@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Room } from 'livekit-client'
 import type { ChatMessage } from '../types'
+import { participantAvatarFromMetadata } from '../services/profile'
 
 const TEXT_TOPIC = 'ford-kall.chat.text.v1'
 const IMAGE_TOPIC = 'ford-kall.chat.image.v1'
@@ -60,6 +61,7 @@ export const useRoomChat = (room: Room) => {
             kind: 'text',
             senderIdentity: participantInfo.identity,
             senderName: participant?.name || participantInfo.identity,
+            senderAvatarUrl: participantAvatarFromMetadata(participant?.metadata),
             isLocal: false,
             sentAt: reader.info.timestamp || Date.now(),
             text: cleanText,
@@ -106,6 +108,7 @@ export const useRoomChat = (room: Room) => {
             kind: 'image',
             senderIdentity: participantInfo.identity,
             senderName: participant?.name || participantInfo.identity,
+            senderAvatarUrl: participantAvatarFromMetadata(participant?.metadata),
             isLocal: false,
             sentAt: reader.info.timestamp || Date.now(),
             imageUrl: url,
@@ -145,6 +148,7 @@ export const useRoomChat = (room: Room) => {
           kind: 'text',
           senderIdentity: room.localParticipant.identity,
           senderName: room.localParticipant.name || room.localParticipant.identity,
+          senderAvatarUrl: participantAvatarFromMetadata(room.localParticipant.metadata),
           isLocal: true,
           sentAt: info.timestamp || Date.now(),
           text,
@@ -179,6 +183,7 @@ export const useRoomChat = (room: Room) => {
         kind: 'image',
         senderIdentity: room.localParticipant.identity,
         senderName: room.localParticipant.name || room.localParticipant.identity,
+        senderAvatarUrl: participantAvatarFromMetadata(room.localParticipant.metadata),
         isLocal: true,
         sentAt: Date.now(),
         imageUrl,

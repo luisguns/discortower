@@ -1,6 +1,8 @@
 import { Track, type Participant, type Room } from 'livekit-client'
 import type { ContextMenuPoint, RemoteVoice } from '../../types'
+import { participantAvatarFromMetadata } from '../../services/profile'
 import { Icon } from '../ui/Icon'
+import { ProfileAvatar } from '../ui/ProfileAvatar'
 
 interface ParticipantListProps {
   room: Room
@@ -12,9 +14,6 @@ interface ParticipantListProps {
   onParticipantMenu: (participantId: string, point: ContextMenuPoint) => void
 }
 
-const initials = (name: string) =>
-  name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('')
-
 const menuPoint = (element: HTMLElement): ContextMenuPoint => {
   const rect = element.getBoundingClientRect()
   return { x: rect.left - 306, y: rect.top }
@@ -23,6 +22,7 @@ const menuPoint = (element: HTMLElement): ContextMenuPoint => {
 const ParticipantRow = ({
   id,
   name,
+  avatarDataUrl,
   detail,
   muted,
   speaking,
@@ -30,6 +30,7 @@ const ParticipantRow = ({
 }: {
   id: string
   name: string
+  avatarDataUrl?: string
   detail: string
   muted: boolean
   speaking: boolean
@@ -46,7 +47,7 @@ const ParticipantRow = ({
       title="Abrir controles · clique ou botão direito"
       type="button"
     >
-      <span className="participant__avatar">{initials(name)}</span>
+      <ProfileAvatar avatarDataUrl={avatarDataUrl} className="participant__avatar" name={name} />
       <span className="participant__identity"><strong>{name}</strong><small>{speaking ? 'Falando agora' : detail}</small></span>
       <span className={`participant__mic ${muted ? 'participant__mic--muted' : ''}`}><Icon name={muted ? 'micOff' : 'mic'} /></span>
     </button>
@@ -79,6 +80,7 @@ export const ParticipantList = ({
       <ul className="participants-list">
         <ParticipantRow
           detail="Você"
+          avatarDataUrl={participantAvatarFromMetadata(local.metadata)}
           id={local.identity}
           muted={localMuted}
           name={localName}
@@ -90,6 +92,7 @@ export const ParticipantList = ({
           return (
             <ParticipantRow
               detail={voice.track ? 'Na call' : 'Sem microfone'}
+              avatarDataUrl={participantAvatarFromMetadata(voice.participant.metadata)}
               id={voice.participant.identity}
               key={voice.id}
               muted={voice.muted}

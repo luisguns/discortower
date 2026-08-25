@@ -3,6 +3,7 @@ import { CallScreen } from './components/Call/CallScreen'
 import { Lobby } from './components/Lobby/Lobby'
 import { useLiveKitRoom } from './hooks/useLiveKitRoom'
 import { getRoomCodeFromUrl, replaceRoomCodeInCurrentUrl } from './services/livekit'
+import type { LocalProfile } from './types'
 
 function App() {
   const liveKit = useLiveKitRoom()
@@ -25,8 +26,8 @@ function App() {
     })
   }, [liveKit.room])
 
-  const join = async (displayName: string, nextRoomCode: string) => {
-    const connected = await liveKit.join(nextRoomCode, displayName)
+  const join = async (profile: LocalProfile, nextRoomCode: string) => {
+    const connected = await liveKit.join(nextRoomCode, profile)
     if (connected) {
       setRoomCode(nextRoomCode)
       replaceRoomCodeInCurrentUrl(nextRoomCode)

@@ -36,8 +36,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          # Web-only LiveKit project. The Windows workflow intentionally keeps
-          # using the repository variable until the desktop client is rebuilt.
+          # Keep the production web build pinned to the active Ford Kall project.
           VITE_LIVEKIT_TOKEN_SERVER_ID: fordkall2-u7op7p
 
       - name: Upload artifact

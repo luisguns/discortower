@@ -1,4 +1,5 @@
 const container = document.querySelector('#participants')
+const participantRows = new Map()
 
 const initialsFor = (name) => name
   .trim()
@@ -11,15 +12,24 @@ const initialsFor = (name) => name
 
 const render = (state) => {
   container.replaceChildren()
+  participantRows.clear()
   const participants = Array.isArray(state?.participants) ? state.participants.slice(0, 8) : []
 
   participants.forEach((participant) => {
     const row = document.createElement('section')
     row.className = `participant${participant.speaking ? ' is-speaking' : ''}`
+    participantRows.set(participant.id, row)
 
     const avatar = document.createElement('span')
     avatar.className = 'avatar'
-    avatar.textContent = initialsFor(participant.name || '')
+    if (participant.avatarDataUrl) {
+      const image = document.createElement('img')
+      image.alt = ''
+      image.src = participant.avatarDataUrl
+      avatar.append(image)
+    } else {
+      avatar.textContent = initialsFor(participant.name || '')
+    }
 
     const name = document.createElement('strong')
     name.className = 'name'
@@ -45,6 +55,12 @@ const render = (state) => {
 
 if (window.fordKallOverlay) {
   window.fordKallOverlay.onState(render)
+  window.fordKallOverlay.onSpeakers((participantIds) => {
+    const activeIds = new Set(Array.isArray(participantIds) ? participantIds : [])
+    participantRows.forEach((row, participantId) => {
+      row.classList.toggle('is-speaking', activeIds.has(participantId))
+    })
+  })
 } else if (new URLSearchParams(window.location.search).has('preview')) {
   render({
     participants: [

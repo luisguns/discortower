@@ -17,6 +17,7 @@ interface FordKallDesktopInfo {
 interface FordKallOverlayParticipant {
   id: string
   name: string
+  avatarDataUrl?: string
   isLocal: boolean
   muted: boolean
   speaking: boolean
@@ -34,6 +35,7 @@ interface FordKallDesktopApi {
   openMicrophoneSettings: () => void
   setInCall: (inCall: boolean) => void
   setGameOverlayState: (state: FordKallOverlayState) => void
+  setGameOverlaySpeakers: (participantIds: string[]) => void
   getInfo: () => Promise<FordKallDesktopInfo | null>
   onOpenRoom: (listener: (roomCode: string) => void) => () => void
 }

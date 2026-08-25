@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import {
   generateRoomCode,
   getRoomCodeFromUrl,
@@ -6,22 +6,32 @@ import {
   normalizeRoomCode,
 } from '../../services/livekit'
 import { primeCallSounds } from '../../services/callSounds'
-import { getDisplayName } from '../../storage/preferences'
-import type { ConnectionStatus } from '../../types'
+import {
+  MAX_PROFILE_GIF_BYTES,
+  prepareProfileAvatar,
+} from '../../services/profile'
+import { getLocalProfile, saveLocalProfile } from '../../storage/preferences'
+import type { ConnectionStatus, LocalProfile } from '../../types'
 import { BrandMark } from '../ui/BrandMark'
 import { Icon } from '../ui/Icon'
+import { ProfileAvatar } from '../ui/ProfileAvatar'
 
 interface LobbyProps {
   status: ConnectionStatus
   connectionError: string
   initialRoomCode: string
-  onJoin: (displayName: string, roomCode: string) => Promise<boolean>
+  onJoin: (profile: LocalProfile, roomCode: string) => Promise<boolean>
 }
 
 export const Lobby = ({ status, connectionError, initialRoomCode, onJoin }: LobbyProps) => {
-  const [displayName, setDisplayName] = useState(getDisplayName)
+  const initialProfile = getLocalProfile()
+  const [displayName, setDisplayName] = useState(initialProfile.displayName)
+  const [avatarDataUrl, setAvatarDataUrl] = useState(initialProfile.avatarDataUrl)
   const [roomCode, setRoomCode] = useState(() => initialRoomCode || getRoomCodeFromUrl())
   const [validationError, setValidationError] = useState('')
+  const [profileError, setProfileError] = useState('')
+  const [preparingAvatar, setPreparingAvatar] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
   const connecting = status === 'connecting' || status === 'reconnecting'
 
   useEffect(() => {
@@ -41,12 +51,14 @@ export const Lobby = ({ status, connectionError, initialRoomCode, onJoin }: Lobb
     setValidationError('')
     setDisplayName(normalizedName)
     setRoomCode(normalizedRoom)
+    const profile = { displayName: normalizedName, avatarDataUrl }
+    saveLocalProfile(profile)
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur()
     }
     window.scrollTo({ top: 0, behavior: 'instant' })
     primeCallSounds()
-    await onJoin(normalizedName, normalizedRoom)
+    await onJoin(profile, normalizedRoom)
   }
 
   const submit = async (event: FormEvent) => {
@@ -62,6 +74,26 @@ export const Lobby = ({ status, connectionError, initialRoomCode, onJoin }: Lobb
   }
 
   const createRoom = async () => joinRoom(generateRoomCode())
+
+  const selectAvatar = async (file: File) => {
+    setPreparingAvatar(true)
+    setProfileError('')
+    try {
+      const nextAvatar = await prepareProfileAvatar(file)
+      setAvatarDataUrl(nextAvatar)
+      saveLocalProfile({ displayName, avatarDataUrl: nextAvatar })
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : 'Não foi possível usar essa imagem.')
+    } finally {
+      setPreparingAvatar(false)
+    }
+  }
+
+  const removeAvatar = () => {
+    setAvatarDataUrl(undefined)
+    setProfileError('')
+    saveLocalProfile({ displayName })
+  }
 
   return (
     <main className="lobby-shell">
@@ -82,6 +114,42 @@ export const Lobby = ({ status, connectionError, initialRoomCode, onJoin }: Lobb
         </div>
 
         <form onSubmit={submit} noValidate>
+          <div className="profile-editor">
+            <input
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              aria-label="Escolher foto de perfil"
+              hidden
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                if (file) void selectAvatar(file)
+                event.target.value = ''
+              }}
+              ref={avatarInputRef}
+              type="file"
+            />
+            <button
+              aria-label={avatarDataUrl ? 'Trocar foto de perfil' : 'Adicionar foto de perfil'}
+              className="profile-editor__avatar"
+              disabled={connecting || preparingAvatar}
+              onClick={() => avatarInputRef.current?.click()}
+              type="button"
+            >
+              <ProfileAvatar avatarDataUrl={avatarDataUrl} name={displayName || 'Você'} />
+              <span className="profile-editor__badge"><Icon name="image" /></span>
+            </button>
+            <div className="profile-editor__copy">
+              <span>Seu perfil local</span>
+              <strong>{displayName.trim() || 'Escolha seu nome'}</strong>
+              <small>PNG, JPG e WEBP são otimizados. GIF animado até {MAX_PROFILE_GIF_BYTES / 1024} KB.</small>
+              <div>
+                <button disabled={connecting || preparingAvatar} onClick={() => avatarInputRef.current?.click()} type="button">
+                  {preparingAvatar ? 'Preparando…' : avatarDataUrl ? 'Trocar imagem' : 'Adicionar imagem'}
+                </button>
+                {avatarDataUrl && <button onClick={removeAvatar} type="button">Remover</button>}
+              </div>
+            </div>
+          </div>
+
           <label className="field">
             <span>Seu nome</span>
             <input
@@ -93,6 +161,13 @@ export const Lobby = ({ status, connectionError, initialRoomCode, onJoin }: Lobb
               value={displayName}
             />
           </label>
+
+          {profileError && (
+            <div className="inline-error" role="alert">
+              <Icon name="warning" />
+              <span>{profileError}</span>
+            </div>
+          )}
 
           <label className="field">
             <span>Código da sala</span>

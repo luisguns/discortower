@@ -2,10 +2,12 @@ import type {
   AudioChannel,
   DevicePreferences,
   GalleryLayoutMode,
+  LocalProfile,
   StreamQualityId,
 } from '../types'
 
 const DISPLAY_NAME_KEY = 'ford-kall:display-name'
+const LOCAL_PROFILE_KEY = 'ford-kall:local-profile'
 const VOLUMES_KEY = 'ford-kall:participant-volumes'
 const DEVICES_KEY = 'ford-kall:devices'
 const QUALITY_KEY = 'ford-kall:stream-quality'
@@ -36,9 +38,37 @@ const safeWrite = (key: string, value: string) => {
   }
 }
 
-export const getDisplayName = () => safeRead(DISPLAY_NAME_KEY) ?? ''
+export const getLocalProfile = (): LocalProfile => {
+  const stored = safeRead(LOCAL_PROFILE_KEY)
+  if (stored) {
+    try {
+      const parsed: unknown = JSON.parse(stored)
+      if (parsed && typeof parsed === 'object') {
+        const profile = parsed as Partial<LocalProfile>
+        return {
+          displayName: typeof profile.displayName === 'string' ? profile.displayName : '',
+          avatarDataUrl: typeof profile.avatarDataUrl === 'string'
+            ? profile.avatarDataUrl
+            : undefined,
+        }
+      }
+    } catch {
+      // Fall through to the legacy display-name preference.
+    }
+  }
+  return { displayName: safeRead(DISPLAY_NAME_KEY) ?? '' }
+}
 
-export const saveDisplayName = (name: string) => safeWrite(DISPLAY_NAME_KEY, name)
+export const saveLocalProfile = (profile: LocalProfile) => {
+  safeWrite(LOCAL_PROFILE_KEY, JSON.stringify(profile))
+  safeWrite(DISPLAY_NAME_KEY, profile.displayName)
+}
+
+export const getDisplayName = () => getLocalProfile().displayName
+
+export const saveDisplayName = (name: string) => {
+  saveLocalProfile({ ...getLocalProfile(), displayName: name })
+}
 
 const volumeKey = (participantName: string, channel: AudioChannel) =>
   `${participantName.trim().toLocaleLowerCase()}:${channel}`

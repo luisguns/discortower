@@ -5,6 +5,8 @@ import {
   type TokenSourceResponseObject,
 } from 'livekit-client'
 import type { StreamQualityId } from '../types'
+import type { LocalProfile } from '../types'
+import { serializeParticipantProfile } from './profile'
 
 export const normalizeDisplayName = (value: string) => value.trim().replace(/\s+/g, ' ')
 
@@ -71,7 +73,7 @@ export const createLiveKitRoom = () =>
 
 export const fetchConnectionDetails = async (
   roomCode: string,
-  displayName: string,
+  profile: LocalProfile,
 ): Promise<TokenSourceResponseObject> => {
   const tokenServerId = import.meta.env.VITE_LIVEKIT_TOKEN_SERVER_ID?.trim()
   if (!tokenServerId) {
@@ -81,8 +83,9 @@ export const fetchConnectionDetails = async (
   const tokenSource = TokenSource.developmentTokenServer(tokenServerId)
   return tokenSource.fetch({
     roomName: roomCode,
-    participantName: displayName,
-    participantIdentity: createParticipantIdentity(displayName),
+    participantName: profile.displayName,
+    participantIdentity: createParticipantIdentity(profile.displayName),
+    participantMetadata: serializeParticipantProfile(profile),
   })
 }
 

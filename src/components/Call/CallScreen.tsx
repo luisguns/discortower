@@ -334,7 +334,7 @@ export const CallScreen = ({
     : undefined
 
   return (
-    <main className="call-shell">
+    <main className={`call-shell ${chatOpen ? 'call-shell--chat-open' : ''}`}>
       <header className="call-header">
         <div className="brand brand--compact">
           <BrandMark />
@@ -390,11 +390,11 @@ export const CallScreen = ({
           </button>
           <button
             aria-label={`Abrir chat${unreadMessages ? `, ${unreadMessages} novas mensagens` : ''}`}
-            className="participants-toggle chat-toggle"
+            className={`participants-toggle chat-toggle ${chatOpen ? 'is-active' : ''}`}
             onClick={() => {
               setLayoutMenuPoint(null)
               setParticipantsOpen(false)
-              setChatOpen(true)
+              setChatOpen((current) => !current)
               setUnreadMessages(0)
             }}
             type="button"
@@ -476,7 +476,6 @@ export const CallScreen = ({
         />
       )}
 
-      {chatOpen && <button aria-label="Fechar chat" className="participant-drawer-backdrop" onClick={() => setChatOpen(false)} type="button" />}
       <ChatPanel
         error={chat.error}
         messages={chat.messages}

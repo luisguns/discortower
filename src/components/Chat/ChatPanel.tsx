@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { ChatMessage } from '../../types'
 import { MAX_CHAT_IMAGE_SIZE } from '../../hooks/useRoomChat'
 import { Icon } from '../ui/Icon'
+import { ProfileAvatar } from '../ui/ProfileAvatar'
 
 interface ChatPanelProps {
   open: boolean
@@ -56,7 +57,14 @@ export const ChatPanel = ({
         )}
         {messages.map((message) => (
           <article className={`chat-message ${message.isLocal ? 'chat-message--local' : ''}`} key={message.id}>
-            <header><strong>{message.senderName}</strong><time>{messageTime(message.sentAt)}</time></header>
+            <header>
+              <ProfileAvatar
+                avatarDataUrl={message.senderAvatarUrl}
+                className="chat-message__avatar"
+                name={message.senderName}
+              />
+              <span><strong>{message.senderName}</strong><time>{messageTime(message.sentAt)}</time></span>
+            </header>
             {message.kind === 'text' ? (
               <p>{message.text}</p>
             ) : (

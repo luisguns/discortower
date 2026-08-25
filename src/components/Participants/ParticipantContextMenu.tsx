@@ -3,9 +3,7 @@ import { useParticipantVolume } from '../../hooks/useParticipantVolume'
 import type { ContextMenuPoint, ParticipantMedia, RemoteVoice } from '../../types'
 import { VolumeControl } from '../AudioControls/VolumeControl'
 import { Icon } from '../ui/Icon'
-
-const initials = (name: string) =>
-  name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('')
+import { ProfileAvatar } from '../ui/ProfileAvatar'
 
 export const ParticipantContextMenu = ({
   participant,
@@ -58,7 +56,11 @@ export const ParticipantContextMenu = ({
         style={{ left, top }}
       >
         <header>
-          <span className="context-menu__avatar">{initials(participant.name)}</span>
+          <ProfileAvatar
+            avatarDataUrl={participant.avatarDataUrl}
+            className="context-menu__avatar"
+            name={participant.name}
+          />
           <span><strong>{participant.name}</strong><small>{participant.isLocal ? 'Você' : voice?.track ? 'Na call' : 'Sem microfone ativo'}</small></span>
           <Icon name={participant.microphoneMuted ? 'micOff' : 'mic'} />
         </header>

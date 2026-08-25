@@ -19,6 +19,11 @@ export type GalleryLayoutMode = 'cinema' | 'expanded'
 
 export type AudioChannel = 'voice' | 'screen'
 
+export interface LocalProfile {
+  displayName: string
+  avatarDataUrl?: string
+}
+
 export interface RemoteVoice {
   id: string
   participant: RemoteParticipant
@@ -43,6 +48,7 @@ export interface ScreenShareLive {
 export interface ParticipantMedia {
   id: string
   name: string
+  avatarDataUrl?: string
   isLocal: boolean
   cameraTrack?: LocalVideoTrack | RemoteVideoTrack
   cameraEnabled: boolean
@@ -60,6 +66,7 @@ export interface ChatMessage {
   kind: 'text' | 'image'
   senderIdentity: string
   senderName: string
+  senderAvatarUrl?: string
   isLocal: boolean
   sentAt: number
   text?: string

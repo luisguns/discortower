@@ -6,8 +6,8 @@ import {
   friendlyConnectionError,
   friendlyMicrophoneError,
 } from '../services/livekit'
-import { saveDisplayName } from '../storage/preferences'
-import type { ConnectionStatus } from '../types'
+import { saveLocalProfile } from '../storage/preferences'
+import type { ConnectionStatus, LocalProfile } from '../types'
 import { microphoneCaptureOptions } from './useMicrophoneProcessing'
 
 const toConnectionStatus = (state: ConnectionState): ConnectionStatus => {
@@ -51,7 +51,7 @@ export const useLiveKitRoom = () => {
     leavingRef.current = false
   }, [])
 
-  const join = useCallback(async (roomCode: string, displayName: string) => {
+  const join = useCallback(async (roomCode: string, profile: LocalProfile) => {
     setError('')
     setMicrophoneError('')
     setStatus('connecting')
@@ -80,10 +80,10 @@ export const useLiveKitRoom = () => {
     try {
       const { serverUrl, participantToken } = await fetchConnectionDetails(
         roomCode,
-        displayName,
+        profile,
       )
       await nextRoom.connect(serverUrl, participantToken)
-      saveDisplayName(displayName)
+      saveLocalProfile(profile)
       setRoom(nextRoom)
       setStatus('connected')
 

@@ -9,6 +9,7 @@ import {
   type Room,
 } from 'livekit-client'
 import type { ParticipantMedia, RemoteVoice, ScreenShareLive } from '../types'
+import { participantAvatarFromMetadata } from '../services/profile'
 
 export const useRoomSnapshot = (room: Room) => {
   const [revision, setRevision] = useState(0)
@@ -35,6 +36,7 @@ export const useRoomSnapshot = (room: Room) => {
     room.on(RoomEvent.LocalTrackUnpublished, refresh)
     room.on(RoomEvent.ActiveSpeakersChanged, refreshActiveSpeakers)
     room.on(RoomEvent.ParticipantNameChanged, refresh)
+    room.on(RoomEvent.ParticipantMetadataChanged, refresh)
     document.addEventListener('visibilitychange', refreshWhenVisible)
 
     return () => {
@@ -51,6 +53,7 @@ export const useRoomSnapshot = (room: Room) => {
       room.off(RoomEvent.LocalTrackUnpublished, refresh)
       room.off(RoomEvent.ActiveSpeakersChanged, refreshActiveSpeakers)
       room.off(RoomEvent.ParticipantNameChanged, refresh)
+      room.off(RoomEvent.ParticipantMetadataChanged, refresh)
       document.removeEventListener('visibilitychange', refreshWhenVisible)
     }
   }, [room])
@@ -83,6 +86,7 @@ export const useRoomSnapshot = (room: Room) => {
       return {
         id: participant.identity,
         name: participant.name || participant.identity,
+        avatarDataUrl: participantAvatarFromMetadata(participant.metadata),
         isLocal: participant === room.localParticipant,
         cameraTrack:
           cameraTrack instanceof LocalVideoTrack || cameraTrack instanceof RemoteVideoTrack

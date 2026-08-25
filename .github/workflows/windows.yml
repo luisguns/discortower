@@ -37,7 +37,7 @@ jobs:
             exit $desktopExitCode
           }
         env:
-          VITE_LIVEKIT_TOKEN_SERVER_ID: ${{ vars.VITE_LIVEKIT_TOKEN_SERVER_ID }}
+          VITE_LIVEKIT_TOKEN_SERVER_ID: fordkall2-u7op7p
 
       - name: Upload Windows executables
         uses: actions/upload-artifact@v4

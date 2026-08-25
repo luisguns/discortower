@@ -439,6 +439,12 @@ const sanitizeOverlayState = (value) => ({
     ? value.participants.slice(0, 8).map((participant, index) => ({
         id: String(participant?.id || index).slice(0, 128),
         name: String(participant?.name || 'Participante').slice(0, 64),
+        avatarDataUrl:
+          typeof participant?.avatarDataUrl === 'string' &&
+          participant.avatarDataUrl.length <= 430_000 &&
+          /^data:image\/(?:gif|jpeg|png|webp);base64,[a-z0-9+/=]+$/i.test(participant.avatarDataUrl)
+            ? participant.avatarDataUrl
+            : undefined,
         isLocal: participant?.isLocal === true,
         muted: participant?.muted !== false,
         speaking: participant?.speaking === true,
@@ -528,7 +534,6 @@ const showGameOverlay = (display) => {
     height: Math.min(430, 20 + rowCount * 49),
   }
   const window = ensureGameOverlay()
-  window.webContents.send('game-overlay:state', overlayState)
   window.setBounds(overlayTargetBounds)
   if (!window.webContents.isLoading()) {
     window.showInactive()
@@ -650,6 +655,23 @@ const installRendererIpc = () => {
     if (!mainWindow || event.sender !== mainWindow.webContents) return
     overlayState = sanitizeOverlayState(value)
     syncGameOverlayRuntime()
+  })
+
+  ipcMain.on('desktop:set-game-overlay-speakers', (event, value) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents) return
+    const speakerIds = new Set(
+      Array.isArray(value) ? value.slice(0, 8).map((id) => String(id).slice(0, 128)) : [],
+    )
+    overlayState = {
+      ...overlayState,
+      participants: overlayState.participants.map((participant) => ({
+        ...participant,
+        speaking: speakerIds.has(participant.id),
+      })),
+    }
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send('game-overlay:speakers', [...speakerIds])
+    }
   })
 
   ipcMain.on('desktop:minimize', (event) => {

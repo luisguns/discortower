@@ -6,14 +6,7 @@ import type {
   ParticipantMedia,
 } from '../../types'
 import { Icon } from '../ui/Icon'
-
-const initials = (name: string) =>
-  name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('')
+import { ProfileAvatar } from '../ui/ProfileAvatar'
 
 const CameraRenderer = ({
   isLocal,
@@ -85,7 +78,11 @@ export const ParticipantGallery = ({
             {participant.cameraTrack && participant.cameraEnabled ? (
               <CameraRenderer isLocal={participant.isLocal} track={participant.cameraTrack} />
             ) : (
-              <div className="gallery-person__avatar"><span>{initials(participant.name)}</span></div>
+              <ProfileAvatar
+                avatarDataUrl={participant.avatarDataUrl}
+                className="gallery-person__avatar"
+                name={participant.name}
+              />
             )}
             <div className="gallery-person__meta">
               <strong>{participant.name}{participant.isLocal ? ' · Você' : ''}</strong>
