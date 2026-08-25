@@ -13,6 +13,35 @@ export const normalizeDisplayName = (value: string) => value.trim().replace(/\s+
 export const normalizeRoomCode = (value: string) =>
   value.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9_-]/g, '').toUpperCase()
 
+export const roomCodeFromInput = (value: string) => {
+  const trimmedValue = value.trim()
+  if (!trimmedValue) return ''
+
+  const roomQuery = trimmedValue.match(/[?&]room=([^&#]+)/i)?.[1]
+  if (roomQuery) {
+    try {
+      return normalizeRoomCode(decodeURIComponent(roomQuery))
+    } catch {
+      return normalizeRoomCode(roomQuery)
+    }
+  }
+
+  if (trimmedValue.toLocaleLowerCase().startsWith('fordkall://')) {
+    try {
+      const url = new URL(trimmedValue)
+      const explicitRoom = url.searchParams.get('room')
+      const routeRoom = url.hostname.toLocaleLowerCase() === 'join'
+        ? url.pathname.replace(/^\/+/, '')
+        : url.hostname
+      return normalizeRoomCode(explicitRoom || routeRoom)
+    } catch {
+      return ''
+    }
+  }
+
+  return normalizeRoomCode(trimmedValue)
+}
+
 export const getRoomCodeFromUrl = () => {
   if (typeof window === 'undefined') return ''
   const room = new URL(window.location.href).searchParams.get('room')
