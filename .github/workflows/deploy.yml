@@ -36,7 +36,9 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_LIVEKIT_TOKEN_SERVER_ID: ${{ vars.VITE_LIVEKIT_TOKEN_SERVER_ID }}
+          # Web-only LiveKit project. The Windows workflow intentionally keeps
+          # using the repository variable until the desktop client is rebuilt.
+          VITE_LIVEKIT_TOKEN_SERVER_ID: fordkall2-u7op7p
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
