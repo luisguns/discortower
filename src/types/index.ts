@@ -19,6 +19,32 @@ export type GalleryLayoutMode = 'cinema' | 'expanded'
 
 export type AudioChannel = 'voice' | 'screen'
 
+export type ShortcutAction =
+  | 'microphone'
+  | 'deafen'
+  | 'camera'
+  | 'screenShare'
+  | 'leave'
+
+export type ShortcutBindings = Record<ShortcutAction, string>
+
+export type AppUpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'downloading'
+  | 'ready'
+  | 'upToDate'
+  | 'error'
+  | 'unsupported'
+
+export interface AppUpdateState {
+  status: AppUpdateStatus
+  currentVersion: string
+  availableVersion?: string
+  percent?: number
+  message?: string
+}
+
 export interface LocalProfile {
   displayName: string
   avatarDataUrl?: string

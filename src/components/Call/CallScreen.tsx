@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { RoomEvent, type Room } from 'livekit-client'
 import { useAudioDevices } from '../../hooks/useAudioDevices'
+import { useAppUpdater } from '../../hooks/useAppUpdater'
+import { useCallShortcuts } from '../../hooks/useCallShortcuts'
 import { useDesktopGameOverlay } from '../../hooks/useDesktopGameOverlay'
 import { useDesktopPerformanceMode } from '../../hooks/useDesktopPerformanceMode'
 import { useMicrophoneMonitor } from '../../hooks/useMicrophoneMonitor'
@@ -158,6 +160,7 @@ export const CallScreen = ({
     point: ContextMenuPoint
   } | null>(null)
   const screenShare = useScreenShare(room, quality)
+  const updater = useAppUpdater()
   const micEnabled = room.localParticipant.isMicrophoneEnabled
   const cameraEnabled = room.localParticipant.isCameraEnabled
   useDesktopGameOverlay(room, gameOverlayEnabled)
@@ -221,6 +224,7 @@ export const CallScreen = ({
   }, [room])
 
   const toggleMicrophone = useCallback(async () => {
+    if (micBusy || microphoneStarting || status === 'reconnecting') return
     setMicBusy(true)
     try {
       const enabling = !room.localParticipant.isMicrophoneEnabled
@@ -243,9 +247,10 @@ export const CallScreen = ({
     } finally {
       setMicBusy(false)
     }
-  }, [onMicrophoneErrorChange, room])
+  }, [micBusy, microphoneStarting, onMicrophoneErrorChange, room, status])
 
   const toggleCamera = useCallback(async () => {
+    if (cameraBusy || status === 'reconnecting') return
     setCameraBusy(true)
     setCameraError('')
     try {
@@ -261,7 +266,7 @@ export const CallScreen = ({
     } finally {
       setCameraBusy(false)
     }
-  }, [room])
+  }, [cameraBusy, room, status])
 
   const changeQuality = (nextQuality: StreamQualityId) => {
     setQuality(nextQuality)
@@ -283,11 +288,13 @@ export const CallScreen = ({
     setGameOverlayEnabled(enabled)
   }
 
-  const toggleDeafen = () => {
-    const nextDeafened = !deafened
-    setDeafened(nextDeafened)
-    playCallSound(nextDeafened ? 'deafen' : 'undeafen')
-  }
+  const toggleDeafen = useCallback(() => {
+    setDeafened((current) => {
+      const next = !current
+      playCallSound(next ? 'deafen' : 'undeafen')
+      return next
+    })
+  }, [])
 
   const copyRoomCode = async () => {
     try {
@@ -308,13 +315,24 @@ export const CallScreen = ({
     }
   }
 
-  const leaveCall = async () => {
+  const leaveCall = useCallback(async () => {
     try {
       if (screenShare.isSharing) await screenShare.stop()
     } finally {
       await onLeave()
     }
-  }
+  }, [onLeave, screenShare])
+
+  const shortcuts = useCallShortcuts({
+    microphone: () => void toggleMicrophone(),
+    deafen: toggleDeafen,
+    camera: () => void toggleCamera(),
+    screenShare: () => {
+      if (screenShare.isStarting || status === 'reconnecting') return
+      void (screenShare.isSharing ? screenShare.stop() : screenShare.start())
+    },
+    leave: () => void leaveCall(),
+  }, !settingsOpen)
 
   const openParticipantMenu = (participantId: string, point: ContextMenuPoint) => {
     setLayoutMenuPoint(null)
@@ -599,6 +617,8 @@ export const CallScreen = ({
           onGameOverlayChange={changeGameOverlay}
           onQualityChange={changeQuality}
           quality={quality}
+          shortcuts={shortcuts}
+          updater={updater}
         />
       )}
     </main>

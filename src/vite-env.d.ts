@@ -36,8 +36,16 @@ interface FordKallDesktopApi {
   setInCall: (inCall: boolean) => void
   setGameOverlayState: (state: FordKallOverlayState) => void
   setGameOverlaySpeakers: (participantIds: string[]) => void
+  setShortcutBindings: (bindings: import('./types').ShortcutBindings) => void
+  setShortcutCaptureActive: (active: boolean) => void
+  getUpdateState: () => Promise<import('./types').AppUpdateState>
+  checkForUpdates: () => Promise<import('./types').AppUpdateState>
+  installUpdate: () => void
   getInfo: () => Promise<FordKallDesktopInfo | null>
   onOpenRoom: (listener: (roomCode: string) => void) => () => void
+  onShortcut: (listener: (action: import('./types').ShortcutAction) => void) => () => void
+  onShortcutStatus: (listener: (status: { failedActions: import('./types').ShortcutAction[] }) => void) => () => void
+  onUpdateState: (listener: (state: import('./types').AppUpdateState) => void) => () => void
 }
 
 interface Window {

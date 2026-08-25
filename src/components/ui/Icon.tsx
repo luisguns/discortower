@@ -15,12 +15,14 @@ export type IconName =
   | 'eyeOff'
   | 'headphones'
   | 'image'
+  | 'keyboard'
   | 'layout'
   | 'leave'
   | 'mic'
   | 'micOff'
   | 'pip'
   | 'popout'
+  | 'refresh'
   | 'screen'
   | 'send'
   | 'settings'
@@ -141,6 +143,12 @@ const paths: Record<IconName, React.ReactNode> = {
       <path d="m21 15-5-5L5 20" />
     </>
   ),
+  keyboard: (
+    <>
+      <rect width="20" height="15" x="2" y="5" rx="2" />
+      <path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M10 13h.01M14 13h.01M18 13h.01M7 17h10" />
+    </>
+  ),
   layout: (
     <>
       <rect width="20" height="18" x="2" y="3" rx="2" />
@@ -184,6 +192,12 @@ const paths: Record<IconName, React.ReactNode> = {
       <rect width="18" height="15" x="3" y="5" rx="2" />
       <path d="M14 3h7v7" />
       <path d="m13 11 8-8" />
+    </>
+  ),
+  refresh: (
+    <>
+      <path d="M20 11a8 8 0 1 0-2.3 5.7" />
+      <path d="M20 4v7h-7" />
     </>
   ),
   screen: (

@@ -3,6 +3,7 @@ import type {
   DevicePreferences,
   GalleryLayoutMode,
   LocalProfile,
+  ShortcutBindings,
   StreamQualityId,
 } from '../types'
 
@@ -16,6 +17,7 @@ const GALLERY_LAYOUT_KEY = 'ford-kall:gallery-layout'
 const CALL_SOUNDS_KEY = 'ford-kall:call-sounds'
 const MICROPHONE_MONITOR_VOLUME_KEY = 'ford-kall:microphone-monitor-volume'
 const GAME_OVERLAY_KEY = 'ford-kall:game-overlay'
+const SHORTCUT_BINDINGS_KEY = 'ford-kall:shortcut-bindings'
 
 export const MAX_PARTICIPANT_VOLUME = 4
 export const PARTICIPANT_VOLUME_EVENT = 'ford-kall:participant-volume'
@@ -174,3 +176,36 @@ export const getGameOverlayEnabled = () => safeRead(GAME_OVERLAY_KEY) === 'true'
 
 export const saveGameOverlayEnabled = (enabled: boolean) =>
   safeWrite(GAME_OVERLAY_KEY, String(enabled))
+
+const emptyShortcutBindings = (): ShortcutBindings => ({
+  microphone: '',
+  deafen: '',
+  camera: '',
+  screenShare: '',
+  leave: '',
+})
+
+export const getShortcutBindings = (): ShortcutBindings => {
+  const defaults = emptyShortcutBindings()
+  const stored = safeRead(SHORTCUT_BINDINGS_KEY)
+  if (!stored) return defaults
+
+  try {
+    const parsed: unknown = JSON.parse(stored)
+    if (!parsed || typeof parsed !== 'object') return defaults
+    const values = parsed as Partial<Record<keyof ShortcutBindings, unknown>>
+    return Object.fromEntries(
+      Object.keys(defaults).map((action) => [
+        action,
+        typeof values[action as keyof ShortcutBindings] === 'string'
+          ? String(values[action as keyof ShortcutBindings]).slice(0, 64)
+          : '',
+      ]),
+    ) as ShortcutBindings
+  } catch {
+    return defaults
+  }
+}
+
+export const saveShortcutBindings = (bindings: ShortcutBindings) =>
+  safeWrite(SHORTCUT_BINDINGS_KEY, JSON.stringify(bindings))

@@ -2,6 +2,7 @@ const {
   app,
   BrowserWindow,
   desktopCapturer,
+  globalShortcut,
   ipcMain,
   Menu,
   nativeImage,
@@ -11,6 +12,7 @@ const {
   shell,
   Tray,
 } = require('electron')
+const { autoUpdater } = require('electron-updater')
 const { spawn } = require('node:child_process')
 const fs = require('node:fs/promises')
 const path = require('node:path')
@@ -37,6 +39,13 @@ let gameWatcher = null
 let gameWatcherBuffer = ''
 let gameWatcherRestartTimer = null
 let overlayState = { enabled: false, participants: [] }
+let shortcutBindings = {}
+let shortcutCaptureActive = false
+let updateState = {
+  status: 'idle',
+  currentVersion: app.getVersion(),
+  message: 'Busque uma versão nova quando quiser.',
+}
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -643,12 +652,116 @@ const syncGameOverlayRuntime = () => {
   destroyGameOverlay()
 }
 
+const shortcutActions = ['microphone', 'deafen', 'camera', 'screenShare', 'leave']
+const shortcutPattern = /^(?:(?:Control|Alt|Shift|Super)\+)*(?:F(?:[1-9]|1\d|2[0-4])|[A-Z0-9]|Space|Up|Down|Left|Right|PageUp|PageDown|Home|End|Insert)$/
+
+const sanitizeShortcutBindings = (value) => Object.fromEntries(
+  shortcutActions.map((action) => {
+    const binding = typeof value?.[action] === 'string' ? value[action].slice(0, 64) : ''
+    return [action, shortcutPattern.test(binding) ? binding : '']
+  }),
+)
+
+const sendShortcutStatus = (failedActions = []) => {
+  if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isLoading()) return
+  mainWindow.webContents.send('desktop:shortcut-status', { failedActions })
+}
+
+const syncGlobalShortcuts = () => {
+  globalShortcut.unregisterAll()
+  if (!isInCall || shortcutCaptureActive) {
+    sendShortcutStatus([])
+    return
+  }
+
+  const failedActions = []
+  for (const action of shortcutActions) {
+    const binding = shortcutBindings[action]
+    if (!binding) continue
+    const registered = globalShortcut.register(binding, () => {
+      if (!mainWindow || mainWindow.isDestroyed()) return
+      mainWindow.webContents.send('desktop:shortcut', action)
+    })
+    if (!registered) failedActions.push(action)
+  }
+  sendShortcutStatus(failedActions)
+}
+
+const autoUpdateSupported = () =>
+  process.platform === 'win32' && app.isPackaged && !process.env.PORTABLE_EXECUTABLE_FILE
+
+const setUpdateState = (nextState) => {
+  updateState = {
+    currentVersion: app.getVersion(),
+    ...nextState,
+  }
+  if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isLoading()) {
+    mainWindow.webContents.send('desktop:update-state', updateState)
+  }
+}
+
+const configureAutoUpdater = () => {
+  if (!autoUpdateSupported()) {
+    setUpdateState({
+      status: 'unsupported',
+      message: process.env.PORTABLE_EXECUTABLE_FILE
+        ? 'A versão portátil não se atualiza sozinha. Instale a versão Setup para ativar updates.'
+        : 'A atualização automática fica disponível no aplicativo Windows instalado.',
+    })
+    return
+  }
+
+  autoUpdater.autoDownload = true
+  autoUpdater.autoInstallOnAppQuit = false
+  autoUpdater.allowPrerelease = false
+  autoUpdater.allowDowngrade = false
+  autoUpdater.disableWebInstaller = true
+
+  autoUpdater.on('checking-for-update', () => {
+    setUpdateState({ status: 'checking', message: 'Consultando as releases do Ford Kall…' })
+  })
+  autoUpdater.on('update-available', (info) => {
+    setUpdateState({
+      status: 'downloading',
+      availableVersion: info.version,
+      percent: 0,
+      message: `Baixando Ford Kall ${info.version}…`,
+    })
+  })
+  autoUpdater.on('download-progress', (progress) => {
+    setUpdateState({
+      status: 'downloading',
+      availableVersion: updateState.availableVersion,
+      percent: Math.max(0, Math.min(100, progress.percent)),
+      message: `Baixando atualização · ${Math.round(progress.percent)}%`,
+    })
+  })
+  autoUpdater.on('update-not-available', () => {
+    setUpdateState({ status: 'upToDate', message: 'Você já está na versão mais recente.' })
+  })
+  autoUpdater.on('update-downloaded', (info) => {
+    setUpdateState({
+      status: 'ready',
+      availableVersion: info.version,
+      percent: 100,
+      message: 'Atualização pronta. Instale para reiniciar com a versão nova.',
+    })
+  })
+  autoUpdater.on('error', () => {
+    setUpdateState({
+      status: 'error',
+      message: 'Não foi possível buscar ou baixar a atualização. Tente novamente em instantes.',
+    })
+  })
+}
+
 const installRendererIpc = () => {
   ipcMain.on('desktop:set-in-call', (event, value) => {
     if (!mainWindow || event.sender !== mainWindow.webContents) return
     isInCall = value === true
     rebuildTrayMenu()
     syncGameOverlayRuntime()
+    syncGlobalShortcuts()
   })
 
   ipcMain.on('desktop:set-game-overlay-state', (event, value) => {
@@ -674,6 +787,18 @@ const installRendererIpc = () => {
     }
   })
 
+  ipcMain.on('desktop:set-shortcut-bindings', (event, value) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents) return
+    shortcutBindings = sanitizeShortcutBindings(value)
+    syncGlobalShortcuts()
+  })
+
+  ipcMain.on('desktop:set-shortcut-capture-active', (event, value) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents) return
+    shortcutCaptureActive = value === true
+    syncGlobalShortcuts()
+  })
+
   ipcMain.on('desktop:minimize', (event) => {
     if (!mainWindow || event.sender !== mainWindow.webContents) return
     mainWindow.minimize()
@@ -693,6 +818,35 @@ const installRendererIpc = () => {
       version: app.getVersion(),
       publicAppUrl: PUBLIC_APP_URL,
     }
+  })
+
+  ipcMain.handle('desktop:get-update-state', (event) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents) return updateState
+    return updateState
+  })
+
+  ipcMain.handle('desktop:check-for-updates', async (event) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents) return updateState
+    if (!autoUpdateSupported()) return updateState
+    if (updateState.status === 'checking' || updateState.status === 'downloading') return updateState
+    setUpdateState({ status: 'checking', message: 'Consultando as releases do Ford Kall…' })
+    try {
+      await autoUpdater.checkForUpdates()
+    } catch {
+      setUpdateState({
+        status: 'error',
+        message: 'Não foi possível buscar a atualização. Confira sua conexão e tente novamente.',
+      })
+    }
+    return updateState
+  })
+
+  ipcMain.on('desktop:install-update', (event) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents) return
+    if (!autoUpdateSupported() || updateState.status !== 'ready') return
+    isQuitting = true
+    globalShortcut.unregisterAll()
+    autoUpdater.quitAndInstall(true, true)
   })
 }
 
@@ -835,6 +989,7 @@ app.whenReady().then(async () => {
   installCapturePicker()
   installRendererIpc()
   installSessionSecurity()
+  configureAutoUpdater()
   createTray()
 
   pendingRoomCode = findRoomCodeInArguments(process.argv)
@@ -851,6 +1006,7 @@ app.whenReady().then(async () => {
 
 app.on('before-quit', () => {
   isQuitting = true
+  if (app.isReady()) globalShortcut.unregisterAll()
   if (activePicker) finishPicker(null)
   stopGameWatcher()
   destroyGameOverlay()

@@ -2,10 +2,14 @@
   "name": "ford-kall",
   "productName": "Ford Kall",
   "private": true,
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Call privada de voz, camera e compartilhamento de tela entre amigos.",
   "author": "Matheus Torres",
   "homepage": "https://fordkall.11a3.dev/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/matheustorresii/fordkall.git"
+  },
   "main": "electron/main.cjs",
   "type": "module",
   "engines": {
@@ -21,6 +25,7 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
     "livekit-client": "2.22.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
@@ -51,6 +56,13 @@
       "buildResources": "build",
       "output": "release"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "matheustorresii",
+        "repo": "fordkall"
+      }
+    ],
     "files": [
       "dist/**/*",
       "electron/**/*",

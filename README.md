@@ -27,6 +27,9 @@ Call privada de voz e compartilhamento de tela entre amigos, com uma experiênci
 - aplicativo Windows baseado em Electron, com instalador e executável portátil;
 - seletor desktop próprio de telas/janelas, captura opcional do áudio do sistema e deep link `fordkall://`;
 - bandeja do sistema e modo de fundo que mantém a voz, suspende vídeos e reduz atualizações visuais enquanto o app está minimizado.
+- central de configurações por seções, com atalhos opcionais para microfone, deafen, câmera, tela e saída;
+- atalhos locais no navegador e globais no aplicativo Windows, inclusive com um jogo em foco;
+- atualização do aplicativo instalado por releases do GitHub, com download, instalação e reinício dentro do Ford Kall.
 
 ## Stack
 
@@ -120,7 +123,9 @@ Os artefatos são gerados em `release/`:
 
 O aplicativo carrega o frontend empacotado localmente e continua usando o LiveKit Cloud para a call. Ao fechar a janela durante uma call, ele permanece na bandeja do Windows; **Sair do Ford Kall** no menu do ícone encerra de fato o processo. Quando minimizado ou oculto, publicações remotas de vídeo são suspensas e restauradas ao abrir a janela, reduzindo uso de GPU e banda sem interromper a voz.
 
-O workflow [`.github/workflows/windows.yml`](.github/workflows/windows.yml) gera os dois executáveis manualmente ou ao enviar uma tag `v*`. Builds sem certificado funcionam normalmente, mas o Windows SmartScreen pode mostrar o aviso de editor desconhecido; assinatura de código elimina esse aviso em releases futuras.
+Todos os atalhos começam vazios e são configurados em **Configurações → Atalhos**. No app instalado eles são globais; no navegador funcionam apenas com a página em foco. O botão **Checar update** fica em **Configurações → Aplicativo** e está disponível somente na versão Setup. A versão portátil continua sendo atualizada substituindo o executável manualmente.
+
+O workflow [`.github/workflows/windows.yml`](.github/workflows/windows.yml) gera os executáveis e os metadados do updater manualmente ou ao enviar uma tag `v*`. Builds sem certificado funcionam normalmente, mas o Windows SmartScreen pode mostrar o aviso de editor desconhecido; assinatura de código elimina esse aviso em releases futuras.
 
 ## Deploy no GitHub Pages
 
