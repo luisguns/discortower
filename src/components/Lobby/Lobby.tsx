@@ -6,10 +6,7 @@ import {
   roomCodeFromInput,
 } from '../../services/livekit'
 import { primeCallSounds } from '../../services/callSounds'
-import {
-  MAX_PROFILE_GIF_BYTES,
-  prepareProfileAvatar,
-} from '../../services/profile'
+import { prepareProfileAvatar } from '../../services/profile'
 import { getLocalProfile, saveLocalProfile } from '../../storage/preferences'
 import type { ConnectionStatus, LocalProfile } from '../../types'
 import { BrandMark } from '../ui/BrandMark'
@@ -100,7 +97,7 @@ export const Lobby = ({ status, connectionError, initialRoomCode, onJoin }: Lobb
   }
 
   return (
-    <main className="lobby-shell lobby-shell--welcome">
+    <main className="lobby-shell lobby-shell--welcome lobby-shell--v2">
       <div className="lobby-grid" aria-hidden="true" />
       <header className="lobby-topbar">
         <div className="brand brand--welcome">
@@ -112,33 +109,91 @@ export const Lobby = ({ status, connectionError, initialRoomCode, onJoin }: Lobb
         </div>
         <div className="lobby-topbar__status">
           <span className="status-dot" />
-          <span>{window.fordKallDesktop ? 'Aplicativo Windows' : 'Pronto no navegador'}</span>
+          <span>Online</span>
         </div>
       </header>
 
-      <section className="lobby-home" aria-labelledby="lobby-title">
-        <div className="lobby-hero">
-          <div className="lobby-hero__copy">
-            <p className="eyebrow">SUA GARAGEM DE VOZ</p>
-            <h2>A call que<br /><em>pega no tranco.</em></h2>
-            <p>Crie uma sala em um clique ou cole um convite. Voz, câmera, tela e chat sem cadastro e sem enrolação.</p>
-          </div>
+      <section className="lobby-v2" aria-labelledby="lobby-title">
+        <header className="lobby-v2__heading">
+          <p className="eyebrow">ENTRAR NA CALL</p>
+          <h2>Você e sua sala.<br /><em>Só isso.</em></h2>
+        </header>
 
-          <div className="lobby-capabilities" aria-label="Recursos disponíveis">
-            <span><Icon name="mic" /> Voz</span>
-            <span><Icon name="camera" /> Câmera</span>
-            <span><Icon name="screen" /> Tela</span>
-            <span><Icon name="chat" /> Chat</span>
-          </div>
-
-          <form className="lobby-entry-card" onSubmit={submit} noValidate>
-            <header>
-              <span>ENTRAR EM UMA SALA</span>
-              <small>Código ou link de convite</small>
+        <form className="lobby-v2__card" onSubmit={submit} noValidate>
+          <section className="lobby-v2__step lobby-v2__profile" aria-labelledby="profile-step-title">
+            <header className="lobby-v2__step-heading">
+              <span>1</span>
+              <div>
+                <h3 id="profile-step-title">Seu perfil</h3>
+                <p>É assim que você aparece na call.</p>
+              </div>
             </header>
 
-            <label className="lobby-room-field">
-              <span className="lobby-room-field__icon"><Icon name="users" /></span>
+            <input
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              aria-label="Escolher foto de perfil"
+              hidden
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                if (file) void selectAvatar(file)
+                event.target.value = ''
+              }}
+              ref={avatarInputRef}
+              type="file"
+            />
+
+            <div className="lobby-v2__identity">
+              <button
+                aria-label={avatarDataUrl ? 'Trocar foto de perfil' : 'Adicionar foto de perfil'}
+                className="lobby-v2__avatar"
+                disabled={connecting || preparingAvatar}
+                onClick={() => avatarInputRef.current?.click()}
+                type="button"
+              >
+                <ProfileAvatar avatarDataUrl={avatarDataUrl} name={displayName || 'Você'} />
+                <span><Icon name="image" /></span>
+              </button>
+
+              <div className="lobby-v2__profile-fields">
+                <label className="lobby-v2__name-field">
+                  <span>Nome exibido</span>
+                  <input
+                    autoComplete="nickname"
+                    autoFocus={!displayName}
+                    maxLength={48}
+                    onChange={(event) => setDisplayName(event.target.value)}
+                    placeholder="Como podemos te chamar?"
+                    ref={nameInputRef}
+                    value={displayName}
+                  />
+                </label>
+                <div className="lobby-v2__photo-actions">
+                  <button disabled={connecting || preparingAvatar} onClick={() => avatarInputRef.current?.click()} type="button">
+                    {preparingAvatar ? 'Preparando…' : avatarDataUrl ? 'Trocar foto' : 'Adicionar foto'}
+                  </button>
+                  {avatarDataUrl && <button onClick={removeAvatar} type="button">Remover</button>}
+                </div>
+              </div>
+            </div>
+
+            {profileError && (
+              <div className="inline-error" role="alert"><Icon name="warning" /><span>{profileError}</span></div>
+            )}
+          </section>
+
+          <div className="lobby-v2__divider" aria-hidden="true"><Icon name="chevron" /></div>
+
+          <section className="lobby-v2__step lobby-v2__room" aria-labelledby="room-step-title">
+            <header className="lobby-v2__step-heading">
+              <span>2</span>
+              <div>
+                <h3 id="room-step-title">Sala</h3>
+                <p>Cole um convite ou digite o código.</p>
+              </div>
+            </header>
+
+            <label className="lobby-v2__room-field">
+              <span><Icon name="users" /></span>
               <input
                 aria-label="Código ou link da sala"
                 autoCapitalize="characters"
@@ -146,112 +201,36 @@ export const Lobby = ({ status, connectionError, initialRoomCode, onJoin }: Lobb
                 autoFocus={Boolean(displayName)}
                 maxLength={240}
                 onChange={(event) => setRoomCode(event.target.value)}
-                placeholder="KIWI-7294 ou cole o convite"
+                placeholder="KIWI-7294"
                 spellCheck={false}
                 value={roomCode}
               />
-              <button aria-label="Entrar na sala" disabled={connecting} type="submit">
-                {connecting ? <><span className="spinner" /> Entrando</> : <>Entrar <Icon name="chevron" /></>}
-              </button>
             </label>
 
             {normalizedRoomInput && (
-              <div className={`lobby-room-ready ${roomFromInvite === normalizedRoomInput ? 'is-invite' : ''}`}>
+              <div className={`lobby-v2__room-ready ${roomFromInvite === normalizedRoomInput ? 'is-invite' : ''}`}>
                 <span className="status-dot" />
-                <span>{roomFromInvite === normalizedRoomInput ? 'Convite pronto' : 'Sala identificada'}</span>
+                <span>{roomFromInvite === normalizedRoomInput ? 'Convite pronto' : 'Sala pronta'}</span>
                 <strong>{normalizedRoomInput}</strong>
               </div>
             )}
 
             {(validationError || connectionError) && (
-              <div className="inline-error" role="alert">
-                <Icon name="warning" />
-                <span>{validationError || connectionError}</span>
-              </div>
+              <div className="inline-error" role="alert"><Icon name="warning" /><span>{validationError || connectionError}</span></div>
             )}
 
-            <div className="lobby-create-row">
-              <span>Vai reunir a turma?</span>
-              <button disabled={connecting} onClick={() => void createRoom()} type="button">
-                <Icon name="users" /> Criar sala nova
-              </button>
-            </div>
-          </form>
-        </div>
-
-        <aside className="lobby-profile-panel" aria-label="Seu perfil local">
-          <div className="lobby-profile-panel__glow" aria-hidden="true" />
-          <header>
-            <div>
-              <span>SEU ASSENTO</span>
-              <strong>Como você chega na call</strong>
-            </div>
-            <small>Salvo neste dispositivo</small>
-          </header>
-
-          <input
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            aria-label="Escolher foto de perfil"
-            hidden
-            onChange={(event) => {
-              const file = event.target.files?.[0]
-              if (file) void selectAvatar(file)
-              event.target.value = ''
-            }}
-            ref={avatarInputRef}
-            type="file"
-          />
-
-          <div className="lobby-profile-preview">
-            <div className="lobby-profile-preview__rings" aria-hidden="true" />
-            <button
-              aria-label={avatarDataUrl ? 'Trocar foto de perfil' : 'Adicionar foto de perfil'}
-              className="lobby-profile-avatar"
-              disabled={connecting || preparingAvatar}
-              onClick={() => avatarInputRef.current?.click()}
-              type="button"
-            >
-              <ProfileAvatar avatarDataUrl={avatarDataUrl} name={displayName || 'Você'} />
-              <span className="lobby-profile-avatar__badge"><Icon name="image" /></span>
+            <button className="lobby-v2__join" disabled={connecting} type="submit">
+              {connecting ? <><span className="spinner" /> Entrando</> : <>Entrar na sala <Icon name="chevron" /></>}
             </button>
-            <span className="lobby-profile-preview__online"><span className="status-dot" /> Online</span>
-          </div>
 
-          <label className="lobby-name-field">
-            <span>SEU NOME NA CALL</span>
-            <input
-              autoComplete="nickname"
-              autoFocus={!displayName}
-              maxLength={48}
-              onChange={(event) => setDisplayName(event.target.value)}
-              placeholder="Como podemos te chamar?"
-              ref={nameInputRef}
-              value={displayName}
-            />
-          </label>
-
-          <div className="lobby-profile-actions">
-            <button disabled={connecting || preparingAvatar} onClick={() => avatarInputRef.current?.click()} type="button">
-              <Icon name="image" /> {preparingAvatar ? 'Preparando…' : avatarDataUrl ? 'Trocar foto' : 'Adicionar foto'}
+            <button className="lobby-v2__create" disabled={connecting} onClick={() => void createRoom()} type="button">
+              <Icon name="users" /> Criar uma sala nova
             </button>
-            {avatarDataUrl && <button onClick={removeAvatar} type="button">Remover</button>}
-          </div>
-          <small className="lobby-profile-hint">Fotos são otimizadas aqui. GIF animado até {MAX_PROFILE_GIF_BYTES / 1024} KB.</small>
+          </section>
+        </form>
 
-          {profileError && (
-            <div className="inline-error" role="alert">
-              <Icon name="warning" />
-              <span>{profileError}</span>
-            </div>
-          )}
-        </aside>
+        <p className="lobby-v2__local-note">Perfil salvo só neste dispositivo · sem conta</p>
       </section>
-
-      <footer className="lobby-footer">
-        <span><span className="status-dot" /> LiveKit Cloud</span>
-        <span>Áudio, vídeo e tela em tempo real</span>
-        <span>Ford Kall · 2026</span>
-      </footer>
     </main>
   )
 }

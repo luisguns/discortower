@@ -278,6 +278,27 @@ export const SettingsModal = ({
 
             {page === 'video' && (
               <div className="settings-page">
+                <SettingsCard description="Escolha a webcam usada quando você ligar a câmera." title="Câmera">
+                  <label className="select-field">
+                    <span>Entrada de vídeo</span>
+                    <select
+                      disabled={devices.loading || devices.videoInputs.length === 0}
+                      onChange={(event) => void devices.switchVideoInput(event.target.value)}
+                      value={devices.selectedVideoInput}
+                    >
+                      {!devices.selectedVideoInput && <option value="">Padrão do sistema</option>}
+                      {devices.videoInputs.map((device, index) => (
+                        <option key={device.deviceId} value={device.deviceId}>
+                          {deviceName(device, index, 'Câmera')}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {devices.videoInputs.length === 0 && !devices.loading && (
+                    <div className="settings-note"><Icon name="warning" />Nenhuma câmera foi encontrada neste dispositivo.</div>
+                  )}
+                </SettingsCard>
+
                 <SettingsCard description="A opção escolhida vale para a próxima transmissão." title="Qualidade da tela">
                   <div className="quality-options">
                     {(Object.keys(streamQualityPresets) as StreamQualityId[]).map((qualityId) => (

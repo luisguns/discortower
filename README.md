@@ -19,7 +19,7 @@ Call privada de voz e compartilhamento de tela entre amigos, com uma experiênci
 - chat realtime de texto e imagens de até 4 MB durante a call;
 - Picture-in-Picture da transmissão selecionada;
 - janela separada, redimensionável e encaixável no desktop para a transmissão selecionada;
-- seleção de microfone e saídas separadas para voz/live quando `setSinkId` é suportado;
+- seleção persistente de microfone e webcam, além de saídas separadas para voz/live quando `setSinkId` é suportado;
 - presets 720p30, 1080p30 e 1080p60;
 - tratamento de autoplay, reconexão, permissão negada e cleanup de tracks;
 - layout responsivo para desktop, tablet e celular;

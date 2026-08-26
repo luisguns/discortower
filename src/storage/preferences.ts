@@ -118,6 +118,7 @@ export const saveParticipantVolume = (
 
 const defaultDevices: DevicePreferences = {
   inputId: '',
+  videoInputId: '',
   voiceOutputId: '',
   screenOutputId: '',
 }

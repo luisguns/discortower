@@ -83,6 +83,7 @@ export interface ParticipantMedia {
 
 export interface DevicePreferences {
   inputId: string
+  videoInputId: string
   voiceOutputId: string
   screenOutputId: string
 }
