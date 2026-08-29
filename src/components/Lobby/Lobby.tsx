@@ -104,7 +104,7 @@ export const Lobby = ({ status, connectionError, initialRoomCode, onJoin }: Lobb
           <BrandMark />
           <div>
             <p className="brand__eyebrow">PRIVATE COMMS</p>
-            <h1 id="lobby-title">FORD KALL</h1>
+            <h1 id="lobby-title">DISCORTOWER</h1>
           </div>
         </div>
         <div className="lobby-topbar__status">

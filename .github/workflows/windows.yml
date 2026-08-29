@@ -37,12 +37,12 @@ jobs:
             exit $desktopExitCode
           }
         env:
-          VITE_LIVEKIT_TOKEN_SERVER_ID: fordkall2-u7op7p
+          VITE_LIVEKIT_TOKEN_SERVER_ID: ${{ vars.VITE_LIVEKIT_TOKEN_SERVER_ID }}
 
       - name: Upload Windows executables
         uses: actions/upload-artifact@v4
         with:
-          name: Ford-Kall-Windows-${{ github.ref_name }}
+          name: DiscorTower-Windows-${{ github.ref_name }}
           path: |
             release/*.exe
             release/latest.yml
@@ -55,4 +55,4 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" release/*.exe release/latest.yml release/*.blockmap --generate-notes --title "Ford Kall $GITHUB_REF_NAME"
+        run: gh release create "$GITHUB_REF_NAME" release/*.exe release/latest.yml release/*.blockmap --generate-notes --title "DiscorTower $GITHUB_REF_NAME"

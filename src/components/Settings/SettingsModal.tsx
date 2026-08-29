@@ -163,8 +163,8 @@ export const SettingsModal = ({
             ))}
             <small>
               {window.fordKallDesktop
-                ? `Ford Kall ${updater.state.currentVersion || ''}`
-                : 'Ford Kall Web'}
+                ? `DiscorTower ${updater.state.currentVersion || ''}`
+                : 'DiscorTower Web'}
             </small>
           </nav>
 
@@ -410,7 +410,7 @@ export const SettingsModal = ({
                         <strong>
                           {updater.state.status === 'ready'
                             ? `Versão ${updater.state.availableVersion} pronta`
-                            : `Ford Kall ${updater.state.currentVersion}`}
+                            : `DiscorTower ${updater.state.currentVersion}`}
                         </strong>
                         <p>{updater.state.message}</p>
                         {updater.state.status === 'downloading' && (

@@ -145,7 +145,7 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
       setIsStarting(false)
       setError(
         isDesktopApp
-          ? 'O seletor do Ford Kall não concluiu a captura. Feche a janela de seleção e tente novamente.'
+          ? 'O seletor do DiscorTower não concluiu a captura. Feche a janela de seleção e tente novamente.'
           : 'O Chrome não concluiu o seletor de tela. Feche a janela de seleção ou pressione Esc; o botão já foi liberado.',
       )
 

@@ -184,7 +184,7 @@ export const CallScreen = ({
 
     navigator.mediaSession.metadata = new MediaMetadata({
       title: `Sala ${roomCode}`,
-      artist: 'Ford Kall',
+      artist: 'DiscorTower',
       album: 'Call em andamento',
     })
     try {
@@ -356,7 +356,7 @@ export const CallScreen = ({
       <header className="call-header">
         <div className="brand brand--compact">
           <BrandMark />
-          <h1>FORD KALL</h1>
+          <h1>DISCORTOWER</h1>
         </div>
 
         <div className="room-plate">

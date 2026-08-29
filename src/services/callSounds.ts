@@ -169,7 +169,7 @@ const playPattern = (context: AudioContext, sound: CallSound) => {
 
   switch (sound) {
     case 'join':
-      // Compact dual-tone car horn: obvious enough to land the Ford Kall joke,
+      // Compact dual-tone car horn that remains distinct over a voice call,
       // short and filtered enough not to punish everyone already in the room.
       hornVoice(context, 370, now, 0.34, 0.034)
       hornVoice(context, 466.16, now, 0.34, 0.029)

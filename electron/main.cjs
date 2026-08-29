@@ -257,7 +257,7 @@ const openCapturePicker = async () => {
     parent: mainWindow || undefined,
     modal: Boolean(mainWindow),
     show: false,
-    title: 'Escolher o que compartilhar · Ford Kall',
+    title: 'Escolher o que compartilhar · DiscorTower',
     icon: iconPath(),
     backgroundColor: '#080a09',
     autoHideMenuBar: true,
@@ -400,7 +400,7 @@ const excludedOverlayProcesses = new Set([
   'electron',
   'explorer',
   'firefox',
-  'ford kall',
+  'discortower',
   'msedge',
   'opera',
   'searchhost',
@@ -718,14 +718,14 @@ const configureAutoUpdater = () => {
   autoUpdater.disableWebInstaller = true
 
   autoUpdater.on('checking-for-update', () => {
-    setUpdateState({ status: 'checking', message: 'Consultando as releases do Ford Kall…' })
+    setUpdateState({ status: 'checking', message: 'Consultando as releases do DiscorTower…' })
   })
   autoUpdater.on('update-available', (info) => {
     setUpdateState({
       status: 'downloading',
       availableVersion: info.version,
       percent: 0,
-      message: `Baixando Ford Kall ${info.version}…`,
+      message: `Baixando DiscorTower ${info.version}…`,
     })
   })
   autoUpdater.on('download-progress', (progress) => {
@@ -829,7 +829,7 @@ const installRendererIpc = () => {
     if (!mainWindow || event.sender !== mainWindow.webContents) return updateState
     if (!autoUpdateSupported()) return updateState
     if (updateState.status === 'checking' || updateState.status === 'downloading') return updateState
-    setUpdateState({ status: 'checking', message: 'Consultando as releases do Ford Kall…' })
+    setUpdateState({ status: 'checking', message: 'Consultando as releases do DiscorTower…' })
     try {
       await autoUpdater.checkForUpdates()
     } catch {
@@ -854,7 +854,7 @@ const rebuildTrayMenu = () => {
   if (!tray) return
   tray.setContextMenu(Menu.buildFromTemplate([
     {
-      label: isInCall ? 'Voltar para a call' : 'Abrir Ford Kall',
+      label: isInCall ? 'Voltar para a call' : 'Abrir DiscorTower',
       click: showMainWindow,
     },
     {
@@ -864,7 +864,7 @@ const rebuildTrayMenu = () => {
     },
     { type: 'separator' },
     {
-      label: 'Sair do Ford Kall',
+      label: 'Sair do DiscorTower',
       click: () => {
         isQuitting = true
         app.quit()
@@ -876,7 +876,7 @@ const rebuildTrayMenu = () => {
 const createTray = () => {
   const trayImage = nativeImage.createFromPath(iconPath()).resize({ width: 20, height: 20 })
   tray = new Tray(trayImage)
-  tray.setToolTip('Ford Kall')
+  tray.setToolTip('DiscorTower')
   tray.on('click', showMainWindow)
   rebuildTrayMenu()
 }
@@ -926,7 +926,7 @@ const createMainWindow = async () => {
     minWidth: 760,
     minHeight: 560,
     show: false,
-    title: 'Ford Kall',
+    title: 'DiscorTower',
     icon: iconPath(),
     backgroundColor: '#080a09',
     autoHideMenuBar: true,
@@ -953,7 +953,7 @@ const createMainWindow = async () => {
     if (!trayHintShown && tray && process.platform === 'win32') {
       trayHintShown = true
       tray.displayBalloon({
-        title: 'Ford Kall continua na call',
+        title: 'DiscorTower continua na call',
         content: 'A janela foi fechada, mas seu áudio continua ativo. Use o ícone perto do relógio para voltar ou sair.',
         iconType: 'info',
       })
@@ -1000,7 +1000,7 @@ app.whenReady().then(async () => {
     else void createMainWindow()
   })
 }).catch((error) => {
-  console.error('Ford Kall failed to start', error)
+  console.error('DiscorTower failed to start', error)
   app.quit()
 })
 

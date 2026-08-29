@@ -1,4 +1,4 @@
-# Ford Kall
+# DiscorTower
 
 Call privada de voz e compartilhamento de tela entre amigos, com uma experiência compacta inspirada em ferramentas de voice chat e streaming. A V1 não possui cadastro, banco de dados ou backend próprio: pessoas que informam o mesmo código entram na mesma sala do LiveKit.
 
@@ -29,7 +29,7 @@ Call privada de voz e compartilhamento de tela entre amigos, com uma experiênci
 - bandeja do sistema e modo de fundo que mantém a voz, suspende vídeos e reduz atualizações visuais enquanto o app está minimizado.
 - central de configurações por seções, com atalhos opcionais para microfone, deafen, câmera, tela e saída;
 - atalhos locais no navegador e globais no aplicativo Windows, inclusive com um jogo em foco;
-- atualização do aplicativo instalado por releases do GitHub, com download, instalação e reinício dentro do Ford Kall.
+- atualização do aplicativo instalado por releases do GitHub, com download, instalação e reinício dentro do DiscorTower.
 
 ## Stack
 
@@ -118,10 +118,10 @@ npm run desktop:dist:windows
 
 Os artefatos são gerados em `release/`:
 
-- `Ford-Kall-Setup-<versão>-x64.exe`: instalador com atalhos no Desktop e menu Iniciar;
-- `Ford-Kall-Portable-<versão>-x64.exe`: versão que roda sem instalação.
+- `DiscorTower-Setup-<versão>-x64.exe`: instalador com atalhos no Desktop e menu Iniciar;
+- `DiscorTower-Portable-<versão>-x64.exe`: versão que roda sem instalação.
 
-O aplicativo carrega o frontend empacotado localmente e continua usando o LiveKit Cloud para a call. Ao fechar a janela durante uma call, ele permanece na bandeja do Windows; **Sair do Ford Kall** no menu do ícone encerra de fato o processo. Quando minimizado ou oculto, publicações remotas de vídeo são suspensas e restauradas ao abrir a janela, reduzindo uso de GPU e banda sem interromper a voz.
+O aplicativo carrega o frontend empacotado localmente e continua usando o LiveKit Cloud para a call. Ao fechar a janela durante uma call, ele permanece na bandeja do Windows; **Sair do DiscorTower** no menu do ícone encerra de fato o processo. Quando minimizado ou oculto, publicações remotas de vídeo são suspensas e restauradas ao abrir a janela, reduzindo uso de GPU e banda sem interromper a voz.
 
 Todos os atalhos começam vazios e são configurados em **Configurações → Atalhos**. No app instalado eles são globais; no navegador funcionam apenas com a página em foco. O botão **Checar update** fica em **Configurações → Aplicativo** e está disponível somente na versão Setup. A versão portátil continua sendo atualizada substituindo o executável manualmente.
 

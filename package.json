@@ -1,6 +1,6 @@
 {
-  "name": "ford-kall",
-  "productName": "Ford Kall",
+  "name": "discortower",
+  "productName": "DiscorTower",
   "private": true,
   "version": "0.5.1",
   "description": "Call privada de voz, camera e compartilhamento de tela entre amigos.",
@@ -44,7 +44,7 @@
   },
   "build": {
     "appId": "dev.11a3.fordkall",
-    "productName": "Ford Kall",
+    "productName": "DiscorTower",
     "copyright": "Copyright © 2026 Matheus Torres",
     "asar": true,
     "npmRebuild": false,
@@ -76,23 +76,23 @@
     ],
     "protocols": [
       {
-        "name": "Sala do Ford Kall",
+        "name": "Sala do DiscorTower",
         "schemes": [
           "fordkall"
         ]
       }
     ],
-    "artifactName": "Ford-Kall-Portable-${version}-${arch}.${ext}",
+    "artifactName": "DiscorTower-Portable-${version}-${arch}.${ext}",
     "mac": {
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "O Ford Kall usa o microfone para transmitir sua voz durante a call.",
-        "NSCameraUsageDescription": "O Ford Kall usa a câmera quando você decide ligá-la durante a call.",
-        "NSAudioCaptureUsageDescription": "O Ford Kall pode capturar o áudio da tela quando você escolhe compartilhá-lo."
+        "NSMicrophoneUsageDescription": "O DiscorTower usa o microfone para transmitir sua voz durante a call.",
+        "NSCameraUsageDescription": "O DiscorTower usa a câmera quando você decide ligá-la durante a call.",
+        "NSAudioCaptureUsageDescription": "O DiscorTower pode capturar o áudio da tela quando você escolhe compartilhá-lo."
       }
     },
     "win": {
       "icon": "build/icon.png",
-      "executableName": "Ford Kall",
+      "executableName": "DiscorTower",
       "requestedExecutionLevel": "asInvoker",
       "signExecutable": false,
       "target": [
@@ -111,14 +111,14 @@
       ]
     },
     "nsis": {
-      "artifactName": "Ford-Kall-Setup-${version}-${arch}.${ext}",
+      "artifactName": "DiscorTower-Setup-${version}-${arch}.${ext}",
       "oneClick": false,
       "perMachine": false,
       "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "Ford Kall",
+      "shortcutName": "DiscorTower",
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false,
       "installerLanguages": [
