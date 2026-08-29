@@ -1,6 +1,6 @@
 # DiscorTower
 
-Call privada de voz e compartilhamento de tela entre amigos, com uma experiência compacta inspirada em ferramentas de voice chat e streaming. A V1 não possui cadastro, banco de dados ou backend próprio: pessoas que informam o mesmo código entram na mesma sala do LiveKit.
+Call privada de voz e compartilhamento de tela entre amigos, com contas acessíveis por convite e autorização server-side para as salas LiveKit.
 
 ## O que já funciona
 
@@ -24,6 +24,9 @@ Call privada de voz e compartilhamento de tela entre amigos, com uma experiênci
 - tratamento de autoplay, reconexão, permissão negada e cleanup de tracks;
 - layout responsivo para desktop, tablet e celular;
 - deploy estático em GitHub Pages por GitHub Actions.
+- autenticação Supabase por convite, perfil protegido e logout que encerra a call;
+- painel administrativo embutido para usuários, convites, calls e participantes;
+- emissão de token LiveKit por Edge Function autenticada, com TTL curto;
 - aplicativo Windows baseado em Electron, com instalador e executável portátil;
 - seletor desktop próprio de telas/janelas, captura opcional do áudio do sistema e deep link `fordkall://`;
 - bandeja do sistema e modo de fundo que mantém a voz, suspende vídeos e reduz atualizações visuais enquanto o app está minimizado.
@@ -38,6 +41,7 @@ Call privada de voz e compartilhamento de tela entre amigos, com uma experiênci
 - `livekit-client`
 - CSS próprio
 - LiveKit Cloud
+- Supabase Auth, Postgres, RLS, Realtime e Edge Functions
 - GitHub Pages + GitHub Actions
 - Electron + electron-builder (Windows)
 
@@ -45,33 +49,33 @@ Call privada de voz e compartilhamento de tela entre amigos, com uma experiênci
 
 - Node.js 22 ou mais recente
 - npm
-- um projeto no [LiveKit Cloud](https://cloud.livekit.io/)
+- um projeto no [Supabase](https://supabase.com/) e um projeto no [LiveKit Cloud](https://cloud.livekit.io/)
 - Chrome ou Edge desktop (recomendados para screen share com áudio)
 
-## Configuração do LiveKit
+## Configuração do Supabase e LiveKit
 
-O projeto usa o **Development Token Server** hospedado pelo LiveKit Cloud. Ele gera credenciais temporárias sem exigir um backend neste protótipo.
+O fluxo de produção não usa o Development Token Server. O cliente recebe somente a URL e a chave pública do Supabase; as credenciais administrativas Supabase/LiveKit ficam nos secrets das Edge Functions.
 
-1. Abra o projeto no LiveKit Cloud.
-2. Vá a **Settings → Token server**.
-3. Ative o Token server e copie o ID exibido.
-4. Copie o arquivo de exemplo:
+1. Crie o projeto Supabase, desabilite o cadastro público e aplique a migration em `supabase/migrations/`.
+2. Convide o proprietário pelo Dashboard, confirme a conta e insira o UUID dele em `public.admin_users` pelo SQL Editor. O e-mail e o UUID não entram no repositório.
+3. Configure os redirects exatos no Supabase Auth, incluindo `fordkall://auth/callback` para o Desktop e o domínio Web.
+4. Configure `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `SUPABASE_SECRET_KEY`, `INVITE_REDIRECT_URL`, `DESKTOP_INVITE_REDIRECT_URL` e `FUNCTION_ALLOWED_ORIGINS` nos secrets do Supabase. Veja `supabase/README.md`.
+5. Faça o deploy das funções em `supabase/functions/` e configure o webhook assinado do LiveKit para `livekit-webhook`.
+6. Copie o arquivo de exemplo:
 
 ```bash
 cp .env.example .env.local
 ```
 
-5. Preencha o valor:
+7. Preencha apenas as variáveis públicas:
 
 ```env
-VITE_LIVEKIT_TOKEN_SERVER_ID=token-server-xxxxxxxx
+VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=<publishable-key>
+VITE_SUPABASE_AUTH_REDIRECT_URL=https://<dominio-web>/
 ```
 
-Consulte a [documentação oficial do Token server](https://docs.livekit.io/frontends/build/authentication/sandbox-token-server/) para localizar e habilitar a configuração.
-
-> O Development Token Server é adequado somente para desenvolvimento, testes e protótipos privados. Qualquer frontend pode solicitar tokens sem restrições. Antes de uso público, substitua-o por um endpoint de autenticação real.
-
-O ID do Token server não é segredo. Nunca adicione `LIVEKIT_API_KEY` ou `LIVEKIT_API_SECRET` ao frontend, a arquivos `VITE_*` ou ao workflow.
+Nunca adicione `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `SUPABASE_SECRET_KEY` ou `SUPABASE_SERVICE_ROLE_KEY` ao frontend, a arquivos `VITE_*` ou ao workflow.
 
 ## Rodando localmente
 
@@ -138,14 +142,14 @@ npm ci → npm run build → upload-pages-artifact → deploy-pages
 Antes do primeiro deploy:
 
 1. Em **Settings → Pages**, selecione **GitHub Actions** como Source.
-2. Em **Settings → Secrets and variables → Actions → Variables**, crie a variável de repositório `VITE_LIVEKIT_TOKEN_SERVER_ID`.
-3. Confirme o domínio customizado `fordkall.11a3.dev` em **Settings → Pages**.
+2. Em **Settings → Secrets and variables → Actions → Variables**, crie `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` e `VITE_SUPABASE_AUTH_REDIRECT_URL`.
+3. Confirme o domínio customizado `fordkall.11a3.dev` em **Settings → Pages** e registre a URL correspondente no Supabase Auth.
 
 O arquivo `public/CNAME` preserva o domínio customizado no artefato. A aplicação é uma SPA sem rotas reais e usa assets relativos para funcionar tanto no domínio quanto dentro do protocolo local seguro do Electron.
 
 ## Limitações conhecidas da V1
 
-- o código da sala não é autenticação e qualquer string válida cria/seleciona uma room;
+- a sala continua sendo identificada por código, mas somente contas ativas recebem credenciais LiveKit;
 - chat e imagens são entregues somente aos participantes conectados naquele momento e não possuem histórico persistente;
 - captura de áudio do desktop/tela depende do sistema operacional e do navegador;
 - `restrictOwnAudio` é uma proteção de melhor esforço disponível principalmente em navegadores Chromium;

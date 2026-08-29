@@ -50,6 +50,22 @@ export interface LocalProfile {
   avatarDataUrl?: string
 }
 
+export type AccountStatus = 'active' | 'disabled'
+
+export interface AccountProfile extends LocalProfile {
+  userId: string
+  email?: string
+  status: AccountStatus
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface AccessContext {
+  userId: string
+  profile: AccountProfile
+  isAdmin: boolean
+}
+
 export interface RemoteVoice {
   id: string
   participant: RemoteParticipant

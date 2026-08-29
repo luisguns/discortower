@@ -1,0 +1,24 @@
+project_id = "jktklzddcmazfmwlfoas"
+
+[auth]
+enable_signup = false
+enable_confirmations = true
+enable_manual_linking = false
+
+[functions.issue-livekit-token]
+verify_jwt = false
+
+[functions.admin-invite-user]
+verify_jwt = false
+
+[functions.admin-list-users]
+verify_jwt = false
+
+[functions.admin-set-user-status]
+verify_jwt = false
+
+[functions.admin-room-action]
+verify_jwt = false
+
+[functions.livekit-webhook]
+verify_jwt = false

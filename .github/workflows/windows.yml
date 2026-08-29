@@ -37,7 +37,9 @@ jobs:
             exit $desktopExitCode
           }
         env:
-          VITE_LIVEKIT_TOKEN_SERVER_ID: ${{ vars.VITE_LIVEKIT_TOKEN_SERVER_ID }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_AUTH_REDIRECT_URL: ${{ vars.VITE_SUPABASE_AUTH_REDIRECT_URL }}
 
       - name: Upload Windows executables
         uses: actions/upload-artifact@v4

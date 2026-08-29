@@ -7,6 +7,7 @@ const {
   Menu,
   nativeImage,
   protocol,
+  safeStorage,
   screen,
   session,
   shell,
@@ -32,6 +33,7 @@ let isQuitting = false
 let isInCall = false
 let trayHintShown = false
 let pendingRoomCode = ''
+let pendingAuthCallback = ''
 let activePicker = null
 let overlayWindow = null
 let overlayTargetBounds = null
@@ -41,10 +43,49 @@ let gameWatcherRestartTimer = null
 let overlayState = { enabled: false, participants: [] }
 let shortcutBindings = {}
 let shortcutCaptureActive = false
+let memoryAuthSession = null
 let updateState = {
   status: 'idle',
   currentVersion: app.getVersion(),
   message: 'Busque uma versão nova quando quiser.',
+}
+
+const authSessionPath = () => path.join(app.getPath('userData'), 'auth-session.bin')
+
+const readProtectedAuthSession = async () => {
+  if (!safeStorage.isEncryptionAvailable()) return memoryAuthSession
+  try {
+    const encrypted = await fs.readFile(authSessionPath())
+    return safeStorage.decryptString(encrypted)
+  } catch {
+    return null
+  }
+}
+
+const writeProtectedAuthSession = async (value) => {
+  if (typeof value !== 'string' || value.length > 256 * 1024) return false
+  if (!safeStorage.isEncryptionAvailable()) {
+    memoryAuthSession = value
+    return true
+  }
+  try {
+    await fs.mkdir(path.dirname(authSessionPath()), { recursive: true })
+    await fs.writeFile(authSessionPath(), safeStorage.encryptString(value), { mode: 0o600 })
+    return true
+  } catch {
+    return false
+  }
+}
+
+const clearProtectedAuthSession = async () => {
+  memoryAuthSession = null
+  if (!safeStorage.isEncryptionAvailable()) return true
+  try {
+    await fs.rm(authSessionPath(), { force: true })
+    return true
+  } catch {
+    return false
+  }
 }
 
 protocol.registerSchemesAsPrivileged([
@@ -75,6 +116,7 @@ const roomCodeFromDeepLink = (value) => {
   if (typeof value !== 'string' || !value.toLowerCase().startsWith('fordkall://')) return ''
   try {
     const url = new URL(value)
+    if (url.hostname.toLowerCase() === 'auth') return ''
     const explicitRoom = url.searchParams.get('room')
     if (explicitRoom) return normalizeRoomCode(explicitRoom)
 
@@ -87,10 +129,33 @@ const roomCodeFromDeepLink = (value) => {
   }
 }
 
+const authCallbackFromDeepLink = (value) => {
+  if (typeof value !== 'string' || !value.toLowerCase().startsWith('fordkall://')) return ''
+  try {
+    const url = new URL(value)
+    const allowedKeys = new Set(['code', 'error', 'error_code', 'error_description', 'type'])
+    if (url.hostname.toLowerCase() !== 'auth' || url.pathname !== '/callback') return ''
+    if ([...url.searchParams.keys()].some((key) => !allowedKeys.has(key))) return ''
+    if (url.searchParams.get('code')?.length > 2048) return ''
+    if (url.searchParams.get('type') && !['invite', 'recovery', 'signup'].includes(url.searchParams.get('type'))) return ''
+    return url.toString()
+  } catch {
+    return ''
+  }
+}
+
 const findRoomCodeInArguments = (argumentsList) => {
   for (const argument of argumentsList) {
     const roomCode = roomCodeFromDeepLink(argument)
     if (roomCode) return roomCode
+  }
+  return ''
+}
+
+const findAuthCallbackInArguments = (argumentsList) => {
+  for (const argument of argumentsList) {
+    const callbackUrl = authCallbackFromDeepLink(argument)
+    if (callbackUrl) return callbackUrl
   }
   return ''
 }
@@ -111,14 +176,30 @@ const sendRoomCode = (roomCode) => {
   pendingRoomCode = ''
 }
 
+const sendAuthCallback = (callbackUrl) => {
+  const safeCallbackUrl = authCallbackFromDeepLink(callbackUrl)
+  if (!safeCallbackUrl) return
+  pendingAuthCallback = safeCallbackUrl
+  if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isLoading()) return
+  mainWindow.webContents.send('desktop:auth-callback', safeCallbackUrl)
+  pendingAuthCallback = ''
+}
+
 app.on('second-instance', (_event, commandLine) => {
   showMainWindow()
+  const callbackUrl = findAuthCallbackInArguments(commandLine)
+  if (callbackUrl) sendAuthCallback(callbackUrl)
   const roomCode = findRoomCodeInArguments(commandLine)
   if (roomCode) sendRoomCode(roomCode)
 })
 
 app.on('open-url', (event, url) => {
   event.preventDefault()
+  const callbackUrl = authCallbackFromDeepLink(url)
+  if (callbackUrl) {
+    sendAuthCallback(callbackUrl)
+    return
+  }
   const roomCode = roomCodeFromDeepLink(url)
   if (roomCode) sendRoomCode(roomCode)
 })
@@ -756,6 +837,30 @@ const configureAutoUpdater = () => {
 }
 
 const installRendererIpc = () => {
+  const isMainRenderer = (event) => mainWindow && !mainWindow.isDestroyed() && event.sender === mainWindow.webContents
+
+  ipcMain.handle('auth:get-callback', (event) => {
+    if (!isMainRenderer(event)) return null
+    const callbackUrl = pendingAuthCallback
+    pendingAuthCallback = ''
+    return callbackUrl || null
+  })
+
+  ipcMain.handle('auth:get-session', async (event) => {
+    if (!isMainRenderer(event)) return null
+    return readProtectedAuthSession()
+  })
+
+  ipcMain.handle('auth:set-session', async (event, value) => {
+    if (!isMainRenderer(event)) return false
+    return writeProtectedAuthSession(value)
+  })
+
+  ipcMain.handle('auth:clear-session', async (event) => {
+    if (!isMainRenderer(event)) return false
+    return clearProtectedAuthSession()
+  })
+
   ipcMain.on('desktop:set-in-call', (event, value) => {
     if (!mainWindow || event.sender !== mainWindow.webContents) return
     isInCall = value === true
@@ -899,6 +1004,8 @@ const configureWindowNavigation = (window) => {
     }
 
     if (url.startsWith('fordkall://')) {
+      const callbackUrl = authCallbackFromDeepLink(url)
+      if (callbackUrl) sendAuthCallback(callbackUrl)
       const roomCode = roomCodeFromDeepLink(url)
       if (roomCode) sendRoomCode(roomCode)
       return { action: 'deny' }
@@ -993,6 +1100,7 @@ app.whenReady().then(async () => {
   createTray()
 
   pendingRoomCode = findRoomCodeInArguments(process.argv)
+  pendingAuthCallback = findAuthCallbackInArguments(process.argv)
   await createMainWindow()
 
   app.on('activate', () => {

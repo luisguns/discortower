@@ -1,7 +1,9 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_LIVEKIT_TOKEN_SERVER_ID?: string
+  readonly VITE_SUPABASE_URL?: string
+  readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string
+  readonly VITE_SUPABASE_AUTH_REDIRECT_URL?: string
 }
 
 interface ImportMeta {
@@ -42,7 +44,12 @@ interface FordKallDesktopApi {
   checkForUpdates: () => Promise<import('./types').AppUpdateState>
   installUpdate: () => void
   getInfo: () => Promise<FordKallDesktopInfo | null>
+  getAuthCallback: () => Promise<string | null>
+  getAuthSessionBlob: () => Promise<string | null>
+  setAuthSessionBlob: (session: string) => Promise<boolean>
+  clearAuthSession: () => Promise<boolean>
   onOpenRoom: (listener: (roomCode: string) => void) => () => void
+  onAuthCallback: (listener: (callbackUrl: string) => void) => () => void
   onShortcut: (listener: (action: import('./types').ShortcutAction) => void) => () => void
   onShortcutStatus: (listener: (status: { failedActions: import('./types').ShortcutAction[] }) => void) => () => void
   onUpdateState: (listener: (state: import('./types').AppUpdateState) => void) => () => void

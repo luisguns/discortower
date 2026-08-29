@@ -14,10 +14,19 @@ contextBridge.exposeInMainWorld('fordKallDesktop', {
   checkForUpdates: () => ipcRenderer.invoke('desktop:check-for-updates'),
   installUpdate: () => ipcRenderer.send('desktop:install-update'),
   getInfo: () => ipcRenderer.invoke('desktop:get-info'),
+  getAuthCallback: () => ipcRenderer.invoke('auth:get-callback'),
+  getAuthSessionBlob: () => ipcRenderer.invoke('auth:get-session'),
+  setAuthSessionBlob: (session) => ipcRenderer.invoke('auth:set-session', typeof session === 'string' ? session : ''),
+  clearAuthSession: () => ipcRenderer.invoke('auth:clear-session'),
   onOpenRoom: (listener) => {
     const wrappedListener = (_event, roomCode) => listener(roomCode)
     ipcRenderer.on('desktop:open-room', wrappedListener)
     return () => ipcRenderer.removeListener('desktop:open-room', wrappedListener)
+  },
+  onAuthCallback: (listener) => {
+    const wrappedListener = (_event, callbackUrl) => listener(callbackUrl)
+    ipcRenderer.on('desktop:auth-callback', wrappedListener)
+    return () => ipcRenderer.removeListener('desktop:auth-callback', wrappedListener)
   },
   onShortcut: (listener) => {
     const wrappedListener = (_event, action) => listener(action)

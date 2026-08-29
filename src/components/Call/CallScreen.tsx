@@ -46,6 +46,7 @@ interface CallScreenProps {
   microphoneStarting: boolean
   onMicrophoneErrorChange: (message: string) => void
   onLeave: () => Promise<void>
+  onLogout: () => Promise<void>
 }
 
 interface ControlButtonProps {
@@ -128,6 +129,7 @@ export const CallScreen = ({
   microphoneStarting,
   onMicrophoneErrorChange,
   onLeave,
+  onLogout,
 }: CallScreenProps) => {
   const snapshot = useRoomSnapshot(room)
   useDesktopPerformanceMode(room)
@@ -377,7 +379,7 @@ export const CallScreen = ({
           </output>
         </div>
 
-        <div className="call-header__actions">
+          <div className="call-header__actions">
           <button
             aria-label={`Layout da galeria: ${galleryLayout === 'cinema' ? 'Priorizar 16:9' : 'Preencher'}`}
             className={`participants-toggle layout-toggle ${layoutMenuPoint ? 'is-active' : ''}`}
@@ -423,6 +425,7 @@ export const CallScreen = ({
           <div className={`connection-pill connection-pill--${status}`} title={connectionLabel[status]}>
             <i /> <span>{connectionLabel[status]}</span>
           </div>
+          <button className="call-header__logout" onClick={() => void onLogout()} type="button">Sair</button>
         </div>
       </header>
 

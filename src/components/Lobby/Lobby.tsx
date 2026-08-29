@@ -17,11 +17,16 @@ interface LobbyProps {
   status: ConnectionStatus
   connectionError: string
   initialRoomCode: string
+  profile: LocalProfile
+  isAdmin: boolean
+  onOpenAdmin: () => void
+  onLogout: () => Promise<void>
+  onProfileChange: (profile: LocalProfile) => Promise<void>
   onJoin: (profile: LocalProfile, roomCode: string) => Promise<boolean>
 }
 
-export const Lobby = ({ status, connectionError, initialRoomCode, onJoin }: LobbyProps) => {
-  const [initialProfile] = useState(getLocalProfile)
+export const Lobby = ({ status, connectionError, initialRoomCode, profile: accountProfile, isAdmin, onOpenAdmin, onLogout, onProfileChange, onJoin }: LobbyProps) => {
+  const [initialProfile] = useState(() => accountProfile.displayName ? accountProfile : getLocalProfile())
   const [displayName, setDisplayName] = useState(initialProfile.displayName)
   const [avatarDataUrl, setAvatarDataUrl] = useState(initialProfile.avatarDataUrl)
   const [roomCode, setRoomCode] = useState(() => initialRoomCode || getRoomCodeFromUrl())
@@ -31,6 +36,11 @@ export const Lobby = ({ status, connectionError, initialRoomCode, onJoin }: Lobb
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
   const connecting = status === 'connecting' || status === 'reconnecting'
+
+  useEffect(() => {
+    setDisplayName(accountProfile.displayName)
+    setAvatarDataUrl(accountProfile.avatarDataUrl)
+  }, [accountProfile.avatarDataUrl, accountProfile.displayName])
 
   useEffect(() => {
     if (initialRoomCode) setRoomCode(initialRoomCode)
@@ -60,6 +70,14 @@ export const Lobby = ({ status, connectionError, initialRoomCode, onJoin }: Lobb
     await onJoin(profile, normalizedRoom)
   }
 
+  const persistProfile = async (nextDisplayName = displayName, nextAvatarDataUrl = avatarDataUrl) => {
+    const normalizedName = normalizeDisplayName(nextDisplayName)
+    if (!normalizedName) return
+    const nextProfile = { displayName: normalizedName, avatarDataUrl: nextAvatarDataUrl }
+    saveLocalProfile(nextProfile)
+    await onProfileChange(nextProfile)
+  }
+
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     const normalizedRoom = roomCodeFromInput(roomCode)
@@ -83,6 +101,7 @@ export const Lobby = ({ status, connectionError, initialRoomCode, onJoin }: Lobb
       const nextAvatar = await prepareProfileAvatar(file)
       setAvatarDataUrl(nextAvatar)
       saveLocalProfile({ displayName, avatarDataUrl: nextAvatar })
+      await onProfileChange({ displayName: normalizeDisplayName(displayName), avatarDataUrl: nextAvatar })
     } catch (error) {
       setProfileError(error instanceof Error ? error.message : 'Não foi possível usar essa imagem.')
     } finally {
@@ -94,6 +113,7 @@ export const Lobby = ({ status, connectionError, initialRoomCode, onJoin }: Lobb
     setAvatarDataUrl(undefined)
     setProfileError('')
     saveLocalProfile({ displayName })
+    void onProfileChange({ displayName: normalizeDisplayName(displayName) })
   }
 
   return (
@@ -107,9 +127,9 @@ export const Lobby = ({ status, connectionError, initialRoomCode, onJoin }: Lobb
             <h1 id="lobby-title">DISCORTOWER</h1>
           </div>
         </div>
-        <div className="lobby-topbar__status">
-          <span className="status-dot" />
-          <span>Online</span>
+        <div className="lobby-topbar__actions">
+          {isAdmin && <button className="lobby-topbar__action" onClick={onOpenAdmin} type="button"><Icon name="settings" /> Painel admin</button>}
+          <button className="lobby-topbar__action" onClick={() => void onLogout()} type="button">Sair</button>
         </div>
       </header>
 
@@ -162,6 +182,7 @@ export const Lobby = ({ status, connectionError, initialRoomCode, onJoin }: Lobb
                     autoFocus={!displayName}
                     maxLength={48}
                     onChange={(event) => setDisplayName(event.target.value)}
+                    onBlur={() => void persistProfile()}
                     placeholder="Como podemos te chamar?"
                     ref={nameInputRef}
                     value={displayName}
@@ -229,7 +250,7 @@ export const Lobby = ({ status, connectionError, initialRoomCode, onJoin }: Lobb
           </section>
         </form>
 
-        <p className="lobby-v2__local-note">Perfil salvo só neste dispositivo · sem conta</p>
+        <p className="lobby-v2__local-note">Sessão protegida · perfil vinculado à sua conta</p>
       </section>
     </main>
   )
