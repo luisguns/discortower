@@ -1,5 +1,5 @@
 import { writeAudit } from '../_shared/audit.ts'
-import { assertAdmin, handleFunctionError, HttpError, jsonResponse, optionsResponse, readJson, requireUser } from '../_shared/http.ts'
+import { effectiveRole, handleFunctionError, HttpError, jsonResponse, optionsResponse, readJson, requireUser } from '../_shared/http.ts'
 import { enforceRateLimit } from '../_shared/rate-limit.ts'
 import { roomService } from '../_shared/livekit.ts'
 
@@ -8,7 +8,8 @@ Deno.serve(async (request) => {
   try {
     if (request.method !== 'POST') throw new HttpError(405, 'METHOD_NOT_ALLOWED')
     const { client, user } = await requireUser(request)
-    await assertAdmin(client, user.id)
+    const actorRole = await effectiveRole(client, user.id)
+    if (!['owner', 'manager'].includes(actorRole)) throw new HttpError(403, 'ADMIN_REQUIRED')
     await enforceRateLimit(client, `admin-status:${user.id}`, 60, 3600)
     const body = await readJson(request)
     const targetUserId = typeof body?.userId === 'string' ? body.userId : ''
@@ -17,6 +18,8 @@ Deno.serve(async (request) => {
 
     const { data: targetAdmin } = await client.from('admin_users').select('user_id').eq('user_id', targetUserId).maybeSingle()
     if (targetAdmin || targetUserId === user.id) throw new HttpError(403, 'OWNER_PROTECTED')
+    const { data: targetProfile } = await client.from('profiles').select('role').eq('user_id', targetUserId).maybeSingle()
+    if (actorRole === 'manager' && (!targetProfile || targetProfile.role === 'manager')) throw new HttpError(403, 'ROLE_ASSIGNMENT_FORBIDDEN')
 
     const { error: updateError } = await client.from('profiles').update({ status }).eq('user_id', targetUserId)
     if (updateError) throw new Error('USER_STATUS_UPDATE_FAILED')

@@ -1,14 +1,7 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
-import {
-  generateRoomCode,
-  getRoomCodeFromUrl,
-  normalizeDisplayName,
-  roomCodeFromInput,
-} from '../../services/livekit'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { primeCallSounds } from '../../services/callSounds'
-import { prepareProfileAvatar } from '../../services/profile'
-import { getLocalProfile, saveLocalProfile } from '../../storage/preferences'
-import type { ConnectionStatus, LocalProfile } from '../../types'
+import { normalizeDisplayName } from '../../services/livekit'
+import type { AccountProfile, ChannelSummary, ConnectionStatus, LocalProfile } from '../../types'
 import { BrandMark } from '../ui/BrandMark'
 import { Icon } from '../ui/Icon'
 import { ProfileAvatar } from '../ui/ProfileAvatar'
@@ -16,242 +9,159 @@ import { ProfileAvatar } from '../ui/ProfileAvatar'
 interface LobbyProps {
   status: ConnectionStatus
   connectionError: string
-  initialRoomCode: string
-  profile: LocalProfile
+  initialChannelId: string
+  channels: ChannelSummary[]
+  canCreateChannel: boolean
+  profile: AccountProfile
   isAdmin: boolean
   onOpenAdmin: () => void
+  onCreateChannel: (name: string) => Promise<ChannelSummary>
+  onRenameChannel: (channelId: string, name: string) => Promise<ChannelSummary>
+  onArchiveChannel: (channelId: string) => Promise<void>
   onLogout: () => Promise<void>
-  onProfileChange: (profile: LocalProfile) => Promise<void>
-  onJoin: (profile: LocalProfile, roomCode: string) => Promise<boolean>
+  onJoin: (profile: LocalProfile, channelId: string) => Promise<boolean>
 }
 
-export const Lobby = ({ status, connectionError, initialRoomCode, profile: accountProfile, isAdmin, onOpenAdmin, onLogout, onProfileChange, onJoin }: LobbyProps) => {
-  const [initialProfile] = useState(() => accountProfile.displayName ? accountProfile : getLocalProfile())
-  const [displayName, setDisplayName] = useState(initialProfile.displayName)
-  const [avatarDataUrl, setAvatarDataUrl] = useState(initialProfile.avatarDataUrl)
-  const [roomCode, setRoomCode] = useState(() => initialRoomCode || getRoomCodeFromUrl())
+const roleLabel = (role: AccountProfile['role']) => ({
+  owner: 'Proprietário',
+  manager: 'Gerente',
+  host: 'Host',
+  member: 'Membro',
+}[role])
+
+const channelInitials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || '#'
+
+export const Lobby = ({ status, connectionError, initialChannelId, channels, canCreateChannel, profile, isAdmin, onOpenAdmin, onCreateChannel, onRenameChannel, onArchiveChannel, onLogout, onJoin }: LobbyProps) => {
+  const [channelId, setChannelId] = useState(initialChannelId)
+  const [creating, setCreating] = useState(false)
+  const [newChannelName, setNewChannelName] = useState('')
+  const [renameName, setRenameName] = useState('')
   const [validationError, setValidationError] = useState('')
-  const [profileError, setProfileError] = useState('')
-  const [preparingAvatar, setPreparingAvatar] = useState(false)
-  const avatarInputRef = useRef<HTMLInputElement>(null)
-  const nameInputRef = useRef<HTMLInputElement>(null)
+  const createInputRef = useRef<HTMLInputElement>(null)
   const connecting = status === 'connecting' || status === 'reconnecting'
 
   useEffect(() => {
-    setDisplayName(accountProfile.displayName)
-    setAvatarDataUrl(accountProfile.avatarDataUrl)
-  }, [accountProfile.avatarDataUrl, accountProfile.displayName])
+    setChannelId((current) => {
+      if (channels.some((channel) => channel.id === current)) return current
+      if (channels.some((channel) => channel.id === initialChannelId)) return initialChannelId
+      return channels[0]?.id || ''
+    })
+  }, [channels, initialChannelId])
 
   useEffect(() => {
-    if (initialRoomCode) setRoomCode(initialRoomCode)
-  }, [initialRoomCode])
+    if (!creating) return
+    window.setTimeout(() => createInputRef.current?.focus(), 80)
+  }, [creating])
 
-  const joinRoom = async (nextRoomCode: string) => {
-    const normalizedName = normalizeDisplayName(displayName)
-    const normalizedRoom = roomCodeFromInput(nextRoomCode)
-
-    if (!normalizedName) {
-      setRoomCode(normalizedRoom)
-      setValidationError('Diga como seus amigos devem chamar você.')
-      nameInputRef.current?.focus()
-      return
-    }
-
+  useEffect(() => {
+    setRenameName('')
     setValidationError('')
-    setDisplayName(normalizedName)
-    setRoomCode(normalizedRoom)
-    const profile = { displayName: normalizedName, avatarDataUrl }
-    saveLocalProfile(profile)
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur()
-    }
-    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [channelId])
+
+  const selectedChannel = useMemo(() => channels.find((channel) => channel.id === channelId), [channelId, channels])
+  const activeProfile: LocalProfile = { displayName: normalizeDisplayName(profile.displayName), avatarDataUrl: profile.avatarDataUrl }
+
+  const joinChannel = async () => {
+    if (!selectedChannel) { setValidationError('Selecione um canal disponível.'); return }
+    if (!activeProfile.displayName) { setValidationError('Seu perfil ainda não possui um nome.'); return }
+    setValidationError('')
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     primeCallSounds()
-    await onJoin(profile, normalizedRoom)
+    await onJoin(activeProfile, selectedChannel.id)
   }
 
-  const persistProfile = async (nextDisplayName = displayName, nextAvatarDataUrl = avatarDataUrl) => {
-    const normalizedName = normalizeDisplayName(nextDisplayName)
-    if (!normalizedName) return
-    const nextProfile = { displayName: normalizedName, avatarDataUrl: nextAvatarDataUrl }
-    saveLocalProfile(nextProfile)
-    await onProfileChange(nextProfile)
-  }
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault()
-    const normalizedRoom = roomCodeFromInput(roomCode)
-
-    if (!normalizedRoom) {
-      setValidationError('Digite o código da sala.')
-      return
-    }
-
-    await joinRoom(normalizedRoom)
-  }
-
-  const createRoom = async () => joinRoom(generateRoomCode())
-  const roomFromInvite = getRoomCodeFromUrl()
-  const normalizedRoomInput = roomCodeFromInput(roomCode)
-
-  const selectAvatar = async (file: File) => {
-    setPreparingAvatar(true)
-    setProfileError('')
+  const createSavedChannel = async (event?: FormEvent) => {
+    event?.preventDefault()
+    const name = newChannelName.trim()
+    if (!name) return
     try {
-      const nextAvatar = await prepareProfileAvatar(file)
-      setAvatarDataUrl(nextAvatar)
-      saveLocalProfile({ displayName, avatarDataUrl: nextAvatar })
-      await onProfileChange({ displayName: normalizeDisplayName(displayName), avatarDataUrl: nextAvatar })
-    } catch (error) {
-      setProfileError(error instanceof Error ? error.message : 'Não foi possível usar essa imagem.')
-    } finally {
-      setPreparingAvatar(false)
+      const channel = await onCreateChannel(name)
+      setNewChannelName('')
+      setCreating(false)
+      setChannelId(channel.id)
+      setValidationError('')
+    } catch {
+      setValidationError('Não foi possível criar esse canal. Use um nome diferente.')
     }
   }
 
-  const removeAvatar = () => {
-    setAvatarDataUrl(undefined)
-    setProfileError('')
-    saveLocalProfile({ displayName })
-    void onProfileChange({ displayName: normalizeDisplayName(displayName) })
+  const renameSelected = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!selectedChannel || !renameName.trim()) return
+    try {
+      await onRenameChannel(selectedChannel.id, renameName)
+      setRenameName('')
+      setValidationError('')
+    } catch {
+      setValidationError('Não foi possível renomear esse canal.')
+    }
   }
 
-  return (
-    <main className="lobby-shell lobby-shell--welcome lobby-shell--v2">
-      <div className="lobby-grid" aria-hidden="true" />
-      <header className="lobby-topbar">
-        <div className="brand brand--welcome">
-          <BrandMark />
-          <div>
-            <p className="brand__eyebrow">PRIVATE COMMS</p>
-            <h1 id="lobby-title">DISCORTOWER</h1>
-          </div>
-        </div>
-        <div className="lobby-topbar__actions">
-          {isAdmin && <button className="lobby-topbar__action" onClick={onOpenAdmin} type="button"><Icon name="settings" /> Painel admin</button>}
-          <button className="lobby-topbar__action" onClick={() => void onLogout()} type="button">Sair</button>
-        </div>
+  const archiveSelected = async () => {
+    if (!selectedChannel || !window.confirm(`Arquivar ${selectedChannel.name}?`)) return
+    try {
+      await onArchiveChannel(selectedChannel.id)
+      setValidationError('')
+    } catch {
+      setValidationError('Não foi possível arquivar esse canal.')
+    }
+  }
+
+  return <main className="channel-home">
+    <div className="channel-home__grid" aria-hidden="true" />
+    <aside className="channel-home__sidebar">
+      <header className="channel-home__brand"><BrandMark /><div><p>PRIVATE COMMS</p><strong>DISCORTOWER</strong></div></header>
+      <div className="channel-home__channel-heading"><span>Seus canais</span><div><b>{channels.length}</b>{canCreateChannel && <button aria-label="Criar novo canal" aria-pressed={creating} className={creating ? 'is-active' : ''} onClick={() => setCreating((current) => !current)} title="Criar novo canal" type="button">+</button>}</div></div>
+      <nav className="channel-home__channel-list" aria-label="Canais disponíveis">
+        {channels.map((channel) => <button aria-current={channel.id === channelId ? 'page' : undefined} className={channel.id === channelId ? 'is-active' : ''} key={channel.id} onClick={() => setChannelId(channel.id)} type="button">
+          <span className="channel-home__channel-mark">{channelInitials(channel.name)}</span>
+          <span className="channel-home__channel-copy"><strong>{channel.name}</strong><small>{channel.participantCount ? `${channel.participantCount} na call` : 'Canal disponível'}</small></span>
+          <span className={`channel-home__presence${channel.participantCount ? ' is-live' : ''}`} aria-label={channel.participantCount ? 'Call ativa' : 'Sem call ativa'} />
+        </button>)}
+        {!channels.length && <div className="channel-home__no-channels"><Icon name="users" /><strong>Nenhum canal ainda</strong><span>{canCreateChannel ? 'Use o + abaixo para abrir o primeiro.' : 'Aguarde um host criar um canal.'}</span></div>}
+      </nav>
+
+      {creating && <form className="channel-home__creator" onSubmit={(event) => void createSavedChannel(event)}>
+        <label htmlFor="new-channel-name">Novo canal</label>
+        <input id="new-channel-name" maxLength={48} onChange={(event) => setNewChannelName(event.target.value)} placeholder="Ex.: Resenha da noite" ref={createInputRef} value={newChannelName} />
+        <div><button onClick={() => { setCreating(false); setNewChannelName('') }} type="button">Cancelar</button><button disabled={!newChannelName.trim()} type="submit">Criar</button></div>
+      </form>}
+
+      <footer className="channel-home__profile-bar">
+        <ProfileAvatar avatarDataUrl={profile.avatarDataUrl} name={profile.displayName || 'Você'} />
+        <span><strong>{profile.displayName || 'Seu perfil'}</strong><small>{roleLabel(profile.role)}</small></span>
+      </footer>
+    </aside>
+
+    <section className="channel-home__main">
+      <header className="channel-home__topbar">
+        <div><span className="channel-home__secure-dot" /> Sessão protegida</div>
+        <nav aria-label="Ações da conta">{isAdmin && <button onClick={onOpenAdmin} type="button"><Icon name="settings" /> Painel admin</button>}<button onClick={() => void onLogout()} type="button">Sair</button></nav>
       </header>
 
-      <section className="lobby-v2" aria-labelledby="lobby-title">
-        <header className="lobby-v2__heading">
-          <p className="eyebrow">ENTRAR NA CALL</p>
-          <h2>Você e sua sala.<br /><em>Só isso.</em></h2>
-        </header>
+      {selectedChannel ? <div className="channel-home__content">
+        <div className="channel-home__ambient" aria-hidden="true"><span>{channelInitials(selectedChannel.name)}</span></div>
+        <div className="channel-home__channel-state"><span className={selectedChannel.participantCount ? 'is-live' : ''} />{selectedChannel.participantCount ? 'Call em andamento' : 'Pronto para conversar'}</div>
+        <p className="eyebrow">CANAL SELECIONADO</p>
+        <h1>{selectedChannel.name}</h1>
+        <p className="channel-home__description">Entre quando quiser. O canal fica salvo e a call só existe enquanto alguém estiver por aqui.</p>
 
-        <form className="lobby-v2__card" onSubmit={submit} noValidate>
-          <section className="lobby-v2__step lobby-v2__profile" aria-labelledby="profile-step-title">
-            <header className="lobby-v2__step-heading">
-              <span>1</span>
-              <div>
-                <h3 id="profile-step-title">Seu perfil</h3>
-                <p>É assim que você aparece na call.</p>
-              </div>
-            </header>
+        <div className="channel-home__stats">
+          <div><Icon name="users" /><span><strong>{selectedChannel.participantCount}</strong><small>{selectedChannel.participantCount === 1 ? 'pessoa na call' : 'pessoas na call'}</small></span></div>
+          <div><Icon name="audio" /><span><strong>{selectedChannel.participantCount ? 'Ativa' : 'Silenciosa'}</strong><small>situação agora</small></span></div>
+          <div><Icon name="screen" /><span><strong>Protegida</strong><small>acesso por convite</small></span></div>
+        </div>
 
-            <input
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              aria-label="Escolher foto de perfil"
-              hidden
-              onChange={(event) => {
-                const file = event.target.files?.[0]
-                if (file) void selectAvatar(file)
-                event.target.value = ''
-              }}
-              ref={avatarInputRef}
-              type="file"
-            />
+        {(validationError || connectionError) && <div className="inline-error channel-home__error" role="alert"><Icon name="warning" /><span>{validationError || connectionError}</span></div>}
+        <button className="channel-home__join" disabled={connecting} onClick={() => void joinChannel()} type="button">{connecting ? <><span className="spinner" /> Entrando…</> : <><span className="channel-home__join-icon"><Icon name="audio" /></span><span><strong>Entrar na call</strong><small>{selectedChannel.participantCount ? 'Conectar com o pessoal' : 'Iniciar neste canal'}</small></span><Icon name="chevron" /></>}</button>
 
-            <div className="lobby-v2__identity">
-              <button
-                aria-label={avatarDataUrl ? 'Trocar foto de perfil' : 'Adicionar foto de perfil'}
-                className="lobby-v2__avatar"
-                disabled={connecting || preparingAvatar}
-                onClick={() => avatarInputRef.current?.click()}
-                type="button"
-              >
-                <ProfileAvatar avatarDataUrl={avatarDataUrl} name={displayName || 'Você'} />
-                <span><Icon name="image" /></span>
-              </button>
-
-              <div className="lobby-v2__profile-fields">
-                <label className="lobby-v2__name-field">
-                  <span>Nome exibido</span>
-                  <input
-                    autoComplete="nickname"
-                    autoFocus={!displayName}
-                    maxLength={48}
-                    onChange={(event) => setDisplayName(event.target.value)}
-                    onBlur={() => void persistProfile()}
-                    placeholder="Como podemos te chamar?"
-                    ref={nameInputRef}
-                    value={displayName}
-                  />
-                </label>
-                <div className="lobby-v2__photo-actions">
-                  <button disabled={connecting || preparingAvatar} onClick={() => avatarInputRef.current?.click()} type="button">
-                    {preparingAvatar ? 'Preparando…' : avatarDataUrl ? 'Trocar foto' : 'Adicionar foto'}
-                  </button>
-                  {avatarDataUrl && <button onClick={removeAvatar} type="button">Remover</button>}
-                </div>
-              </div>
-            </div>
-
-            {profileError && (
-              <div className="inline-error" role="alert"><Icon name="warning" /><span>{profileError}</span></div>
-            )}
-          </section>
-
-          <div className="lobby-v2__divider" aria-hidden="true"><Icon name="chevron" /></div>
-
-          <section className="lobby-v2__step lobby-v2__room" aria-labelledby="room-step-title">
-            <header className="lobby-v2__step-heading">
-              <span>2</span>
-              <div>
-                <h3 id="room-step-title">Sala</h3>
-                <p>Cole um convite ou digite o código.</p>
-              </div>
-            </header>
-
-            <label className="lobby-v2__room-field">
-              <span><Icon name="users" /></span>
-              <input
-                aria-label="Código ou link da sala"
-                autoCapitalize="characters"
-                autoComplete="off"
-                autoFocus={Boolean(displayName)}
-                maxLength={240}
-                onChange={(event) => setRoomCode(event.target.value)}
-                placeholder="KIWI-7294"
-                spellCheck={false}
-                value={roomCode}
-              />
-            </label>
-
-            {normalizedRoomInput && (
-              <div className={`lobby-v2__room-ready ${roomFromInvite === normalizedRoomInput ? 'is-invite' : ''}`}>
-                <span className="status-dot" />
-                <span>{roomFromInvite === normalizedRoomInput ? 'Convite pronto' : 'Sala pronta'}</span>
-                <strong>{normalizedRoomInput}</strong>
-              </div>
-            )}
-
-            {(validationError || connectionError) && (
-              <div className="inline-error" role="alert"><Icon name="warning" /><span>{validationError || connectionError}</span></div>
-            )}
-
-            <button className="lobby-v2__join" disabled={connecting} type="submit">
-              {connecting ? <><span className="spinner" /> Entrando</> : <>Entrar na sala <Icon name="chevron" /></>}
-            </button>
-
-            <button className="lobby-v2__create" disabled={connecting} onClick={() => void createRoom()} type="button">
-              <Icon name="users" /> Criar uma sala nova
-            </button>
-          </section>
-        </form>
-
-        <p className="lobby-v2__local-note">Sessão protegida · perfil vinculado à sua conta</p>
-      </section>
-    </main>
-  )
+        {selectedChannel.canManage && <details className="channel-home__manage">
+          <summary><Icon name="controls" /> Gerenciar canal</summary>
+          <div><form onSubmit={(event) => void renameSelected(event)}><input aria-label="Novo nome do canal" maxLength={48} onChange={(event) => setRenameName(event.target.value)} placeholder={`Renomear ${selectedChannel.name}`} value={renameName} /><button disabled={!renameName.trim()} type="submit">Salvar nome</button></form><button className="channel-home__archive" onClick={() => void archiveSelected()} type="button">Arquivar canal</button></div>
+        </details>}
+      </div> : <div className="channel-home__empty">
+        <span><BrandMark /></span><p className="eyebrow">SUA BASE DE CONVERSAS</p><h1>{canCreateChannel ? 'Crie o primeiro canal.' : 'Ainda não há canais.'}</h1><p>{canCreateChannel ? 'Use o botão + ao lado do seu perfil para começar.' : 'Quando um host criar um canal, ele aparecerá automaticamente aqui.'}</p>{canCreateChannel && <button onClick={() => setCreating(true)} type="button">Criar canal <span>+</span></button>}
+      </div>}
+    </section>
+  </main>
 }

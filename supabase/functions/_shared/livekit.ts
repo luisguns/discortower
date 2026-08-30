@@ -1,4 +1,6 @@
-import { AccessToken, RoomServiceClient } from 'npm:livekit-server-sdk@2.15.0'
+import { AccessToken, RoomServiceClient, TrackSource } from 'npm:livekit-server-sdk@2.15.0'
+
+export { TrackSource }
 
 const required = (name: string) => {
   const value = Deno.env.get(name)?.trim()
@@ -19,7 +21,7 @@ export const roomService = () => {
   return new RoomServiceClient(httpUrl(config.url), config.apiKey, config.apiSecret)
 }
 
-export const issueParticipantToken = async (roomName: string, identity: string, name: string, metadata: string) => {
+export const issueParticipantToken = async (roomName: string, identity: string, name: string, metadata: string, options: { canHighQualityScreenShare?: boolean; canScreenShare?: boolean } = {}) => {
   const config = livekitConfig()
   const token = new AccessToken(config.apiKey, config.apiSecret, {
     identity,
@@ -27,10 +29,14 @@ export const issueParticipantToken = async (roomName: string, identity: string, 
     metadata,
     ttl: '5m',
   })
+  const canScreenShare = options.canScreenShare !== false
   token.addGrant({
     canPublish: true,
     canPublishData: true,
     canSubscribe: true,
+    canPublishSources: canScreenShare
+      ? [TrackSource.MICROPHONE, TrackSource.CAMERA, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO]
+      : [TrackSource.MICROPHONE, TrackSource.CAMERA],
     room: roomName,
     roomJoin: true,
   })

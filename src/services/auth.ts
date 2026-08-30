@@ -1,13 +1,15 @@
 import type { Session, User } from '@supabase/supabase-js'
 import { clearAuthCallbackParams, getAuthCallbackType, getAuthRedirectUrl, getCurrentAuthCallbackUrl } from './auth-callback'
 import { getSupabase } from './supabase'
-import type { AccessContext, AccountProfile, LocalProfile } from '../types'
+import type { AccessCapabilities, AccessContext, AccountProfile, AccountRole, LocalProfile } from '../types'
 
 export type AuthResult = { ok: true } | { ok: false; message: string }
 
 type RawAccessContext = {
   user_id?: unknown
   is_admin?: unknown
+  role?: unknown
+  capabilities?: Record<string, unknown>
   profile?: {
     user_id?: unknown
     display_name?: unknown
@@ -15,6 +17,7 @@ type RawAccessContext = {
     status?: unknown
     created_at?: unknown
     updated_at?: unknown
+    role?: unknown
   } | null
 }
 
@@ -24,12 +27,14 @@ const profileFromRaw = (raw: RawAccessContext, user: User): AccountProfile | nul
   const profile = raw.profile
   if (!profile || typeof profile.user_id !== 'string' || typeof profile.status !== 'string') return null
   if (profile.status !== 'active' && profile.status !== 'disabled') return null
+  const role = profile.role === 'manager' || profile.role === 'host' || profile.role === 'member' ? profile.role : 'member'
   return {
     userId: profile.user_id,
     displayName: typeof profile.display_name === 'string' ? profile.display_name : '',
     avatarDataUrl: typeof profile.avatar_url === 'string' ? profile.avatar_url : undefined,
     email: user.email,
     status: profile.status,
+    role: role as AccountRole,
     createdAt: typeof profile.created_at === 'string' ? profile.created_at : undefined,
     updatedAt: typeof profile.updated_at === 'string' ? profile.updated_at : undefined,
   }
@@ -40,10 +45,25 @@ export const accessContextFromResponse = (raw: unknown, user: User): AccessConte
   const context = raw as RawAccessContext
   const profile = profileFromRaw(context, user)
   if (!profile || typeof context.user_id !== 'string') return null
+  const role = context.role === 'owner' || context.role === 'manager' || context.role === 'host' || context.role === 'member'
+    ? context.role
+    : context.is_admin === true ? 'owner' : profile.role
+  const rawCapabilities = context.capabilities || {}
+  const capabilities: AccessCapabilities = {
+    canCreateChannel: rawCapabilities.can_create_channel === true || role === 'owner' || role === 'manager' || role === 'host',
+    canManageAllChannels: rawCapabilities.can_manage_all_channels === true || role === 'owner' || role === 'manager',
+    canManageUsers: rawCapabilities.can_manage_users === true || role === 'owner' || role === 'manager',
+    canInviteManagers: rawCapabilities.can_invite_managers === true || role === 'owner',
+    canModerateAllCalls: rawCapabilities.can_moderate_all_calls === true || role === 'owner' || role === 'manager',
+    canHighQualityScreenShare: rawCapabilities.can_high_quality_screen_share === true || role === 'owner' || role === 'manager' || role === 'host',
+  }
+  profile.role = role
   return {
     userId: context.user_id,
     profile,
-    isAdmin: context.is_admin === true,
+    isAdmin: role === 'owner' || role === 'manager',
+    role,
+    capabilities,
   }
 }
 

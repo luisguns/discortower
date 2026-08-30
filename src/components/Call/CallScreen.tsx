@@ -11,7 +11,7 @@ import { microphoneCaptureOptions, useMicrophoneProcessing } from '../../hooks/u
 import { useRoomChat } from '../../hooks/useRoomChat'
 import { useScreenShare } from '../../hooks/useScreenShare'
 import { playCallSound, primeCallSounds } from '../../services/callSounds'
-import { createRoomInviteUrl, streamQualityPresets } from '../../services/livekit'
+import { createChannelInviteUrl, streamQualityPresets } from '../../services/livekit'
 import {
   getCallSoundsEnabled,
   getGameOverlayEnabled,
@@ -41,12 +41,18 @@ import { Icon, type IconName } from '../ui/Icon'
 interface CallScreenProps {
   room: Room
   roomCode: string
+  channelId?: string
+  canHighQualityScreenShare?: boolean
   status: ConnectionStatus
   microphoneError: string
   microphoneStarting: boolean
   onMicrophoneErrorChange: (message: string) => void
   onLeave: () => Promise<void>
   onLogout: () => Promise<void>
+  sidebarVisible?: boolean
+  fullscreen?: boolean
+  onToggleSidebar?: () => void
+  onToggleFullscreen?: () => void
 }
 
 interface ControlButtonProps {
@@ -124,12 +130,18 @@ const connectionLabel: Record<ConnectionStatus, string> = {
 export const CallScreen = ({
   room,
   roomCode,
+  channelId,
+  canHighQualityScreenShare = false,
   status,
   microphoneError,
   microphoneStarting,
   onMicrophoneErrorChange,
   onLeave,
   onLogout,
+  sidebarVisible = true,
+  fullscreen = false,
+  onToggleSidebar,
+  onToggleFullscreen,
 }: CallScreenProps) => {
   const snapshot = useRoomSnapshot(room)
   useDesktopPerformanceMode(room)
@@ -151,6 +163,7 @@ export const CallScreen = ({
   const [micBusy, setMicBusy] = useState(false)
   const [cameraBusy, setCameraBusy] = useState(false)
   const [cameraError, setCameraError] = useState('')
+  const [callLimitNotice, setCallLimitNotice] = useState('')
   const [copyState, setCopyState] = useState('Copiar link')
   const [audioBlocked, setAudioBlocked] = useState(!room.canPlaybackAudio)
   const [participantsOpen, setParticipantsOpen] = useState(false)
@@ -161,11 +174,29 @@ export const CallScreen = ({
     participantId: string
     point: ContextMenuPoint
   } | null>(null)
-  const screenShare = useScreenShare(room, quality)
+  const effectiveQuality = canHighQualityScreenShare ? quality : '720p30'
+  const screenShare = useScreenShare(room, effectiveQuality)
   const updater = useAppUpdater()
   const micEnabled = room.localParticipant.isMicrophoneEnabled
   const cameraEnabled = room.localParticipant.isCameraEnabled
   useDesktopGameOverlay(room, gameOverlayEnabled)
+
+  useEffect(() => {
+    if (snapshot.participants.length > 1 && callLimitNotice.includes('sozinho')) setCallLimitNotice('')
+  }, [callLimitNotice, snapshot.participants.length])
+
+  useEffect(() => {
+    const handleSystemMessage = (payload: Uint8Array, _participant: unknown, _kind: unknown, topic?: string) => {
+      if (topic !== 'system.call-limit') return
+      try {
+        const message = JSON.parse(new TextDecoder().decode(payload)) as { type?: string; disconnectAt?: string }
+        if (message.type === 'solo_timeout_warning') setCallLimitNotice('Você está sozinho nesta call. Se ninguém entrar, a conexão será encerrada em um minuto.')
+        if (message.type === 'max_duration_warning') setCallLimitNotice('Esta call atingirá o limite de seis horas em breve.')
+      } catch { /* ignore malformed system packets */ }
+    }
+    room.on(RoomEvent.DataReceived, handleSystemMessage as never)
+    return () => { room.off(RoomEvent.DataReceived, handleSystemMessage as never) }
+  }, [room])
 
   useEffect(() => {
     const handleParticipantConnected = () => playCallSound('join')
@@ -271,8 +302,9 @@ export const CallScreen = ({
   }, [cameraBusy, room, status])
 
   const changeQuality = (nextQuality: StreamQualityId) => {
-    setQuality(nextQuality)
-    saveStreamQuality(nextQuality)
+    const allowedQuality = canHighQualityScreenShare ? nextQuality : '720p30'
+    setQuality(allowedQuality)
+    saveStreamQuality(allowedQuality)
   }
 
   const changeCallSounds = (enabled: boolean) => {
@@ -300,7 +332,7 @@ export const CallScreen = ({
 
   const copyRoomCode = async () => {
     try {
-      await navigator.clipboard.writeText(createRoomInviteUrl(roomCode))
+      await navigator.clipboard.writeText(createChannelInviteUrl(channelId || roomCode))
       setCopyState('Link copiado')
       window.setTimeout(() => setCopyState('Copiar link'), 1600)
     } catch {
@@ -380,6 +412,8 @@ export const CallScreen = ({
         </div>
 
           <div className="call-header__actions">
+          {onToggleSidebar && <button aria-label={sidebarVisible ? 'Expandir call e recolher lateral' : 'Restaurar barra lateral'} className="participants-toggle" onClick={onToggleSidebar} title={sidebarVisible ? 'Expandir call' : 'Restaurar lateral'} type="button"><Icon name={sidebarVisible ? 'collapse' : 'layout'} /></button>}
+          {onToggleFullscreen && <button aria-label={fullscreen ? 'Sair da tela cheia' : 'Usar tela cheia'} className={`participants-toggle ${fullscreen ? 'is-active' : ''}`} onClick={onToggleFullscreen} title={fullscreen ? 'Sair da tela cheia' : 'Tela cheia'} type="button"><Icon name="expand" /></button>}
           <button
             aria-label={`Layout da galeria: ${galleryLayout === 'cinema' ? 'Priorizar 16:9' : 'Preencher'}`}
             className={`participants-toggle layout-toggle ${layoutMenuPoint ? 'is-active' : ''}`}
@@ -508,6 +542,7 @@ export const CallScreen = ({
       />
 
       <div className="call-notices" aria-live="polite">
+        {callLimitNotice && <Notice onClose={() => setCallLimitNotice('')} warning>{callLimitNotice}</Notice>}
         {microphoneError && (
           <Notice
             actionLabel={
@@ -579,7 +614,7 @@ export const CallScreen = ({
                 : screenShare.isSharing
                   ? 'Transmitindo agora'
                   : screenShare.isSupported
-                    ? streamQualityPresets[quality].label
+                    ? streamQualityPresets[effectiveQuality].label
                     : 'Indisponível neste navegador'
             }
             disabled={screenShare.isStarting || status === 'reconnecting'}
@@ -619,7 +654,8 @@ export const CallScreen = ({
           onClose={() => setSettingsOpen(false)}
           onGameOverlayChange={changeGameOverlay}
           onQualityChange={changeQuality}
-          quality={quality}
+          quality={effectiveQuality}
+          canHighQualityScreenShare={canHighQualityScreenShare}
           shortcuts={shortcuts}
           updater={updater}
         />

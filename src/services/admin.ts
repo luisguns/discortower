@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { AccountRole } from '../types'
 import { getSupabase } from './supabase'
 import { getAuthRedirectUrl } from './auth-callback'
 
@@ -8,6 +9,7 @@ export interface AdminUser {
   displayName: string
   avatarUrl?: string
   status: 'active' | 'disabled'
+  role: AccountRole
   createdAt: string
   lastSignInAt?: string
 }
@@ -16,6 +18,7 @@ export interface AdminInvitation {
   id: string
   email: string
   status: 'pending' | 'accepted' | 'revoked' | 'expired'
+  role: Exclude<AccountRole, 'owner'>
   createdAt: string
   expiresAt: string
   acceptedAt?: string
@@ -38,6 +41,24 @@ export interface AdminRoom {
   endedAt?: string
   createdAt: string
   participants: AdminParticipant[]
+}
+
+export interface AdminUsageSummary {
+  estimatedMinutes: number
+  budget: number
+  percentage: number | null
+}
+
+export interface CallGuardrailSettings {
+  soloWarningSeconds: number
+  soloKickSeconds: number
+  maxCallSeconds: number
+  maxWarningSeconds: number
+  cooldownSeconds: number
+  maxScreenShareDimension: number
+  activeCallLimit: number
+  startingTimeoutSeconds: number
+  updatedAt?: string
 }
 
 export class AdminApiError extends Error {
@@ -78,8 +99,15 @@ export const listAdminUsers = () => invokeAdmin<{ users: AdminUser[] }>('admin-l
 export const setUserStatus = (userId: string, status: 'active' | 'disabled') =>
   invokeAdmin<{ ok: boolean; removalFailures?: number; revokedSessions?: boolean }>('admin-set-user-status', { status, userId })
 
-export const createInvitation = (email: string) =>
-  invokeAdmin<{ invitation: AdminInvitation }>('admin-invite-user', { action: 'create', email, redirectTo: getAuthRedirectUrl() }).then((result) => result.invitation)
+export const getAdminUsageSummary = () => invokeAdmin<AdminUsageSummary>('admin-usage-summary', {})
+
+export const getCallGuardrailSettings = () => invokeAdmin<{ settings: CallGuardrailSettings }>('admin-call-settings', { action: 'get' }).then((result) => result.settings)
+
+export const updateCallGuardrailSettings = (settings: CallGuardrailSettings) =>
+  invokeAdmin<{ settings: CallGuardrailSettings }>('admin-call-settings', { action: 'update', settings }).then((result) => result.settings)
+
+export const createInvitation = (email: string, role: Exclude<AccountRole, 'owner'> = 'member') =>
+  invokeAdmin<{ invitation: AdminInvitation }>('admin-invite-user', { action: 'create', email, role, redirectTo: getAuthRedirectUrl() }).then((result) => result.invitation)
 
 export const revokeInvitation = (invitationId: string) =>
   invokeAdmin<{ ok: true }>('admin-invite-user', { action: 'revoke', invitationId })
@@ -87,13 +115,14 @@ export const revokeInvitation = (invitationId: string) =>
 export const listAdminInvitations = async () => {
   const { data, error } = await getSupabase()
     .from('invitations')
-    .select('id,email_normalized,status,created_at,expires_at,accepted_at')
+    .select('id,email_normalized,status,role,created_at,expires_at,accepted_at')
     .order('created_at', { ascending: false })
     .limit(100)
   return rows(data, error).map((item) => ({
     id: item.id,
     email: item.email_normalized,
     status: item.status,
+    role: item.role || 'member',
     createdAt: item.created_at,
     expiresAt: item.expires_at,
     acceptedAt: item.accepted_at || undefined,

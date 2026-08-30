@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('fordKallDesktop', {
   checkForUpdates: () => ipcRenderer.invoke('desktop:check-for-updates'),
   installUpdate: () => ipcRenderer.send('desktop:install-update'),
   getInfo: () => ipcRenderer.invoke('desktop:get-info'),
+  detectKnownActivity: (candidates) => ipcRenderer.invoke('desktop:detect-known-activity', candidates),
+  setFullscreen: (fullscreen) => ipcRenderer.invoke('desktop:set-fullscreen', fullscreen === true),
   getAuthCallback: () => ipcRenderer.invoke('auth:get-callback'),
   getAuthSessionBlob: () => ipcRenderer.invoke('auth:get-session'),
   setAuthSessionBlob: (session) => ipcRenderer.invoke('auth:set-session', typeof session === 'string' ? session : ''),
@@ -42,5 +44,10 @@ contextBridge.exposeInMainWorld('fordKallDesktop', {
     const wrappedListener = (_event, state) => listener(state)
     ipcRenderer.on('desktop:update-state', wrappedListener)
     return () => ipcRenderer.removeListener('desktop:update-state', wrappedListener)
+  },
+  onFullscreenChange: (listener) => {
+    const wrappedListener = (_event, fullscreen) => listener(fullscreen === true)
+    ipcRenderer.on('desktop:fullscreen-changed', wrappedListener)
+    return () => ipcRenderer.removeListener('desktop:fullscreen-changed', wrappedListener)
   },
 })

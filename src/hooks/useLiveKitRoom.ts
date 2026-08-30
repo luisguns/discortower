@@ -51,7 +51,7 @@ export const useLiveKitRoom = () => {
     leavingRef.current = false
   }, [])
 
-  const join = useCallback(async (roomCode: string, profile: LocalProfile) => {
+  const join = useCallback(async (channelId: string, profile: LocalProfile) => {
     setError('')
     setMicrophoneError('')
     setStatus('connecting')
@@ -79,7 +79,7 @@ export const useLiveKitRoom = () => {
 
     try {
       const { serverUrl, participantToken } = await fetchConnectionDetails(
-        roomCode,
+        channelId,
         profile,
       )
       await nextRoom.connect(serverUrl, participantToken)

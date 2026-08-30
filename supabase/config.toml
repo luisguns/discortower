@@ -22,3 +22,21 @@ verify_jwt = false
 
 [functions.livekit-webhook]
 verify_jwt = false
+
+[functions.channel-action]
+verify_jwt = false
+
+[functions.admin-set-user-role]
+verify_jwt = false
+
+[functions.enforce-call-limits]
+verify_jwt = false
+
+[functions.admin-usage-summary]
+verify_jwt = false
+
+[functions.admin-call-settings]
+verify_jwt = false
+
+[functions.channel-presence]
+verify_jwt = false

@@ -4,9 +4,9 @@ Call privada de voz e compartilhamento de tela entre amigos, com contas acessív
 
 ## O que já funciona
 
-- lobby sem cadastro, com nome persistido no navegador e código de sala normalizado;
-- links de convite no formato `?room=KIWI-123`, com sala preenchida automaticamente;
-- criação de sala rápida com código aleatório curto no formato `ABC-DEFG-HIJ`;
+- lobby autenticado, com nome persistido no navegador e lista de canais salvos;
+- links de canal no formato `?channel=<uuid>`, com seleção preenchida automaticamente;
+- criação de canal persistente para proprietário, gerente e host;
 - chamada de voz, câmera e indicador de participante falando;
 - galeria responsiva com modos locais `Preencher` (até 4:3) e `Priorizar 16:9`, incluindo três participantes do mesmo tamanho;
 - drawer de participantes fechado por padrão e menu contextual no clique ou botão direito;
@@ -26,6 +26,9 @@ Call privada de voz e compartilhamento de tela entre amigos, com contas acessív
 - deploy estático em GitHub Pages por GitHub Actions.
 - autenticação Supabase por convite, perfil protegido e logout que encerra a call;
 - painel administrativo embutido para usuários, convites, calls e participantes;
+- canais persistentes com papéis de proprietário, gerente, host e membro;
+- limites de concorrência, participantes, duração e kick automático para chamadas solitárias;
+- política de tela 720p30 para membros com fiscalização server-side de resoluções acima do limite;
 - emissão de token LiveKit por Edge Function autenticada, com TTL curto;
 - aplicativo Windows baseado em Electron, com instalador e executável portátil;
 - seletor desktop próprio de telas/janelas, captura opcional do áudio do sistema e deep link `fordkall://`;
@@ -86,7 +89,7 @@ npm run dev
 
 Abra o endereço mostrado pelo Vite, normalmente `http://localhost:5173`.
 
-Para validar o fluxo realtime, abra duas janelas/perfis de navegador, use nomes diferentes e informe o mesmo código de sala. Para compartilhar áudio, prefira uma aba do Chrome/Edge e marque **Compartilhar áudio da guia**.
+Para validar o fluxo realtime, abra duas janelas/perfis de navegador, use nomes diferentes e entre no mesmo canal salvo. Para compartilhar áudio, prefira uma aba do Chrome/Edge e marque **Compartilhar áudio da guia**.
 
 No Chrome/Edge, a captura solicita `restrictOwnAudio` para evitar que o áudio da própria call volte pela transmissão. Como essa proteção depende do navegador, fones de ouvido continuam sendo a opção mais segura ao compartilhar áudio do sistema.
 
@@ -149,7 +152,7 @@ O arquivo `public/CNAME` preserva o domínio customizado no artefato. A aplicaç
 
 ## Limitações conhecidas da V1
 
-- a sala continua sendo identificada por código, mas somente contas ativas recebem credenciais LiveKit;
+- canais persistentes são a única forma de iniciar novas calls; códigos de sala antigos não criam sessões;
 - chat e imagens são entregues somente aos participantes conectados naquele momento e não possuem histórico persistente;
 - captura de áudio do desktop/tela depende do sistema operacional e do navegador;
 - `restrictOwnAudio` é uma proteção de melhor esforço disponível principalmente em navegadores Chromium;

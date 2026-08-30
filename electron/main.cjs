@@ -733,6 +733,33 @@ const syncGameOverlayRuntime = () => {
   destroyGameOverlay()
 }
 
+const runningProcesses = () => new Promise((resolve) => {
+  if (process.platform !== 'win32') return resolve([])
+  const child = spawn('powershell.exe', [
+    '-NoLogo',
+    '-NoProfile',
+    '-NonInteractive',
+    '-WindowStyle',
+    'Hidden',
+    '-Command',
+    "Get-Process | ForEach-Object { [PSCustomObject]@{ name = ($_.ProcessName + '.exe').ToLowerInvariant(); path = $_.Path } } | ConvertTo-Json -Compress",
+  ], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] })
+  let output = ''
+  child.stdout.setEncoding('utf8')
+  child.stdout.on('data', (chunk) => { if (output.length < 512 * 1024) output += chunk })
+  child.on('error', () => resolve([]))
+  child.on('close', () => {
+    try {
+      const parsed = JSON.parse(output || '[]')
+      const values = Array.isArray(parsed) ? parsed : [parsed]
+      resolve(values.map((value) => ({
+        name: String(value?.name || '').toLowerCase(),
+        path: typeof value?.path === 'string' ? value.path : '',
+      })).filter((value) => value.name))
+    } catch { resolve([]) }
+  })
+})
+
 const shortcutActions = ['microphone', 'deafen', 'camera', 'screenShare', 'leave']
 const shortcutPattern = /^(?:(?:Control|Alt|Shift|Super)\+)*(?:F(?:[1-9]|1\d|2[0-4])|[A-Z0-9]|Space|Up|Down|Left|Right|PageUp|PageDown|Home|End|Insert)$/
 
@@ -925,6 +952,31 @@ const installRendererIpc = () => {
     }
   })
 
+  ipcMain.handle('desktop:detect-known-activity', async (event, value) => {
+    if (!isMainRenderer(event) || process.platform !== 'win32' || !Array.isArray(value)) return null
+    const candidates = value.slice(0, 100).map((candidate) => ({
+      id: typeof candidate?.id === 'string' ? candidate.id.slice(0, 64) : '',
+      processNames: Array.isArray(candidate?.processNames)
+        ? candidate.processNames.slice(0, 24).map((name) => String(name).toLowerCase()).filter((name) => /^[a-z0-9 ._+-]{1,96}\.exe$/.test(name))
+        : [],
+    })).filter((candidate) => candidate.id && candidate.processNames.length)
+    const processes = await runningProcesses()
+    const candidate = candidates.find((item) => item.processNames.some((name) => processes.some((process) => process.name === name)))
+    if (!candidate) return null
+    const matchedProcess = processes.find((process) => candidate.processNames.includes(process.name))
+    let iconDataUrl
+    if (matchedProcess?.path) {
+      try { iconDataUrl = (await app.getFileIcon(matchedProcess.path, { size: 'small' })).resize({ width: 32, height: 32 }).toDataURL() } catch { /* Some protected processes do not expose an icon. */ }
+    }
+    return { activityId: candidate.id, iconDataUrl }
+  })
+
+  ipcMain.handle('desktop:set-fullscreen', (event, value) => {
+    if (!isMainRenderer(event)) return false
+    mainWindow.setFullScreen(value === true)
+    return mainWindow.isFullScreen()
+  })
+
   ipcMain.handle('desktop:get-update-state', (event) => {
     if (!mainWindow || event.sender !== mainWindow.webContents) return updateState
     return updateState
@@ -1046,6 +1098,8 @@ const createMainWindow = async () => {
       backgroundThrottling: true,
     },
   })
+  mainWindow.on('enter-full-screen', () => mainWindow?.webContents.send('desktop:fullscreen-changed', true))
+  mainWindow.on('leave-full-screen', () => mainWindow?.webContents.send('desktop:fullscreen-changed', false))
 
   configureWindowNavigation(mainWindow)
 

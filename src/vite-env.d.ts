@@ -44,6 +44,8 @@ interface FordKallDesktopApi {
   checkForUpdates: () => Promise<import('./types').AppUpdateState>
   installUpdate: () => void
   getInfo: () => Promise<FordKallDesktopInfo | null>
+  detectKnownActivity: (candidates: Array<{ id: string; processNames: string[] }>) => Promise<{ activityId: string; iconDataUrl?: string } | null>
+  setFullscreen: (fullscreen: boolean) => Promise<boolean>
   getAuthCallback: () => Promise<string | null>
   getAuthSessionBlob: () => Promise<string | null>
   setAuthSessionBlob: (session: string) => Promise<boolean>
@@ -53,6 +55,7 @@ interface FordKallDesktopApi {
   onShortcut: (listener: (action: import('./types').ShortcutAction) => void) => () => void
   onShortcutStatus: (listener: (status: { failedActions: import('./types').ShortcutAction[] }) => void) => () => void
   onUpdateState: (listener: (state: import('./types').AppUpdateState) => void) => () => void
+  onFullscreenChange: (listener: (fullscreen: boolean) => void) => () => void
 }
 
 interface Window {

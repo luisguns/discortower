@@ -89,16 +89,15 @@ export const createLiveKitRoom = () =>
   })
 
 export const fetchConnectionDetails = async (
-  roomCode: string,
+  channelId: string,
   profile: LocalProfile,
 ): Promise<{ serverUrl: string; participantToken: string }> => {
-  const normalizedRoom = normalizeRoomCode(roomCode)
-  if (!normalizedRoom) throw new Error('ROOM_CODE_INVALID')
+  if (!channelId) throw new Error('CHANNEL_INVALID')
   const { data, error } = await getSupabase().functions.invoke('issue-livekit-token', {
     body: {
       participantMetadata: serializeParticipantProfile(profile),
       participantName: normalizeDisplayName(profile.displayName),
-      roomCode: normalizedRoom,
+      channelId,
     },
   })
   if (error) {
@@ -114,6 +113,26 @@ export const fetchConnectionDetails = async (
     throw new Error('AUTH_FUNCTION_INVALID_RESPONSE')
   }
   return data as { serverUrl: string; participantToken: string }
+}
+
+export const createChannelInviteUrl = (channelId: string) => {
+  if (typeof window === 'undefined') return `?channel=${encodeURIComponent(channelId)}`
+  const url = new URL(window.fordKallDesktop ? 'https://fordkall.11a3.dev/' : window.location.href)
+  url.search = ''; url.searchParams.set('channel', channelId); url.hash = ''
+  return url.toString()
+}
+
+export const getChannelIdFromUrl = () => {
+  if (typeof window === 'undefined') return ''
+  return new URL(window.location.href).searchParams.get('channel') || ''
+}
+
+export const replaceChannelIdInCurrentUrl = (channelId: string) => {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  url.search = channelId ? `?channel=${encodeURIComponent(channelId)}` : ''
+  url.hash = ''
+  window.history.replaceState(null, '', url)
 }
 
 export const streamQualityPresets: Record<
@@ -152,6 +171,14 @@ export const friendlyConnectionError = (error: unknown) => {
   }
   if (error instanceof Error && /AUTH_FUNCTION_429/i.test(error.message)) {
     return 'Muitas tentativas em pouco tempo. Aguarde um instante e tente novamente.'
+  }
+  if (error instanceof Error && /CHANNEL_COOLDOWN|ACTIVE_CALL_LIMIT_REACHED/i.test(error.message)) {
+    return error.message.includes('COOLDOWN')
+      ? 'Este canal está em pausa após atingir o limite de duração. Tente novamente em alguns minutos.'
+      : 'O limite de calls simultâneas foi atingido. Aguarde uma call terminar.'
+  }
+  if (error instanceof Error && /CHANNEL_NOT_FOUND|INVALID_CHANNEL/i.test(error.message)) {
+    return 'Esse canal não existe mais ou não está disponível para sua conta.'
   }
   if (error instanceof Error && /AUTH_FUNCTION_UNAVAILABLE|AUTH_FUNCTION_5/i.test(error.message)) {
     return 'O serviço de autorização está indisponível. Tente novamente em instantes.'

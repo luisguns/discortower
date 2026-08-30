@@ -1,5 +1,5 @@
 import { writeAudit } from '../_shared/audit.ts'
-import { assertAdmin, handleFunctionError, HttpError, jsonResponse, optionsResponse, readJson, requireUser } from '../_shared/http.ts'
+import { effectiveRole, handleFunctionError, HttpError, jsonResponse, optionsResponse, readJson, requireUser } from '../_shared/http.ts'
 import { enforceRateLimit } from '../_shared/rate-limit.ts'
 import { roomService } from '../_shared/livekit.ts'
 
@@ -8,7 +8,8 @@ Deno.serve(async (request) => {
   try {
     if (request.method !== 'POST') throw new HttpError(405, 'METHOD_NOT_ALLOWED')
     const { client, user } = await requireUser(request)
-    await assertAdmin(client, user.id)
+    const actorRole = await effectiveRole(client, user.id)
+    if (!['owner', 'manager', 'host'].includes(actorRole)) throw new HttpError(403, 'ADMIN_REQUIRED')
     await enforceRateLimit(client, `admin-room:${user.id}`, 60, 3600)
     const body = await readJson(request)
     const action = body?.action === 'end_room' || body?.action === 'remove_participant' ? body.action : ''
@@ -16,8 +17,11 @@ Deno.serve(async (request) => {
     const participantId = typeof body?.participantId === 'string' ? body.participantId : ''
     if (!action || !roomId || (action === 'remove_participant' && !participantId)) throw new HttpError(400, 'INVALID_PAYLOAD')
 
-    const { data: room, error: roomError } = await client.from('room_sessions').select('id,room_name,status').eq('id', roomId).maybeSingle()
+    const { data: room, error: roomError } = await client.from('room_sessions').select('id,room_name,status,channel_id').eq('id', roomId).maybeSingle()
     if (roomError || !room) throw new HttpError(404, 'ROOM_NOT_FOUND')
+    const { data: channel } = room.channel_id ? await client.from('channels').select('created_by').eq('id', room.channel_id).maybeSingle() : { data: null }
+    const ownerId = channel?.created_by
+    if (actorRole === 'host' && ownerId !== user.id) throw new HttpError(403, 'FORBIDDEN')
     const service = roomService()
 
     if (action === 'end_room') {
@@ -45,4 +49,3 @@ Deno.serve(async (request) => {
     return handleFunctionError(request, error)
   }
 })
-

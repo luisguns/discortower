@@ -5,7 +5,7 @@ const configuredOrigins = () => (Deno.env.get('FUNCTION_ALLOWED_ORIGINS') || 'ht
 export const corsHeaders = (request: Request): Record<string, string> => {
   const origin = request.headers.get('origin') || ''
   const headers: Record<string, string> = {
-    'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',
+    'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info, x-call-limit-secret',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Vary': 'Origin',
   }
@@ -61,6 +61,21 @@ export const assertAdmin = async (client: SupabaseClient, userId: string) => {
   const { data, error } = await client.from('admin_users').select('user_id').eq('user_id', userId).maybeSingle()
   if (error || !data) throw new HttpError(403, 'ADMIN_REQUIRED')
   return true
+}
+
+export const effectiveRole = async (client: SupabaseClient, userId: string) => {
+  const { data, error } = await client.rpc('get_effective_role', { p_user_id: userId })
+  if (error) throw new Error('ROLE_LOOKUP_FAILED')
+  return String(data || 'member') as 'owner' | 'manager' | 'host' | 'member'
+}
+
+export const assertCapability = async (client: SupabaseClient, userId: string, capability: 'manage' | 'create_channel' | 'moderate_all') => {
+  const role = await effectiveRole(client, userId)
+  const allowed = capability === 'create_channel'
+    ? ['owner', 'manager', 'host'].includes(role)
+    : ['owner', 'manager'].includes(role)
+  if (!allowed) throw new HttpError(403, 'FORBIDDEN')
+  return role
 }
 
 export const userIp = (request: Request) => (request.headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim().slice(0, 64)

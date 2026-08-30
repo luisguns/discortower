@@ -18,6 +18,7 @@ const CALL_SOUNDS_KEY = 'ford-kall:call-sounds'
 const MICROPHONE_MONITOR_VOLUME_KEY = 'ford-kall:microphone-monitor-volume'
 const GAME_OVERLAY_KEY = 'ford-kall:game-overlay'
 const SHORTCUT_BINDINGS_KEY = 'ford-kall:shortcut-bindings'
+const ACTIVITY_SHARING_KEY = 'ford-kall:activity-sharing'
 
 export const MAX_PARTICIPANT_VOLUME = 4
 export const PARTICIPANT_VOLUME_EVENT = 'ford-kall:participant-volume'
@@ -177,6 +178,11 @@ export const getGameOverlayEnabled = () => safeRead(GAME_OVERLAY_KEY) === 'true'
 
 export const saveGameOverlayEnabled = (enabled: boolean) =>
   safeWrite(GAME_OVERLAY_KEY, String(enabled))
+
+export const getActivitySharingEnabled = () => safeRead(ACTIVITY_SHARING_KEY) !== 'false'
+
+export const saveActivitySharingEnabled = (enabled: boolean) =>
+  safeWrite(ACTIVITY_SHARING_KEY, String(enabled))
 
 const emptyShortcutBindings = (): ShortcutBindings => ({
   microphone: '',

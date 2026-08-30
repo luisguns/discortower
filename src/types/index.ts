@@ -52,10 +52,22 @@ export interface LocalProfile {
 
 export type AccountStatus = 'active' | 'disabled'
 
+export type AccountRole = 'owner' | 'manager' | 'host' | 'member'
+
+export interface AccessCapabilities {
+  canCreateChannel: boolean
+  canManageAllChannels: boolean
+  canManageUsers: boolean
+  canInviteManagers: boolean
+  canModerateAllCalls: boolean
+  canHighQualityScreenShare: boolean
+}
+
 export interface AccountProfile extends LocalProfile {
   userId: string
   email?: string
   status: AccountStatus
+  role: AccountRole
   createdAt?: string
   updatedAt?: string
 }
@@ -64,6 +76,56 @@ export interface AccessContext {
   userId: string
   profile: AccountProfile
   isAdmin: boolean
+  role: AccountRole
+  capabilities: AccessCapabilities
+}
+
+export interface ChannelSummary {
+  id: string
+  name: string
+  createdBy: string
+  status: 'active' | 'archived'
+  participantCount: number
+  callStartedAt?: string
+  reopenAfter?: string
+  canManage: boolean
+}
+
+export interface RecognizedActivity {
+  id: string
+  slug: string
+  displayName: string
+  kind: 'game' | 'ide'
+  iconDataUrl?: string
+}
+
+export interface ActivityCatalogItem extends RecognizedActivity {
+  processNames: string[]
+}
+
+export interface ChannelParticipantPresence {
+  userId?: string
+  displayName: string
+  avatarDataUrl?: string
+  joinedAt: string
+  screenSharing: boolean
+  activity?: RecognizedActivity
+}
+
+export interface ChannelMemberPresence {
+  userId: string
+  displayName: string
+  avatarDataUrl?: string
+  joinedAt: string
+  online: boolean
+}
+
+export interface ChannelPresence {
+  channelId: string
+  callActive: boolean
+  screenSharing: boolean
+  members: ChannelMemberPresence[]
+  participants: ChannelParticipantPresence[]
 }
 
 export interface RemoteVoice {

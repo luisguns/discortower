@@ -23,6 +23,7 @@ interface SettingsModalProps {
   microphoneProcessing: MicrophoneProcessingState
   callSoundsEnabled: boolean
   quality: StreamQualityId
+  canHighQualityScreenShare?: boolean
   shortcuts: CallShortcutsState
   updater: AppUpdaterState
   onCallSoundsChange: (enabled: boolean) => void
@@ -79,6 +80,7 @@ export const SettingsModal = ({
   microphoneProcessing,
   callSoundsEnabled,
   quality,
+  canHighQualityScreenShare = true,
   shortcuts,
   updater,
   onCallSoundsChange,
@@ -301,7 +303,7 @@ export const SettingsModal = ({
 
                 <SettingsCard description="A opção escolhida vale para a próxima transmissão." title="Qualidade da tela">
                   <div className="quality-options">
-                    {(Object.keys(streamQualityPresets) as StreamQualityId[]).map((qualityId) => (
+                    {(Object.keys(streamQualityPresets) as StreamQualityId[]).filter((qualityId) => canHighQualityScreenShare || qualityId === '720p30').map((qualityId) => (
                       <button
                         className={quality === qualityId ? 'is-active' : ''}
                         key={qualityId}
