@@ -31,7 +31,10 @@ export const readJson = async (request: Request) => {
   }
 }
 
-const secretKey = () => Deno.env.get('SUPABASE_SECRET_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+// Supabase reserves the SUPABASE_ prefix for platform-managed variables.
+// SECRET_KEY is the project-configured server key; the other names remain
+// fallbacks for local environments or runtimes that expose them automatically.
+const secretKey = () => Deno.env.get('SECRET_KEY') || Deno.env.get('SUPABASE_SECRET_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
 export const adminClient = (): SupabaseClient => {
   const url = Deno.env.get('SUPABASE_URL') || ''

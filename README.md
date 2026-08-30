@@ -58,8 +58,8 @@ O fluxo de produção não usa o Development Token Server. O cliente recebe some
 
 1. Crie o projeto Supabase, desabilite o cadastro público e aplique a migration em `supabase/migrations/`.
 2. Convide o proprietário pelo Dashboard, confirme a conta e insira o UUID dele em `public.admin_users` pelo SQL Editor. O e-mail e o UUID não entram no repositório.
-3. Configure os redirects exatos no Supabase Auth, incluindo `fordkall://auth/callback` para o Desktop e o domínio Web.
-4. Configure `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `SUPABASE_SECRET_KEY`, `INVITE_REDIRECT_URL`, `DESKTOP_INVITE_REDIRECT_URL` e `FUNCTION_ALLOWED_ORIGINS` nos secrets do Supabase. Veja `supabase/README.md`.
+3. Configure o redirect `fordkall://auth/callback` no Supabase Auth para o aplicativo Desktop.
+4. Configure `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `SECRET_KEY`, `DESKTOP_INVITE_REDIRECT_URL` e `FUNCTION_ALLOWED_ORIGINS` nos secrets do Supabase. `INVITE_REDIRECT_URL` só é necessário se convites Web forem habilitados. Veja `supabase/README.md`.
 5. Faça o deploy das funções em `supabase/functions/` e configure o webhook assinado do LiveKit para `livekit-webhook`.
 6. Copie o arquivo de exemplo:
 
@@ -75,7 +75,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=<publishable-key>
 VITE_SUPABASE_AUTH_REDIRECT_URL=https://<dominio-web>/
 ```
 
-Nunca adicione `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `SUPABASE_SECRET_KEY` ou `SUPABASE_SERVICE_ROLE_KEY` ao frontend, a arquivos `VITE_*` ou ao workflow.
+Nunca adicione `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `SECRET_KEY`, `SUPABASE_SECRET_KEY` ou `SUPABASE_SERVICE_ROLE_KEY` ao frontend, a arquivos `VITE_*` ou ao workflow.
 
 ## Rodando localmente
 
