@@ -130,9 +130,32 @@ Os artefatos são gerados em `release/`:
 
 O aplicativo carrega o frontend empacotado localmente e continua usando o LiveKit Cloud para a call. Ao fechar a janela durante uma call, ele permanece na bandeja do Windows; **Sair do DiscorTower** no menu do ícone encerra de fato o processo. Quando minimizado ou oculto, publicações remotas de vídeo são suspensas e restauradas ao abrir a janela, reduzindo uso de GPU e banda sem interromper a voz.
 
-Todos os atalhos começam vazios e são configurados em **Configurações → Atalhos**. No app instalado eles são globais; no navegador funcionam apenas com a página em foco. O botão **Checar update** fica em **Configurações → Aplicativo** e está disponível somente na versão Setup. A versão portátil continua sendo atualizada substituindo o executável manualmente.
+Todos os atalhos começam vazios e são configurados em **Configurações → Atalhos**. No app instalado eles são globais; no navegador funcionam apenas com a página em foco. A versão Setup consulta updates 15 segundos depois de abrir e novamente a cada seis horas; o botão **Checar update** em **Configurações → Aplicativo** permite uma consulta imediata. O download usa os metadados e `.blockmap` da release para reaproveitar os blocos existentes, e a instalação só acontece após confirmação. A versão portátil continua sendo atualizada substituindo o executável manualmente.
 
-O workflow [`.github/workflows/windows.yml`](.github/workflows/windows.yml) gera os executáveis e os metadados do updater manualmente ou ao enviar uma tag `v*`. Builds sem certificado funcionam normalmente, mas o Windows SmartScreen pode mostrar o aviso de editor desconhecido; assinatura de código elimina esse aviso em releases futuras.
+O workflow [`.github/workflows/windows.yml`](.github/workflows/windows.yml) gera os executáveis e os metadados do updater manualmente ou ao enviar uma tag `v*`. Releases com tag exigem assinatura via Microsoft Artifact Signing e também publicam `DiscorTower-LTS-Windows-x64.exe`, um nome estável para links de download. Builds manuais e locais continuam aceitando saída sem assinatura para desenvolvimento.
+
+### Assinatura de releases do Windows
+
+Depois de criar e validar a conta e o perfil de certificado no Microsoft Artifact Signing, configure no repositório em **Settings → Secrets and variables → Actions**:
+
+Variables:
+
+- `AZURE_SIGNING_ENDPOINT`
+- `AZURE_CODE_SIGNING_ACCOUNT_NAME`
+- `AZURE_CERTIFICATE_PROFILE_NAME`
+- `AZURE_PUBLISHER_NAME` (o distinguished name exato emitido no certificado)
+
+Secrets:
+
+- `AZURE_TENANT_ID`
+- `AZURE_CLIENT_ID`
+- `AZURE_CLIENT_SECRET`
+
+O aplicativo registrado no Microsoft Entra ID precisa da função **Trusted Signing Certificate Profile Signer** no recurso de assinatura. Se qualquer valor estiver ausente, o build de uma tag falha antes de publicar uma release sem assinatura. Após a primeira release assinada, o link permanente do instalador é:
+
+```text
+https://github.com/luisguns/discortower/releases/latest/download/DiscorTower-LTS-Windows-x64.exe
+```
 
 ## Deploy no GitHub Pages
 
@@ -146,9 +169,11 @@ Antes do primeiro deploy:
 
 1. Em **Settings → Pages**, selecione **GitHub Actions** como Source.
 2. Em **Settings → Secrets and variables → Actions → Variables**, crie `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` e `VITE_SUPABASE_AUTH_REDIRECT_URL`.
-3. Confirme o domínio customizado `fordkall.11a3.dev` em **Settings → Pages** e registre a URL correspondente no Supabase Auth.
+3. Confirme o domínio customizado `splotys.com` em **Settings → Pages** e registre a URL correspondente no Supabase Auth.
 
 O arquivo `public/CNAME` preserva o domínio customizado no artefato. A aplicação é uma SPA sem rotas reais e usa assets relativos para funcionar tanto no domínio quanto dentro do protocolo local seguro do Electron.
+
+Na versão web, a tela de login mostra **Baixar LTS para Windows** e direciona para a release estável mais recente. O link não aparece dentro do aplicativo desktop.
 
 ## Limitações conhecidas da V1
 

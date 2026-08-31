@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient, type User } from 'https://esm.sh/@supabase/supabase-js@2.57.0'
 
 const configuredOrigins = () => [...new Set([
-  'https://fordkall.11a3.dev', 'fordkall-app://app', 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174',
+  'https://splotys.com', 'fordkall-app://app', 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174',
   ...(Deno.env.get('FUNCTION_ALLOWED_ORIGINS') || '').split(','),
 ].map((origin) => origin.trim()).filter(Boolean))]
 

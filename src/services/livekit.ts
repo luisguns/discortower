@@ -52,7 +52,7 @@ export const createRoomInviteUrl = (roomCode: string) => {
   if (typeof window === 'undefined') return `?room=${encodeURIComponent(normalizedRoom)}`
 
   const url = new URL(
-    window.fordKallDesktop ? 'https://fordkall.11a3.dev/' : window.location.href,
+    window.fordKallDesktop ? 'https://splotys.com/' : window.location.href,
   )
   url.search = ''
   url.searchParams.set('room', normalizedRoom)
@@ -117,7 +117,7 @@ export const fetchConnectionDetails = async (
 
 export const createChannelInviteUrl = (channelId: string) => {
   if (typeof window === 'undefined') return `?channel=${encodeURIComponent(channelId)}`
-  const url = new URL(window.fordKallDesktop ? 'https://fordkall.11a3.dev/' : window.location.href)
+  const url = new URL(window.fordKallDesktop ? 'https://splotys.com/' : window.location.href)
   url.search = ''; url.searchParams.set('channel', channelId); url.hash = ''
   return url.toString()
 }

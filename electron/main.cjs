@@ -23,8 +23,10 @@ const APP_SCHEME = 'fordkall-app'
 const APP_ORIGIN = `${APP_SCHEME}://app`
 const PICKER_ORIGIN = `${APP_SCHEME}://picker`
 const OVERLAY_ORIGIN = `${APP_SCHEME}://overlay`
-const PUBLIC_APP_URL = 'https://fordkall.11a3.dev/'
+const PUBLIC_APP_URL = 'https://splotys.com/'
 const DEV_SERVER_URL = 'http://127.0.0.1:5173'
+const UPDATE_CHECK_DELAY_MS = 15 * 1000
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
 const isDevelopment = process.argv.includes('--dev') || !app.isPackaged
 
 let mainWindow = null
@@ -44,6 +46,8 @@ let overlayState = { enabled: false, participants: [] }
 let shortcutBindings = {}
 let shortcutCaptureActive = false
 let memoryAuthSession = null
+let initialUpdateCheckTimer = null
+let periodicUpdateCheckTimer = null
 let updateState = {
   status: 'idle',
   currentVersion: app.getVersion(),
@@ -796,7 +800,7 @@ const syncGlobalShortcuts = () => {
 }
 
 const autoUpdateSupported = () =>
-  process.platform === 'win32' && app.isPackaged && !process.env.PORTABLE_EXECUTABLE_FILE
+    process.platform === 'win32' && app.isPackaged && process.windowsStore !== true && !process.env.PORTABLE_EXECUTABLE_FILE
 
 const setUpdateState = (nextState) => {
   updateState = {
@@ -814,7 +818,9 @@ const configureAutoUpdater = () => {
       status: 'unsupported',
       message: process.env.PORTABLE_EXECUTABLE_FILE
         ? 'A versão portátil não se atualiza sozinha. Instale a versão Setup para ativar updates.'
-        : 'A atualização automática fica disponível no aplicativo Windows instalado.',
+        : process.windowsStore === true
+          ? 'As atualizações desta versão são gerenciadas pela Microsoft Store.'
+          : 'A atualização automática fica disponível no aplicativo Windows instalado.',
     })
     return
   }
@@ -861,6 +867,37 @@ const configureAutoUpdater = () => {
       message: 'Não foi possível buscar ou baixar a atualização. Tente novamente em instantes.',
     })
   })
+}
+
+const checkForAppUpdates = async () => {
+  if (!autoUpdateSupported()) return updateState
+  if (['checking', 'downloading', 'ready'].includes(updateState.status)) return updateState
+  setUpdateState({ status: 'checking', message: 'Consultando as releases do DiscorTower…' })
+  try {
+    await autoUpdater.checkForUpdates()
+  } catch {
+    setUpdateState({
+      status: 'error',
+      message: 'Não foi possível buscar a atualização. Confira sua conexão e tente novamente.',
+    })
+  }
+  return updateState
+}
+
+const scheduleUpdateChecks = () => {
+  if (!autoUpdateSupported() || initialUpdateCheckTimer || periodicUpdateCheckTimer) return
+  initialUpdateCheckTimer = setTimeout(() => {
+    initialUpdateCheckTimer = null
+    void checkForAppUpdates()
+  }, UPDATE_CHECK_DELAY_MS)
+  periodicUpdateCheckTimer = setInterval(() => void checkForAppUpdates(), UPDATE_CHECK_INTERVAL_MS)
+}
+
+const stopUpdateChecks = () => {
+  if (initialUpdateCheckTimer) clearTimeout(initialUpdateCheckTimer)
+  if (periodicUpdateCheckTimer) clearInterval(periodicUpdateCheckTimer)
+  initialUpdateCheckTimer = null
+  periodicUpdateCheckTimer = null
 }
 
 const installRendererIpc = () => {
@@ -984,18 +1021,7 @@ const installRendererIpc = () => {
 
   ipcMain.handle('desktop:check-for-updates', async (event) => {
     if (!mainWindow || event.sender !== mainWindow.webContents) return updateState
-    if (!autoUpdateSupported()) return updateState
-    if (updateState.status === 'checking' || updateState.status === 'downloading') return updateState
-    setUpdateState({ status: 'checking', message: 'Consultando as releases do DiscorTower…' })
-    try {
-      await autoUpdater.checkForUpdates()
-    } catch {
-      setUpdateState({
-        status: 'error',
-        message: 'Não foi possível buscar a atualização. Confira sua conexão e tente novamente.',
-      })
-    }
-    return updateState
+    return checkForAppUpdates()
   })
 
   ipcMain.on('desktop:install-update', (event) => {
@@ -1156,6 +1182,7 @@ app.whenReady().then(async () => {
   pendingRoomCode = findRoomCodeInArguments(process.argv)
   pendingAuthCallback = findAuthCallbackInArguments(process.argv)
   await createMainWindow()
+  scheduleUpdateChecks()
 
   app.on('activate', () => {
     if (mainWindow) showMainWindow()
@@ -1168,6 +1195,7 @@ app.whenReady().then(async () => {
 
 app.on('before-quit', () => {
   isQuitting = true
+  stopUpdateChecks()
   if (app.isReady()) globalShortcut.unregisterAll()
   if (activePicker) finishPicker(null)
   stopGameWatcher()

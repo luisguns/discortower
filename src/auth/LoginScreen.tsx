@@ -1,6 +1,30 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type MouseEvent } from 'react'
 import { BrandMark } from '../components/ui/BrandMark'
 import { Icon } from '../components/ui/Icon'
+
+const WINDOWS_LTS_RELEASE_URL = 'https://github.com/luisguns/discortower/releases/latest'
+const WINDOWS_LTS_API_URL = 'https://api.github.com/repos/luisguns/discortower/releases/latest'
+
+interface GitHubReleaseAsset {
+  name?: string
+  browser_download_url?: string
+}
+
+const downloadWindowsLts = async (event: MouseEvent<HTMLAnchorElement>) => {
+  event.preventDefault()
+  try {
+    const response = await fetch(WINDOWS_LTS_API_URL, { headers: { Accept: 'application/vnd.github+json' } })
+    if (!response.ok) throw new Error('Release unavailable')
+    const release = await response.json() as { assets?: GitHubReleaseAsset[] }
+    const assets = release.assets ?? []
+    const installer = assets.find((asset) => asset.name === 'DiscorTower-LTS-Windows-x64.exe')
+      ?? assets.find((asset) => /^DiscorTower-Setup-[\w.-]+-x64\.exe$/.test(asset.name ?? ''))
+    if (!installer?.browser_download_url) throw new Error('Installer unavailable')
+    window.location.assign(installer.browser_download_url)
+  } catch {
+    window.location.assign(WINDOWS_LTS_RELEASE_URL)
+  }
+}
 
 interface LoginScreenProps {
   error?: string
@@ -80,6 +104,12 @@ export const LoginScreen = ({ error, onLogin, onResetPassword }: LoginScreenProp
           </button>
           <button className="auth-link" disabled={busy} onClick={() => void forgotPassword()} type="button">Esqueci minha senha</button>
         </form>
+        {!window.fordKallDesktop && (
+          <a className="auth-download" href={WINDOWS_LTS_RELEASE_URL} onClick={(event) => void downloadWindowsLts(event)}>
+            <span><strong>Baixar LTS para Windows</strong><small>Setup x64 · atualização automática</small></span>
+            <Icon name="chevron" />
+          </a>
+        )}
         <footer className="auth-card__footer"><span className="status-dot" /> Conta criada apenas por convite</footer>
       </section>
     </main>
@@ -101,4 +131,3 @@ export const AccountDisabledScreen = ({ onSignOut }: { onSignOut: () => Promise<
     </section>
   </main>
 )
-

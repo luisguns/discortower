@@ -6403,6 +6403,53 @@ svg {
   color: var(--accent);
 }
 
+.auth-download {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 30px 24px;
+  padding: 13px 15px;
+  border: 1px solid rgba(185, 239, 58, 0.2);
+  border-radius: 10px;
+  background: rgba(185, 239, 58, 0.05);
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.auth-download:hover {
+  border-color: rgba(185, 239, 58, 0.45);
+  background: rgba(185, 239, 58, 0.09);
+  transform: translateY(-1px);
+}
+
+.auth-download:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.auth-download span {
+  display: grid;
+  gap: 4px;
+}
+
+.auth-download strong {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.auth-download small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.auth-download > svg {
+  width: 14px;
+  color: var(--accent);
+}
+
 .auth-card__footer {
   display: flex;
   align-items: center;

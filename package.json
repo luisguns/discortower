@@ -5,10 +5,10 @@
   "version": "0.5.3",
   "description": "Call privada de voz, camera e compartilhamento de tela entre amigos.",
   "author": "Matheus Torres",
-  "homepage": "https://fordkall.11a3.dev/",
+  "homepage": "https://splotys.com/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/matheustorresii/fordkall.git"
+    "url": "https://github.com/luisguns/discortower.git"
   },
   "main": "electron/main.cjs",
   "type": "module",
@@ -19,8 +19,9 @@
     "dev": "vite",
     "desktop:dev": "concurrently --kill-others --success first \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron . --dev\"",
     "build": "tsc -b && vite build",
-    "desktop:pack": "npm run build && electron-builder --dir",
-    "desktop:dist:windows": "npm run build && electron-builder --win nsis portable --x64 --publish never",
+    "desktop:pack": "npm run build && electron-builder --config electron-builder.config.cjs --dir",
+    "desktop:dist:windows": "npm run build && electron-builder --config electron-builder.config.cjs --win nsis portable --x64 --publish never",
+    "desktop:dist:store": "npm run build && electron-builder --config electron-builder.config.cjs --win appx --x64 --publish never",
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false"
   },
@@ -95,7 +96,6 @@
       "icon": "build/icon.png",
       "executableName": "DiscorTower",
       "requestedExecutionLevel": "asInvoker",
-      "signExecutable": false,
       "target": [
         {
           "target": "nsis",

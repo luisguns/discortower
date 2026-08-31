@@ -65,7 +65,7 @@ export const archiveCall = (callId: string) => invoke<{ ok: true }>({ action: 'a
 export const createChannelInvite = (channelId: string) => invokeManagement<{ invite: { token: string; expires_at: string; max_uses: number } }>({ action: 'create_invite', channelId }).then(({ invite }) => invite)
 export const createChannelInviteLink = (token: string) => {
   if (typeof window === 'undefined') return `?invite=${encodeURIComponent(token)}`
-  const url = new URL(window.fordKallDesktop ? 'https://fordkall.11a3.dev/' : window.location.href)
+  const url = new URL(window.fordKallDesktop ? 'https://splotys.com/' : window.location.href)
   url.search = ''; url.searchParams.set('invite', token); url.hash = ''
   return url.toString()
 }
