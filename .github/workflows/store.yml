@@ -33,5 +33,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: splotys-MSIX
-          path: release/*.{appx,msix,cer}
+          path: |
+            release/*.appx
+            release/*.msix
+            release/*.cer
           if-no-files-found: error

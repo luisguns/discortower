@@ -39,6 +39,7 @@ config.appx = {
   publisherDisplayName: 'Gunns Dev',
   displayName: 'splotys',
   applicationId: 'DiscorTower',
+  artifactName: 'splotys-Store-${version}-${arch}.${ext}',
   languages: ['pt-BR', 'en-US'],
   capabilities: ['microphone', 'webcam', 'privateNetworkClientServer'],
 }
