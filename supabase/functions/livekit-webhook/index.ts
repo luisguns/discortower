@@ -25,12 +25,12 @@ const userIdFromIdentity = (identity: string) => {
 const roomForEvent = async (client: ReturnType<typeof adminClient>, event: LiveKitEvent, occurredAt: string) => {
   const sid = event.room?.sid || ''
   const roomName = event.room?.name || ''
-  const bySid = sid ? await client.from('room_sessions').select('id,room_name,channel_id,status,last_event_at').eq('livekit_room_sid', sid).maybeSingle() : { data: null, error: null }
+  const bySid = sid ? await client.from('room_sessions').select('id,room_name,channel_id,channel_call_id,status,last_event_at').eq('livekit_room_sid', sid).maybeSingle() : { data: null, error: null }
   if (bySid.data) return bySid.data
   if (!roomName) return null
-  const byName = await client.from('room_sessions').select('id,room_name,channel_id,status,last_event_at').eq('room_name', roomName).in('status', ['starting', 'open']).order('created_at', { ascending: false }).limit(1).maybeSingle()
+  const byName = await client.from('room_sessions').select('id,room_name,channel_id,channel_call_id,status,last_event_at').eq('room_name', roomName).in('status', ['starting', 'open']).order('created_at', { ascending: false }).limit(1).maybeSingle()
   if (byName.data) return byName.data
-  const { data } = await client.from('room_sessions').insert({ room_name: roomName, livekit_room_sid: sid || null, status: 'starting', last_event_at: occurredAt }).select('id,room_name,channel_id,status,last_event_at').single()
+  const { data } = await client.from('room_sessions').insert({ room_name: roomName, livekit_room_sid: sid || null, status: 'starting', last_event_at: occurredAt }).select('id,room_name,channel_id,channel_call_id,status,last_event_at').single()
   return data
 }
 
@@ -38,6 +38,8 @@ const syncChannelPresence = async (client: ReturnType<typeof adminClient>, roomI
   if (!channelId) return
   const { count } = await client.from('participant_sessions').select('id', { count: 'exact', head: true }).eq('room_session_id', roomId).is('left_at', null)
   await client.from('channels').update({ participant_count: count || 0 }).eq('id', channelId)
+  const { data: room } = await client.from('room_sessions').select('channel_call_id').eq('id', roomId).maybeSingle()
+  if (room?.channel_call_id) await client.from('channel_calls').update({ participant_count: count || 0 }).eq('id', room.channel_call_id)
 }
 
 const isNewerEvent = (lastEventAt: string | null | undefined, occurredAt: string) => !lastEventAt || new Date(occurredAt).getTime() >= new Date(lastEventAt).getTime()
@@ -74,6 +76,7 @@ Deno.serve(async (request) => {
     if (eventType === 'room_started' && room && room.status !== 'closed' && isNewerEvent(room.last_event_at, occurredAt)) {
       await client.from('room_sessions').update({ livekit_room_sid: event.room?.sid || null, last_event_at: occurredAt, started_at: occurredAt, status: 'open' }).eq('id', room.id)
       if (room.channel_id) await client.from('channels').update({ call_started_at: occurredAt, current_room_session_id: room.id }).eq('id', room.channel_id)
+      if (room.channel_call_id) await client.from('channel_calls').update({ call_started_at: occurredAt, current_room_session_id: room.id }).eq('id', room.channel_call_id)
     } else if (eventType === 'participant_joined' && room) {
       const identity = event.participant?.identity || ''
       if (!identity) throw new Error('WEBHOOK_PARTICIPANT_INVALID')
@@ -117,6 +120,7 @@ Deno.serve(async (request) => {
       await client.from('room_sessions').update({ ended_at: occurredAt, last_event_at: occurredAt, status: 'closed', ended_reason: 'livekit_finished' }).eq('id', room.id)
       await client.from('participant_sessions').update({ left_at: occurredAt, screen_sharing: false }).eq('room_session_id', room.id).is('left_at', null)
       if (room.channel_id) await client.from('channels').update({ current_room_session_id: null, participant_count: 0, call_started_at: null }).eq('id', room.channel_id)
+      if (room.channel_call_id) await client.from('channel_calls').update({ current_room_session_id: null, participant_count: 0, call_started_at: null }).eq('id', room.channel_call_id)
     }
 
     await client.from('webhook_events').update({ processed_at: new Date().toISOString(), result: 'processed' }).eq('event_id', eventId)

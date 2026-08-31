@@ -1,6 +1,9 @@
 import { createClient, type SupabaseClient, type User } from 'https://esm.sh/@supabase/supabase-js@2.57.0'
 
-const configuredOrigins = () => (Deno.env.get('FUNCTION_ALLOWED_ORIGINS') || 'https://fordkall.11a3.dev,fordkall-app://app,http://localhost:5173').split(',').map((origin) => origin.trim()).filter(Boolean)
+const configuredOrigins = () => [...new Set([
+  'https://fordkall.11a3.dev', 'fordkall-app://app', 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174',
+  ...(Deno.env.get('FUNCTION_ALLOWED_ORIGINS') || '').split(','),
+].map((origin) => origin.trim()).filter(Boolean))]
 
 export const corsHeaders = (request: Request): Record<string, string> => {
   const origin = request.headers.get('origin') || ''

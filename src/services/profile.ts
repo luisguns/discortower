@@ -1,6 +1,6 @@
-import type { LocalProfile } from '../types'
+import type { LocalProfile, ProfileNameStyle } from '../types'
 
-export const PROFILE_METADATA_VERSION = 1
+export const PROFILE_METADATA_VERSION = 2
 export const MAX_PROFILE_GIF_BYTES = 300 * 1024
 export const MAX_PROFILE_SOURCE_BYTES = 8 * 1024 * 1024
 export const MAX_PROFILE_AVATAR_DATA_URL_LENGTH = 430_000
@@ -16,6 +16,28 @@ const isSafeAvatarDataUrl = (value: unknown): value is string =>
   typeof value === 'string' &&
   value.length <= MAX_PROFILE_AVATAR_DATA_URL_LENGTH &&
   /^data:image\/(?:gif|jpeg|png|webp);base64,[a-z0-9+/=]+$/i.test(value)
+
+export const DEFAULT_PROFILE_NAME_STYLE: ProfileNameStyle = {
+  font: 'mono',
+  color: '#DDE5DE',
+  effect: 'none',
+  weight: 600,
+  spacing: 'normal',
+  casing: 'normal',
+  badge: 'none',
+  animation: 'none',
+}
+
+export const normalizeProfileNameStyle = (value?: Partial<ProfileNameStyle> | null): ProfileNameStyle => ({
+  font: value?.font === 'condensed' || value?.font === 'rounded' || value?.font === 'serif' ? value.font : 'mono',
+  color: typeof value?.color === 'string' && /^#[0-9a-f]{6}$/i.test(value.color) ? value.color.toUpperCase() : DEFAULT_PROFILE_NAME_STYLE.color,
+  effect: value?.effect === 'glow' || value?.effect === 'shadow' || value?.effect === 'outline' ? value.effect : 'none',
+  weight: value?.weight === 500 || value?.weight === 700 ? value.weight : 600,
+  spacing: value?.spacing === 'tight' || value?.spacing === 'wide' ? value.spacing : 'normal',
+  casing: value?.casing === 'uppercase' ? 'uppercase' : 'normal',
+  badge: value?.badge === 'soft' || value?.badge === 'outline' || value?.badge === 'pill' ? value.badge : 'none',
+  animation: value?.animation === 'breathe' || value?.animation === 'spark' || value?.animation === 'float' ? value.animation : 'none',
+})
 
 const blobToDataUrl = (blob: Blob) =>
   new Promise<string>((resolve, reject) => {
@@ -110,21 +132,34 @@ export const serializeParticipantProfile = (profile: LocalProfile) =>
       avatarDataUrl: isSafeAvatarDataUrl(profile.avatarDataUrl)
         ? profile.avatarDataUrl
         : undefined,
+      nameStyle: normalizeProfileNameStyle(profile.nameStyle),
     },
   })
 
-export const participantAvatarFromMetadata = (metadata?: string) => {
+const profileFromMetadata = (metadata?: string) => {
   if (!metadata) return undefined
   try {
     const parsed: unknown = JSON.parse(metadata)
     if (!parsed || typeof parsed !== 'object') return undefined
     const profile = (parsed as {
-      fordKallProfile?: { version?: unknown; avatarDataUrl?: unknown }
+      fordKallProfile?: { version?: unknown; avatarDataUrl?: unknown; nameStyle?: Partial<ProfileNameStyle> }
     }).fordKallProfile
-    if (profile?.version !== PROFILE_METADATA_VERSION) return undefined
-    return isSafeAvatarDataUrl(profile.avatarDataUrl) ? profile.avatarDataUrl : undefined
+    if (profile?.version !== 1 && profile?.version !== PROFILE_METADATA_VERSION) return undefined
+    return profile
   } catch {
     return undefined
   }
+}
+
+export const participantAvatarFromMetadata = (metadata?: string) => {
+  const profile = profileFromMetadata(metadata)
+  return isSafeAvatarDataUrl(profile?.avatarDataUrl) ? profile.avatarDataUrl : undefined
+}
+
+export const participantNameStyleFromMetadata = (metadata?: string) => {
+  const profile = profileFromMetadata(metadata)
+  return profile?.version === PROFILE_METADATA_VERSION
+    ? normalizeProfileNameStyle(profile.nameStyle)
+    : DEFAULT_PROFILE_NAME_STYLE
 }
 

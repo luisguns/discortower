@@ -89,15 +89,15 @@ export const createLiveKitRoom = () =>
   })
 
 export const fetchConnectionDetails = async (
-  channelId: string,
+  callId: string,
   profile: LocalProfile,
 ): Promise<{ serverUrl: string; participantToken: string }> => {
-  if (!channelId) throw new Error('CHANNEL_INVALID')
+  if (!callId) throw new Error('CALL_INVALID')
   const { data, error } = await getSupabase().functions.invoke('issue-livekit-token', {
     body: {
       participantMetadata: serializeParticipantProfile(profile),
       participantName: normalizeDisplayName(profile.displayName),
-      channelId,
+      callId,
     },
   })
   if (error) {
@@ -177,9 +177,10 @@ export const friendlyConnectionError = (error: unknown) => {
       ? 'Este canal está em pausa após atingir o limite de duração. Tente novamente em alguns minutos.'
       : 'O limite de calls simultâneas foi atingido. Aguarde uma call terminar.'
   }
-  if (error instanceof Error && /CHANNEL_NOT_FOUND|INVALID_CHANNEL/i.test(error.message)) {
+  if (error instanceof Error && /CHANNEL_NOT_FOUND|CALL_NOT_FOUND|INVALID_CHANNEL|INVALID_CALL/i.test(error.message)) {
     return 'Esse canal não existe mais ou não está disponível para sua conta.'
   }
+  if (error instanceof Error && /CALL_BLOCKED|CHANNEL_ACCESS_DENIED/i.test(error.message)) return 'Você não tem acesso a esta call.'
   if (error instanceof Error && /AUTH_FUNCTION_UNAVAILABLE|AUTH_FUNCTION_5/i.test(error.message)) {
     return 'O serviço de autorização está indisponível. Tente novamente em instantes.'
   }

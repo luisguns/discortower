@@ -1,8 +1,9 @@
 import { Track, type Participant, type Room } from 'livekit-client'
-import type { ContextMenuPoint, RemoteVoice } from '../../types'
-import { participantAvatarFromMetadata } from '../../services/profile'
+import type { ContextMenuPoint, ProfileNameStyle, RemoteVoice } from '../../types'
+import { participantAvatarFromMetadata, participantNameStyleFromMetadata } from '../../services/profile'
 import { Icon } from '../ui/Icon'
 import { ProfileAvatar } from '../ui/ProfileAvatar'
+import { StyledProfileName } from '../ui/StyledProfileName'
 
 interface ParticipantListProps {
   room: Room
@@ -23,6 +24,7 @@ const ParticipantRow = ({
   id,
   name,
   avatarDataUrl,
+  nameStyle,
   detail,
   muted,
   speaking,
@@ -31,6 +33,7 @@ const ParticipantRow = ({
   id: string
   name: string
   avatarDataUrl?: string
+  nameStyle?: ProfileNameStyle
   detail: string
   muted: boolean
   speaking: boolean
@@ -48,7 +51,7 @@ const ParticipantRow = ({
       type="button"
     >
       <ProfileAvatar avatarDataUrl={avatarDataUrl} className="participant__avatar" name={name} />
-      <span className="participant__identity"><strong>{name}</strong><small>{speaking ? 'Falando agora' : detail}</small></span>
+      <span className="participant__identity"><StyledProfileName style={nameStyle}>{name}</StyledProfileName><small>{speaking ? 'Falando agora' : detail}</small></span>
       <span className={`participant__mic ${muted ? 'participant__mic--muted' : ''}`}><Icon name={muted ? 'micOff' : 'mic'} /></span>
     </button>
   </li>
@@ -81,6 +84,7 @@ export const ParticipantList = ({
         <ParticipantRow
           detail="Você"
           avatarDataUrl={participantAvatarFromMetadata(local.metadata)}
+          nameStyle={participantNameStyleFromMetadata(local.metadata)}
           id={local.identity}
           muted={localMuted}
           name={localName}
@@ -93,6 +97,7 @@ export const ParticipantList = ({
             <ParticipantRow
               detail={voice.track ? 'Na call' : 'Sem microfone'}
               avatarDataUrl={participantAvatarFromMetadata(voice.participant.metadata)}
+              nameStyle={participantNameStyleFromMetadata(voice.participant.metadata)}
               id={voice.participant.identity}
               key={voice.id}
               muted={voice.muted}

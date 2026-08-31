@@ -166,7 +166,7 @@ export const CallScreen = ({
   const [callLimitNotice, setCallLimitNotice] = useState('')
   const [copyState, setCopyState] = useState('Copiar link')
   const [audioBlocked, setAudioBlocked] = useState(!room.canPlaybackAudio)
-  const [participantsOpen, setParticipantsOpen] = useState(false)
+  const [participantsOpen, setParticipantsOpen] = useState(true)
   const [chatOpen, setChatOpen] = useState(false)
   const [unreadMessages, setUnreadMessages] = useState(0)
   const lastSeenMessageId = useRef('')
@@ -179,6 +179,7 @@ export const CallScreen = ({
   const updater = useAppUpdater()
   const micEnabled = room.localParticipant.isMicrophoneEnabled
   const cameraEnabled = room.localParticipant.isCameraEnabled
+  useEffect(() => { setParticipantsOpen(true) }, [room])
   useDesktopGameOverlay(room, gameOverlayEnabled)
 
   useEffect(() => {
@@ -386,7 +387,7 @@ export const CallScreen = ({
     : undefined
 
   return (
-    <main className={`call-shell ${chatOpen ? 'call-shell--chat-open' : ''}`}>
+    <main className={`call-shell ${chatOpen ? 'call-shell--chat-open' : ''} ${participantsOpen ? 'call-shell--participants-open' : ''}`}>
       <header className="call-header">
         <div className="brand brand--compact">
           <BrandMark />
@@ -431,7 +432,7 @@ export const CallScreen = ({
           </button>
           <button
             aria-label={`Abrir participantes, ${snapshot.participants.length} na call`}
-            className="participants-toggle"
+            className={`participants-toggle ${participantsOpen ? 'is-active' : ''}`}
             onClick={() => {
               setLayoutMenuPoint(null)
               setChatOpen(false)

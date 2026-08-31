@@ -45,14 +45,34 @@ export interface AppUpdateState {
   message?: string
 }
 
+export type ProfileNameFont = 'mono' | 'condensed' | 'rounded' | 'serif'
+export type ProfileNameEffect = 'none' | 'glow' | 'shadow' | 'outline'
+export type ProfileNameSpacing = 'tight' | 'normal' | 'wide'
+export type ProfileNameCase = 'normal' | 'uppercase'
+export type ProfileNameBadge = 'none' | 'soft' | 'outline' | 'pill'
+export type ProfileNameAnimation = 'none' | 'breathe' | 'spark' | 'float'
+
+export interface ProfileNameStyle {
+  font: ProfileNameFont
+  color: string
+  effect: ProfileNameEffect
+  weight: 500 | 600 | 700
+  spacing: ProfileNameSpacing
+  casing: ProfileNameCase
+  badge: ProfileNameBadge
+  animation: ProfileNameAnimation
+}
+
 export interface LocalProfile {
   displayName: string
   avatarDataUrl?: string
+  nameStyle?: ProfileNameStyle
 }
 
 export type AccountStatus = 'active' | 'disabled'
 
 export type AccountRole = 'owner' | 'manager' | 'host' | 'member'
+export type ChannelMemberRole = 'owner' | 'admin' | 'member'
 
 export interface AccessCapabilities {
   canCreateChannel: boolean
@@ -89,6 +109,19 @@ export interface ChannelSummary {
   callStartedAt?: string
   reopenAfter?: string
   canManage: boolean
+  memberRole?: ChannelMemberRole
+  calls?: ChannelCallSummary[]
+}
+
+export interface ChannelCallSummary {
+  id: string
+  channelId: string
+  name: string
+  status: 'active' | 'archived'
+  createdBy: string
+  participantCount: number
+  callStartedAt?: string
+  canManage: boolean
 }
 
 export interface RecognizedActivity {
@@ -107,6 +140,7 @@ export interface ChannelParticipantPresence {
   userId?: string
   displayName: string
   avatarDataUrl?: string
+  nameStyle?: ProfileNameStyle
   joinedAt: string
   screenSharing: boolean
   activity?: RecognizedActivity
@@ -116,6 +150,7 @@ export interface ChannelMemberPresence {
   userId: string
   displayName: string
   avatarDataUrl?: string
+  nameStyle?: ProfileNameStyle
   joinedAt: string
   online: boolean
 }
@@ -125,6 +160,15 @@ export interface ChannelPresence {
   callActive: boolean
   screenSharing: boolean
   members: ChannelMemberPresence[]
+  participants: ChannelParticipantPresence[]
+  calls: ChannelCallPresence[]
+}
+
+export interface ChannelCallPresence {
+  callId: string
+  name: string
+  callActive: boolean
+  participantCount: number
   participants: ChannelParticipantPresence[]
 }
 
@@ -153,6 +197,7 @@ export interface ParticipantMedia {
   id: string
   name: string
   avatarDataUrl?: string
+  nameStyle?: ProfileNameStyle
   isLocal: boolean
   cameraTrack?: LocalVideoTrack | RemoteVideoTrack
   cameraEnabled: boolean
@@ -172,6 +217,7 @@ export interface ChatMessage {
   senderIdentity: string
   senderName: string
   senderAvatarUrl?: string
+  senderNameStyle?: ProfileNameStyle
   isLocal: boolean
   sentAt: number
   text?: string

@@ -2,6 +2,7 @@ import type { Session, User } from '@supabase/supabase-js'
 import { clearAuthCallbackParams, getAuthCallbackType, getAuthRedirectUrl, getCurrentAuthCallbackUrl } from './auth-callback'
 import { getSupabase } from './supabase'
 import type { AccessCapabilities, AccessContext, AccountProfile, AccountRole, LocalProfile } from '../types'
+import { normalizeProfileNameStyle } from './profile'
 
 export type AuthResult = { ok: true } | { ok: false; message: string }
 
@@ -18,6 +19,14 @@ type RawAccessContext = {
     created_at?: unknown
     updated_at?: unknown
     role?: unknown
+    name_font?: unknown
+    name_color?: unknown
+    name_effect?: unknown
+    name_weight?: unknown
+    name_spacing?: unknown
+    name_case?: unknown
+    name_badge?: unknown
+    name_animation?: unknown
   } | null
 }
 
@@ -35,6 +44,16 @@ const profileFromRaw = (raw: RawAccessContext, user: User): AccountProfile | nul
     email: user.email,
     status: profile.status,
     role: role as AccountRole,
+    nameStyle: normalizeProfileNameStyle({
+      font: typeof profile.name_font === 'string' ? profile.name_font as never : undefined,
+      color: typeof profile.name_color === 'string' ? profile.name_color : undefined,
+      effect: typeof profile.name_effect === 'string' ? profile.name_effect as never : undefined,
+      weight: typeof profile.name_weight === 'number' ? profile.name_weight as never : undefined,
+      spacing: typeof profile.name_spacing === 'string' ? profile.name_spacing as never : undefined,
+      casing: typeof profile.name_case === 'string' ? profile.name_case as never : undefined,
+      badge: typeof profile.name_badge === 'string' ? profile.name_badge as never : undefined,
+      animation: typeof profile.name_animation === 'string' ? profile.name_animation as never : undefined,
+    }),
     createdAt: typeof profile.created_at === 'string' ? profile.created_at : undefined,
     updatedAt: typeof profile.updated_at === 'string' ? profile.updated_at : undefined,
   }
@@ -108,9 +127,18 @@ export const updateMyProfile = async (profile: LocalProfile): Promise<AccountPro
   const normalizedName = profile.displayName.trim().replace(/\s+/g, ' ')
   if (!normalizedName || normalizedName.length > 48) throw new Error('PROFILE_NAME_INVALID')
   const avatarUrl = profile.avatarDataUrl?.startsWith('data:image/') ? profile.avatarDataUrl : null
+  const nameStyle = normalizeProfileNameStyle(profile.nameStyle)
   const { data, error } = await getSupabase().rpc('update_my_profile', {
     p_avatar_url: avatarUrl,
     p_display_name: normalizedName,
+    p_name_badge: nameStyle.badge,
+    p_name_animation: nameStyle.animation,
+    p_name_case: nameStyle.casing,
+    p_name_color: nameStyle.color,
+    p_name_effect: nameStyle.effect,
+    p_name_font: nameStyle.font,
+    p_name_spacing: nameStyle.spacing,
+    p_name_weight: nameStyle.weight,
   })
   if (error) throw error
   const { data: userData } = await getSupabase().auth.getUser()

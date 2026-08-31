@@ -10,7 +10,7 @@ import { AppSettingsScreen } from './components/Settings/AppSettingsScreen'
 import { useLiveKitRoom } from './hooks/useLiveKitRoom'
 import { useDesktopActivity } from './hooks/useDesktopActivity'
 import { getChannelIdFromUrl, replaceChannelIdInCurrentUrl } from './services/livekit'
-import { archiveChannel, createChannel, listChannels, renameChannel, subscribeToChannels } from './services/channels'
+import { acceptChannelInvite, archiveChannel, createCall, createChannel, createChannelInvite, createChannelInviteLink, listChannels, renameChannel, subscribeToChannels } from './services/channels'
 import { listChannelPresence } from './services/presence'
 import { getActivitySharingEnabled, saveActivitySharingEnabled } from './storage/preferences'
 import type { ChannelPresence, ChannelSummary, LocalProfile } from './types'
@@ -19,6 +19,7 @@ function App() {
   const auth = useAuth()
   const liveKit = useLiveKitRoom()
   const [channelId, setChannelId] = useState(getChannelIdFromUrl)
+  const [activeCallId, setActiveCallId] = useState('')
   const [channels, setChannels] = useState<ChannelSummary[]>([])
   const [presence, setPresence] = useState<ChannelPresence[]>([])
   const [adminOpen, setAdminOpen] = useState(false)
@@ -41,6 +42,16 @@ function App() {
     const unsubscribe = subscribeToChannels(() => { window.setTimeout(() => void load(), 200) })
     return () => { mounted = false; unsubscribe() }
   }, [auth.access?.capabilities.canManageAllChannels, auth.access?.userId, auth.status])
+
+  useEffect(() => {
+    if (auth.status !== 'authenticated' || typeof window === 'undefined') return
+    const invite = new URL(window.location.href).searchParams.get('invite')
+    if (!invite) return
+    void acceptChannelInvite(invite).then((result) => {
+      const url = new URL(window.location.href); url.searchParams.delete('invite'); url.searchParams.set('channel', result.channelId); window.history.replaceState(null, '', url)
+      setChannelId(result.channelId)
+    }).catch(() => { /* lobby surfaces the unavailable invite without leaking its token */ })
+  }, [auth.status])
 
   useEffect(() => {
     if (auth.status !== 'authenticated') return
@@ -105,15 +116,16 @@ function App() {
     await auth.signOut()
   }
 
-  const join = async (profile: LocalProfile, nextChannelId: string) => {
+  const join = async (profile: LocalProfile, nextCallId: string, nextChannelId?: string) => {
     const savedProfile = await auth.updateProfile(profile)
     if (!savedProfile) return false
-    const connected = await liveKit.join(nextChannelId, profile)
+    const connected = await liveKit.join(nextCallId, profile)
     if (connected) {
       setLobbyDestination(undefined)
       setCallActivitySettingsOpen(false)
-      setChannelId(nextChannelId)
-      replaceChannelIdInCurrentUrl(nextChannelId)
+      setChannelId(nextChannelId || channelId)
+      setActiveCallId(nextCallId)
+      replaceChannelIdInCurrentUrl(nextChannelId || channelId)
     }
     return connected
   }
@@ -132,15 +144,16 @@ function App() {
     return <AdminPanel currentUser={auth.access.profile} onClose={() => setAdminOpen(false)} onLogout={logout} />
   }
 
+  const currentUserId = auth.access.userId
   if (liveKit.room) {
     return (
       <div className={`call-app-layout${callSidebarVisible ? '' : ' is-expanded'}`}>
-      {callSidebarVisible && <CallSidebar activity={localActivity} activitySharingEnabled={activitySharingEnabled} channels={channels} currentChannelId={channelId} onOpenProfile={() => { setLobbyDestination('profile'); void liveKit.leave() }} onSettingsToggle={() => setCallActivitySettingsOpen((value) => !value)} profile={auth.access.profile} settingsOpen={callActivitySettingsOpen} />}
+      {callSidebarVisible && <CallSidebar activity={localActivity} activitySharingEnabled={activitySharingEnabled} channels={channels} currentCallId={activeCallId || presence.find((item) => item.channelId === channelId)?.calls.find((call) => call.participants.some((participant) => participant.userId === currentUserId))?.callId || ''} currentChannelId={channelId} onOpenProfile={() => { setLobbyDestination('profile'); setActiveCallId(''); void liveKit.leave() }} onSettingsToggle={() => setCallActivitySettingsOpen((value) => !value)} presence={presence.find((item) => item.channelId === channelId)} profile={auth.access.profile} settingsOpen={callActivitySettingsOpen} />}
       <div className="call-app-main">
       <CallScreen
         microphoneError={liveKit.microphoneError}
         microphoneStarting={liveKit.microphoneStarting}
-        onLeave={liveKit.leave}
+        onLeave={async () => { await liveKit.leave(); setActiveCallId('') }}
         onMicrophoneErrorChange={liveKit.setMicrophoneError}
         room={liveKit.room}
         channelId={channelId}
@@ -177,6 +190,12 @@ function App() {
         setChannels((current) => [...current, managedChannel].sort((a, b) => a.name.localeCompare(b.name)))
         return managedChannel
       }}
+      onCreateCall={async (id, name) => {
+        const call = await createCall(id, name)
+        setChannels((current) => current.map((item) => item.id === id ? { ...item, calls: [...(item.calls || []), { ...call, canManage: item.canManage }] } : item))
+        return call
+      }}
+      onCreateInvite={async (id) => createChannelInvite(id).then((invite) => createChannelInviteLink(invite.token))}
       onRenameChannel={async (id, name) => {
         const channel = await renameChannel(id, name)
         setChannels((current) => current.map((item) => item.id === id ? { ...item, ...channel, canManage: item.canManage } : item).sort((a, b) => a.name.localeCompare(b.name)))

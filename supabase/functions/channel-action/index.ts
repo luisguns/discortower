@@ -5,6 +5,7 @@ import { writeAudit } from '../_shared/audit.ts'
 
 const normalizeName = (value: string) => value.trim().replace(/\s+/g, ' ')
 const response = (row: Record<string, unknown>) => ({ id: row.id, name: row.name, createdBy: row.created_by, status: row.status, participantCount: row.participant_count || 0, callStartedAt: row.call_started_at || undefined, reopenAfter: row.reopen_after || undefined })
+const callResponse = (row: Record<string, unknown>) => ({ id: row.id, channelId: row.channel_id, name: row.name, createdBy: row.created_by, status: row.status, participantCount: row.participant_count || 0, callStartedAt: row.call_started_at || undefined })
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return optionsResponse(request)
@@ -22,7 +23,7 @@ Deno.serve(async (request) => {
       if (name.length < 2 || name.length > 48) throw new HttpError(400, 'INVALID_CHANNEL_NAME')
       const { data, error } = await client.from('channels').insert({ name, created_by: user.id }).select('id,name,created_by,status,participant_count,call_started_at,reopen_after').single()
       if (error || !data) throw new HttpError(error?.code === '23505' ? 409 : 400, error?.code === '23505' ? 'CHANNEL_NAME_TAKEN' : 'CHANNEL_CREATE_FAILED')
-      const { error: memberError } = await client.from('channel_members').insert({ channel_id: data.id, user_id: user.id })
+      const { error: memberError } = await client.from('channel_members').insert({ channel_id: data.id, user_id: user.id, role: 'owner', added_by: user.id })
       if (memberError) throw new Error('CHANNEL_MEMBER_CREATE_FAILED')
       await writeAudit(client, { action: 'channel_created', actorUserId: user.id, targetRoomId: undefined, result: 'success', metadata: { channelId: data.id, role } })
       return jsonResponse(request, { channel: response(data) })
@@ -32,7 +33,8 @@ Deno.serve(async (request) => {
     if (!channelId) throw new HttpError(400, 'INVALID_PAYLOAD')
     const { data: channel, error: channelError } = await client.from('channels').select('id,name,created_by,status,participant_count,call_started_at,reopen_after,current_room_session_id').eq('id', channelId).maybeSingle()
     if (channelError || !channel) throw new HttpError(404, 'CHANNEL_NOT_FOUND')
-    const canManage = role === 'owner' || role === 'manager' || channel.created_by === user.id
+    const localRole = role === 'owner' || role === 'manager' ? 'owner' : String((await client.from('channel_members').select('role').eq('channel_id', channelId).eq('user_id', user.id).maybeSingle()).data?.role || '')
+    const canManage = role === 'owner' || role === 'manager' || ['owner', 'admin'].includes(localRole)
     if (!canManage) throw new HttpError(403, 'FORBIDDEN')
 
     if (action === 'rename') {
@@ -42,6 +44,30 @@ Deno.serve(async (request) => {
       if (error || !data) throw new HttpError(error?.code === '23505' ? 409 : 400, error?.code === '23505' ? 'CHANNEL_NAME_TAKEN' : 'CHANNEL_UPDATE_FAILED')
       await writeAudit(client, { action: 'channel_renamed', actorUserId: user.id, result: 'success', metadata: { channelId } })
       return jsonResponse(request, { channel: response(data) })
+    }
+
+    if (action === 'create_call') {
+      const name = normalizeName(typeof body?.name === 'string' ? body.name : '')
+      if (name.length < 2 || name.length > 48) throw new HttpError(400, 'INVALID_CALL_NAME')
+      const { data, error } = await client.from('channel_calls').insert({ channel_id: channelId, name, created_by: user.id }).select('id,channel_id,name,created_by,status,participant_count,call_started_at').single()
+      if (error || !data) throw new HttpError(error?.code === '23505' ? 409 : 400, error?.code === '23505' ? 'CALL_NAME_TAKEN' : 'CALL_CREATE_FAILED')
+      return jsonResponse(request, { call: callResponse(data) })
+    }
+
+    const callId = typeof body?.callId === 'string' ? body.callId : ''
+    if (action === 'rename_call' || action === 'archive_call') {
+      if (!callId) throw new HttpError(400, 'INVALID_CALL')
+      const { data: call } = await client.from('channel_calls').select('id,channel_id,name,created_by,status,participant_count,call_started_at').eq('id', callId).eq('channel_id', channelId).maybeSingle()
+      if (!call) throw new HttpError(404, 'CALL_NOT_FOUND')
+      if (action === 'rename_call') {
+        const name = normalizeName(typeof body?.name === 'string' ? body.name : '')
+        if (name.length < 2 || name.length > 48) throw new HttpError(400, 'INVALID_CALL_NAME')
+        const { data, error } = await client.from('channel_calls').update({ name }).eq('id', callId).select('id,channel_id,name,created_by,status,participant_count,call_started_at').single()
+        if (error || !data) throw new HttpError(error?.code === '23505' ? 409 : 400, error?.code === '23505' ? 'CALL_NAME_TAKEN' : 'CALL_UPDATE_FAILED')
+        return jsonResponse(request, { call: callResponse(data) })
+      }
+      await client.from('channel_calls').update({ status: 'archived', current_room_session_id: null }).eq('id', callId)
+      return jsonResponse(request, { ok: true })
     }
 
     if (action !== 'archive' && action !== 'restore') throw new HttpError(400, 'INVALID_ACTION')
