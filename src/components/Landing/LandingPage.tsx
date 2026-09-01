@@ -1,5 +1,5 @@
 import type { MouseEvent } from 'react'
-import { downloadWindowsLts, WINDOWS_LTS_RELEASE_URL } from '../../services/downloads'
+import { downloadWindowsLts, WINDOWS_LTS_DOWNLOAD_URL } from '../../services/downloads'
 import { BrandMark } from '../ui/BrandMark'
 import { Icon } from '../ui/Icon'
 
@@ -31,7 +31,7 @@ export const LandingPage = ({ onEnter }: LandingPageProps) => (
       </nav>
       <div className="landing-nav__actions">
         <button className="landing-nav__login" onClick={onEnter} type="button">Entrar</button>
-        <a className="landing-nav__download" href={WINDOWS_LTS_RELEASE_URL} onClick={startDownload}>Baixar <Icon name="chevron" /></a>
+        <a className="landing-nav__download" href={WINDOWS_LTS_DOWNLOAD_URL} onClick={startDownload}>Baixar <Icon name="chevron" /></a>
       </div>
     </header>
 
@@ -41,7 +41,7 @@ export const LandingPage = ({ onEnter }: LandingPageProps) => (
         <h1>Converse perto.<br /><em>Mesmo de longe.</em></h1>
         <p className="landing-lead">O splotys reúne sua turma em canais privados, com chamadas rápidas, compartilhamento de tela e controle total sobre microfone e câmera.</p>
         <div className="landing-hero__actions">
-          <a className="landing-button landing-button--primary" href={WINDOWS_LTS_RELEASE_URL} onClick={startDownload}>Baixar para Windows <Icon name="chevron" /></a>
+          <a className="landing-button landing-button--primary" href={WINDOWS_LTS_DOWNLOAD_URL} onClick={startDownload}>Baixar para Windows <Icon name="chevron" /></a>
           <button className="landing-button landing-button--ghost" onClick={onEnter} type="button">Entrar na sua conta</button>
         </div>
         <p className="landing-meta"><span className="status-dot" /> Windows 10/11 · x64 · atualizações automáticas</p>
