@@ -218,7 +218,7 @@ export const CallScreen = ({
 
     navigator.mediaSession.metadata = new MediaMetadata({
       title: `Sala ${roomCode}`,
-      artist: 'DiscorTower',
+      artist: 'splotys',
       album: 'Call em andamento',
     })
     try {
@@ -271,7 +271,7 @@ export const CallScreen = ({
     } catch (error) {
       if (error instanceof DOMException && error.name === 'NotAllowedError') {
         onMicrophoneErrorChange(
-          window.fordKallDesktop?.platform === 'win32'
+          window.splotysDesktop?.platform === 'win32'
             ? 'Permissão do microfone negada. Libere o acesso no Windows e tente novamente.'
             : 'Permissão do microfone negada. Libere o acesso no navegador.',
         )
@@ -391,7 +391,7 @@ export const CallScreen = ({
       <header className="call-header">
         <div className="brand brand--compact">
           <BrandMark />
-          <h1>DISCORTOWER</h1>
+          <h1>SPLOTYS</h1>
         </div>
 
         <div className="room-plate">
@@ -547,14 +547,14 @@ export const CallScreen = ({
         {microphoneError && (
           <Notice
             actionLabel={
-              window.fordKallDesktop?.platform === 'win32' &&
+              window.splotysDesktop?.platform === 'win32' &&
               microphoneError.includes('Permissão')
                 ? 'Abrir permissões'
                 : undefined
             }
             onAction={
               microphoneError.includes('Permissão')
-                ? window.fordKallDesktop?.openMicrophoneSettings
+                ? window.splotysDesktop?.openMicrophoneSettings
                 : undefined
             }
             onClose={() => onMicrophoneErrorChange('')}

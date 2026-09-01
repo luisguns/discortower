@@ -1,43 +1,30 @@
 import { useState, type FormEvent, type MouseEvent } from 'react'
 import { BrandMark } from '../components/ui/BrandMark'
 import { Icon } from '../components/ui/Icon'
-
-const WINDOWS_LTS_RELEASE_URL = 'https://github.com/luisguns/discortower/releases/latest'
-const WINDOWS_LTS_API_URL = 'https://api.github.com/repos/luisguns/discortower/releases/latest'
-
-interface GitHubReleaseAsset {
-  name?: string
-  browser_download_url?: string
-}
+import { downloadWindowsLts as startWindowsLtsDownload, WINDOWS_LTS_RELEASE_URL } from '../services/downloads'
 
 const downloadWindowsLts = async (event: MouseEvent<HTMLAnchorElement>) => {
   event.preventDefault()
-  try {
-    const response = await fetch(WINDOWS_LTS_API_URL, { headers: { Accept: 'application/vnd.github+json' } })
-    if (!response.ok) throw new Error('Release unavailable')
-    const release = await response.json() as { assets?: GitHubReleaseAsset[] }
-    const assets = release.assets ?? []
-    const installer = assets.find((asset) => asset.name === 'DiscorTower-LTS-Windows-x64.exe')
-      ?? assets.find((asset) => /^DiscorTower-Setup-[\w.-]+-x64\.exe$/.test(asset.name ?? ''))
-    if (!installer?.browser_download_url) throw new Error('Installer unavailable')
-    window.location.assign(installer.browser_download_url)
-  } catch {
-    window.location.assign(WINDOWS_LTS_RELEASE_URL)
-  }
+  await startWindowsLtsDownload()
 }
 
 interface LoginScreenProps {
   error?: string
+  onBack?: () => void
   onLogin: (email: string, password: string) => Promise<{ ok: boolean; message?: string }>
   onResetPassword: (email: string) => Promise<{ ok: boolean; message?: string }>
 }
 
-export const LoginScreen = ({ error, onLogin, onResetPassword }: LoginScreenProps) => {
+export const LoginScreen = ({ error, onBack, onLogin, onResetPassword }: LoginScreenProps) => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [formError, setFormError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
+  const inviteToken = typeof window === 'undefined' ? '' : new URL(window.location.href).searchParams.get('invite') || ''
+  const desktopInviteUrl = /^[a-zA-Z0-9_-]{16,256}$/.test(inviteToken)
+    ? `splotys://invite?token=${encodeURIComponent(inviteToken)}`
+    : ''
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -67,7 +54,7 @@ export const LoginScreen = ({ error, onLogin, onResetPassword }: LoginScreenProp
           <BrandMark />
           <div>
             <p className="brand__eyebrow">PRIVATE COMMS</p>
-            <h1>DISCORTOWER</h1>
+            <h1>SPLOTYS</h1>
           </div>
         </header>
         <div className="auth-card__intro">
@@ -104,13 +91,17 @@ export const LoginScreen = ({ error, onLogin, onResetPassword }: LoginScreenProp
           </button>
           <button className="auth-link" disabled={busy} onClick={() => void forgotPassword()} type="button">Esqueci minha senha</button>
         </form>
-        {!window.fordKallDesktop && (
-          <a className="auth-download" href={WINDOWS_LTS_RELEASE_URL} onClick={(event) => void downloadWindowsLts(event)}>
-            <span><strong>Baixar LTS para Windows</strong><small>Setup x64 · atualização automática</small></span>
-            <Icon name="chevron" />
-          </a>
+        {!window.splotysDesktop && (
+          <div className="auth-external-actions">
+            {desktopInviteUrl && <a className="auth-download" href={desktopInviteUrl}><span><strong>Abrir convite no splotys</strong><small>Continuar no aplicativo para Windows</small></span><Icon name="chevron" /></a>}
+            <a className="auth-download" href={WINDOWS_LTS_RELEASE_URL} onClick={(event) => void downloadWindowsLts(event)}>
+              <span><strong>Baixar LTS para Windows</strong><small>Setup x64 · atualização automática</small></span>
+              <Icon name="chevron" />
+            </a>
+          </div>
         )}
         <footer className="auth-card__footer"><span className="status-dot" /> Conta criada apenas por convite</footer>
+        {onBack && <button className="auth-back" onClick={onBack} type="button">Voltar para o site</button>}
       </section>
     </main>
   )
@@ -125,7 +116,7 @@ export const AuthLoadingScreen = () => (
 export const AccountDisabledScreen = ({ onSignOut }: { onSignOut: () => Promise<void> }) => (
   <main className="auth-shell">
     <section className="auth-card auth-card--compact">
-      <header className="auth-card__brand"><BrandMark /><div><p className="brand__eyebrow">ACESSO SUSPENSO</p><h1>DISCORTOWER</h1></div></header>
+      <header className="auth-card__brand"><BrandMark /><div><p className="brand__eyebrow">ACESSO SUSPENSO</p><h1>SPLOTYS</h1></div></header>
       <div className="auth-card__intro"><p className="eyebrow">CONTA DESATIVADA</p><h2>Fale com o<br /><em>administrador.</em></h2><p>Esta conta não pode iniciar novas operações enquanto estiver desativada.</p></div>
       <button className="secondary-button auth-card__action" onClick={() => void onSignOut()} type="button">Sair da conta</button>
     </section>

@@ -12,7 +12,7 @@ const publicationKey = (participant: RemoteParticipant, publication: RemoteTrack
 
 export const useDesktopPerformanceMode = (room: Room) => {
   useEffect(() => {
-    if (!window.fordKallDesktop) return
+    if (!window.splotysDesktop) return
 
     const suspendedPublications = new Set<string>()
 

@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
-contextBridge.exposeInMainWorld('fordKallDesktop', {
+contextBridge.exposeInMainWorld('splotysDesktop', {
   isDesktop: true,
   platform: process.platform,
   minimize: () => ipcRenderer.send('desktop:minimize'),
@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('fordKallDesktop', {
   detectKnownActivity: (candidates) => ipcRenderer.invoke('desktop:detect-known-activity', candidates),
   setFullscreen: (fullscreen) => ipcRenderer.invoke('desktop:set-fullscreen', fullscreen === true),
   getAuthCallback: () => ipcRenderer.invoke('auth:get-callback'),
+  getInviteToken: () => ipcRenderer.invoke('invite:get-pending'),
   getAuthSessionBlob: () => ipcRenderer.invoke('auth:get-session'),
   setAuthSessionBlob: (session) => ipcRenderer.invoke('auth:set-session', typeof session === 'string' ? session : ''),
   clearAuthSession: () => ipcRenderer.invoke('auth:clear-session'),
@@ -24,6 +25,11 @@ contextBridge.exposeInMainWorld('fordKallDesktop', {
     const wrappedListener = (_event, roomCode) => listener(roomCode)
     ipcRenderer.on('desktop:open-room', wrappedListener)
     return () => ipcRenderer.removeListener('desktop:open-room', wrappedListener)
+  },
+  onOpenInvite: (listener) => {
+    const wrappedListener = (_event, token) => listener(token)
+    ipcRenderer.on('desktop:open-invite', wrappedListener)
+    return () => ipcRenderer.removeListener('desktop:open-invite', wrappedListener)
   },
   onAuthCallback: (listener) => {
     const wrappedListener = (_event, callbackUrl) => listener(callbackUrl)

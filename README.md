@@ -1,4 +1,4 @@
-# DiscorTower
+# splotys
 
 Call privada de voz e compartilhamento de tela entre amigos, com contas acessíveis por convite e autorização server-side para as salas LiveKit.
 
@@ -31,11 +31,11 @@ Call privada de voz e compartilhamento de tela entre amigos, com contas acessív
 - política de tela 720p30 para membros com fiscalização server-side de resoluções acima do limite;
 - emissão de token LiveKit por Edge Function autenticada, com TTL curto;
 - aplicativo Windows baseado em Electron, com instalador e executável portátil;
-- seletor desktop próprio de telas/janelas, captura opcional do áudio do sistema e deep link `fordkall://`;
+- seletor desktop próprio de telas/janelas, captura opcional do áudio do sistema e deep link `splotys://`;
 - bandeja do sistema e modo de fundo que mantém a voz, suspende vídeos e reduz atualizações visuais enquanto o app está minimizado.
 - central de configurações por seções, com atalhos opcionais para microfone, deafen, câmera, tela e saída;
 - atalhos locais no navegador e globais no aplicativo Windows, inclusive com um jogo em foco;
-- atualização do aplicativo instalado por releases do GitHub, com download, instalação e reinício dentro do DiscorTower.
+- atualização do aplicativo instalado por releases do GitHub, com download, instalação e reinício dentro do splotys.
 
 ## Stack
 
@@ -61,7 +61,7 @@ O fluxo de produção não usa o Development Token Server. O cliente recebe some
 
 1. Crie o projeto Supabase, desabilite o cadastro público e aplique a migration em `supabase/migrations/`.
 2. Convide o proprietário pelo Dashboard, confirme a conta e insira o UUID dele em `public.admin_users` pelo SQL Editor. O e-mail e o UUID não entram no repositório.
-3. Configure o redirect `fordkall://auth/callback` no Supabase Auth para o aplicativo Desktop.
+3. Configure o redirect `splotys://auth/callback` no Supabase Auth para o aplicativo Desktop.
 4. Configure `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `SECRET_KEY`, `DESKTOP_INVITE_REDIRECT_URL` e `FUNCTION_ALLOWED_ORIGINS` nos secrets do Supabase. `INVITE_REDIRECT_URL` só é necessário se convites Web forem habilitados. Veja `supabase/README.md`.
 5. Faça o deploy das funções em `supabase/functions/` e configure o webhook assinado do LiveKit para `livekit-webhook`.
 6. Copie o arquivo de exemplo:
@@ -125,14 +125,14 @@ npm run desktop:dist:windows
 
 Os artefatos são gerados em `release/`:
 
-- `DiscorTower-Setup-<versão>-x64.exe`: instalador com atalhos no Desktop e menu Iniciar;
-- `DiscorTower-Portable-<versão>-x64.exe`: versão que roda sem instalação.
+- `splotys-Setup-<versão>-x64.exe`: instalador com atalhos no Desktop e menu Iniciar;
+- `splotys-Portable-<versão>-x64.exe`: versão que roda sem instalação.
 
-O aplicativo carrega o frontend empacotado localmente e continua usando o LiveKit Cloud para a call. Ao fechar a janela durante uma call, ele permanece na bandeja do Windows; **Sair do DiscorTower** no menu do ícone encerra de fato o processo. Quando minimizado ou oculto, publicações remotas de vídeo são suspensas e restauradas ao abrir a janela, reduzindo uso de GPU e banda sem interromper a voz.
+O aplicativo carrega o frontend empacotado localmente e continua usando o LiveKit Cloud para a call. Ao fechar a janela durante uma call, ele permanece na bandeja do Windows; **Sair do splotys** no menu do ícone encerra de fato o processo. Quando minimizado ou oculto, publicações remotas de vídeo são suspensas e restauradas ao abrir a janela, reduzindo uso de GPU e banda sem interromper a voz.
 
 Todos os atalhos começam vazios e são configurados em **Configurações → Atalhos**. No app instalado eles são globais; no navegador funcionam apenas com a página em foco. A versão Setup consulta updates 15 segundos depois de abrir e novamente a cada seis horas; o botão **Checar update** em **Configurações → Aplicativo** permite uma consulta imediata. O download usa os metadados e `.blockmap` da release para reaproveitar os blocos existentes, e a instalação só acontece após confirmação. A versão portátil continua sendo atualizada substituindo o executável manualmente.
 
-O workflow [`.github/workflows/windows.yml`](.github/workflows/windows.yml) gera os executáveis e os metadados do updater manualmente ou ao enviar uma tag `v*`. Releases com tag exigem assinatura via Microsoft Artifact Signing e também publicam `DiscorTower-LTS-Windows-x64.exe`, um nome estável para links de download. Builds manuais e locais continuam aceitando saída sem assinatura para desenvolvimento.
+O workflow [`.github/workflows/windows.yml`](.github/workflows/windows.yml) gera os executáveis e os metadados do updater manualmente ou ao enviar uma tag `v*`. Releases com tag exigem assinatura via Microsoft Artifact Signing e também publicam `splotys-LTS-Windows-x64.exe`, um nome estável para links de download. Builds manuais e locais continuam aceitando saída sem assinatura para desenvolvimento.
 
 ### Assinatura de releases do Windows
 
@@ -154,7 +154,7 @@ Secrets:
 O aplicativo registrado no Microsoft Entra ID precisa da função **Trusted Signing Certificate Profile Signer** no recurso de assinatura. Se qualquer valor estiver ausente, o build de uma tag falha antes de publicar uma release sem assinatura. Após a primeira release assinada, o link permanente do instalador é:
 
 ```text
-https://github.com/luisguns/discortower/releases/latest/download/DiscorTower-LTS-Windows-x64.exe
+https://github.com/luisguns/discortower/releases/latest/download/splotys-LTS-Windows-x64.exe
 ```
 
 ## Deploy no GitHub Pages

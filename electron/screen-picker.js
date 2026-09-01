@@ -1,4 +1,4 @@
-const picker = window.fordKallCapturePicker
+const picker = window.splotysCapturePicker
 const grid = document.querySelector('#source-grid')
 const audioInput = document.querySelector('#with-audio')
 const audioOption = document.querySelector('.audio-option')

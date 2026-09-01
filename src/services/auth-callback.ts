@@ -13,7 +13,7 @@ const callbackDestination = (value: string) => {
 }
 
 export const getAuthRedirectUrl = () => {
-  if (typeof window !== 'undefined' && window.fordKallDesktop) return 'fordkall://auth/callback'
+  if (typeof window !== 'undefined' && window.splotysDesktop) return 'splotys://auth/callback'
   const configured = configuredRedirectUrl()
   if (configured) return configured
   if (typeof window === 'undefined') return ''
@@ -25,7 +25,7 @@ const allowedCallbackUrls = () => {
   const configured = configuredRedirectUrl()
   if (configured) values.add(callbackDestination(configured))
   if (typeof window !== 'undefined') values.add(callbackDestination(`${window.location.origin}/`))
-  if (typeof window !== 'undefined' && window.fordKallDesktop) values.add('fordkall://auth/callback')
+  if (typeof window !== 'undefined' && window.splotysDesktop) values.add('splotys://auth/callback')
   return values
 }
 

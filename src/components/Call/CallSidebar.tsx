@@ -27,7 +27,7 @@ export const CallSidebar = ({ activity, activitySharingEnabled, channels, curren
   const otherChannels = channels.filter((channel) => channel.id !== currentChannelId)
 
   return <aside className="channel-home__sidebar call-app-sidebar">
-    <header className="channel-home__brand"><BrandMark /><div><p>PRIVATE COMMS</p><strong>DISCORTOWER</strong></div></header>
+    <header className="channel-home__brand"><BrandMark /><div><p>PRIVATE COMMS</p><strong>SPLOTYS</strong></div></header>
     <button className="channel-home__home-link" disabled title="Saia da call para voltar à Home" type="button"><span><Icon name="layout" /></span><strong>Home</strong><small>Call em andamento</small></button>
 
     {currentChannel && <section className={`call-sidebar-channel${callsCollapsed ? ' is-collapsed' : ''}`}>

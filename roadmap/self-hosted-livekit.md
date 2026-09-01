@@ -4,7 +4,7 @@ Atualizado em: 30 de agosto de 2026
 
 ## Objetivo
 
-Reduzir ou eliminar o custo do transporte de voz, câmera, compartilhamento de tela e dados em tempo real do DiscorTower sem reimplementar uma infraestrutura WebRTC completa.
+Reduzir ou eliminar o custo do transporte de voz, câmera, compartilhamento de tela e dados em tempo real do splotys sem reimplementar uma infraestrutura WebRTC completa.
 
 A estratégia proposta é continuar usando o servidor e os SDKs open source do LiveKit, mas substituir o LiveKit Cloud por uma instalação administrada por nós em uma VPS.
 
@@ -47,7 +47,7 @@ O KVM 2 foi preferido ao KVM 1 porque um único vCPU deixaria pouca margem para 
 
 ## Compatibilidade com o projeto atual
 
-O DiscorTower já usa interfaces compatíveis com LiveKit self-hosted:
+O splotys já usa interfaces compatíveis com LiveKit self-hosted:
 
 - `livekit-client` no frontend;
 - `livekit-server-sdk` nas Supabase Edge Functions;
@@ -123,7 +123,7 @@ A Hostinger informa que uso contínuo de 100% de CPU por mais de 180 minutos pod
 - comparar custo mensal sem compromisso de longo prazo;
 - confirmar processo de upgrade e se ele preserva IP e disco;
 - definir monitoramento, alertas, backup das configurações e procedimento de recuperação;
-- estimar capacidade com o padrão real de câmera e tela do DiscorTower;
+- estimar capacidade com o padrão real de câmera e tela do splotys;
 - avaliar um servidor TURN externo de contingência;
 - preparar plano de retorno temporário ao LiveKit Cloud em caso de falha da VPS.
 

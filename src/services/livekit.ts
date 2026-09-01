@@ -25,9 +25,10 @@ export const roomCodeFromInput = (value: string) => {
     }
   }
 
-  if (trimmedValue.toLocaleLowerCase().startsWith('fordkall://')) {
+  if (trimmedValue.toLocaleLowerCase().startsWith('splotys://')) {
     try {
       const url = new URL(trimmedValue)
+      if (['auth', 'invite'].includes(url.hostname.toLocaleLowerCase())) return ''
       const explicitRoom = url.searchParams.get('room')
       const routeRoom = url.hostname.toLocaleLowerCase() === 'join'
         ? url.pathname.replace(/^\/+/, '')
@@ -52,7 +53,7 @@ export const createRoomInviteUrl = (roomCode: string) => {
   if (typeof window === 'undefined') return `?room=${encodeURIComponent(normalizedRoom)}`
 
   const url = new URL(
-    window.fordKallDesktop ? 'https://splotys.com/' : window.location.href,
+    window.splotysDesktop ? 'https://splotys.com/' : window.location.href,
   )
   url.search = ''
   url.searchParams.set('room', normalizedRoom)
@@ -117,7 +118,7 @@ export const fetchConnectionDetails = async (
 
 export const createChannelInviteUrl = (channelId: string) => {
   if (typeof window === 'undefined') return `?channel=${encodeURIComponent(channelId)}`
-  const url = new URL(window.fordKallDesktop ? 'https://splotys.com/' : window.location.href)
+  const url = new URL(window.splotysDesktop ? 'https://splotys.com/' : window.location.href)
   url.search = ''; url.searchParams.set('channel', channelId); url.hash = ''
   return url.toString()
 }
@@ -189,7 +190,7 @@ export const friendlyConnectionError = (error: unknown) => {
 
 export const friendlyMicrophoneError = (error: unknown) => {
   if (error instanceof DOMException && error.name === 'NotAllowedError') {
-    return window.fordKallDesktop?.platform === 'win32'
+    return window.splotysDesktop?.platform === 'win32'
       ? 'Permissão do microfone negada. Libere o acesso no Windows e clique no microfone para tentar novamente.'
       : 'Permissão do microfone negada. Você entrou apenas para ouvir.'
   }

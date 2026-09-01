@@ -25,7 +25,7 @@ export const useCallShortcuts = (handlers: ShortcutHandlers, webEnabled: boolean
   }, [])
 
   useEffect(() => {
-    const desktop = window.fordKallDesktop
+    const desktop = window.splotysDesktop
     if (!desktop) return
     const stopShortcut = desktop.onShortcut((action) => {
       if (isShortcutAction(action)) handlersRef.current[action]()
@@ -40,20 +40,20 @@ export const useCallShortcuts = (handlers: ShortcutHandlers, webEnabled: boolean
   }, [])
 
   useEffect(() => {
-    const desktop = window.fordKallDesktop
+    const desktop = window.splotysDesktop
     if (!desktop) return
     desktop.setShortcutBindings(bindings)
   }, [bindings])
 
   useEffect(() => {
-    const desktop = window.fordKallDesktop
+    const desktop = window.splotysDesktop
     if (!desktop) return
     desktop.setShortcutCaptureActive(!webEnabled)
     return () => desktop.setShortcutCaptureActive(false)
   }, [webEnabled])
 
   useEffect(() => {
-    if (window.fordKallDesktop || !webEnabled) return
+    if (window.splotysDesktop || !webEnabled) return
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.repeat) return
       const target = event.target

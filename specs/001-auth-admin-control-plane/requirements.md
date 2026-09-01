@@ -1,12 +1,12 @@
 # Spec 001 — Autenticação por convite e painel administrativo
 
 Status: proposta para aprovação  
-Produto: DiscorTower Desktop/Web  
+Produto: splotys Desktop/Web
 Escopo: plano de controle Supabase + autorização LiveKit  
 
 ## 1. Objetivo
 
-Adicionar ao DiscorTower um sistema de contas acessível somente por convite e um painel administrativo dentro do próprio aplicativo. O Supabase será responsável por identidade, autorização, persistência e estado administrativo. O LiveKit continuará responsável exclusivamente por áudio, vídeo, compartilhamento de tela e eventos de mídia.
+Adicionar ao splotys um sistema de contas acessível somente por convite e um painel administrativo dentro do próprio aplicativo. O Supabase será responsável por identidade, autorização, persistência e estado administrativo. O LiveKit continuará responsável exclusivamente por áudio, vídeo, compartilhamento de tela e eventos de mídia.
 
 O sistema deve considerar o aplicativo Electron e todo código do frontend como ambiente não confiável. A presença da interface administrativa no bundle não pode conceder acesso a dados ou operações administrativas.
 
@@ -119,7 +119,7 @@ O sistema deve considerar o aplicativo Electron e todo código do frontend como 
 
 ```gherkin
 Dado que não existe sessão válida no dispositivo
-Quando o DiscorTower é iniciado
+Quando o splotys é iniciado
 Então a tela de login é exibida
 E o lobby e o painel não são acessíveis
 ```

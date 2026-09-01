@@ -4,7 +4,7 @@ import { participantAvatarFromMetadata } from '../services/profile'
 
 export const useDesktopGameOverlay = (room: Room, enabled: boolean) => {
   useEffect(() => {
-    const desktop = window.fordKallDesktop
+    const desktop = window.splotysDesktop
     if (!desktop || desktop.platform !== 'win32') return
 
     const activeSpeakerIds = () => room.activeSpeakers.map((participant) => participant.identity)

@@ -3,7 +3,7 @@
 ## Provisionamento
 
 1. Crie o projeto Supabase e aplique as migrations em `migrations/` na ordem: controle de acesso e canais persistentes.
-2. Desabilite o cadastro público e adicione o redirect usado pelo Desktop: `fordkall://auth/callback`.
+2. Desabilite o cadastro público e adicione o redirect usado pelo Desktop: `splotys://auth/callback`.
 3. Convide o proprietário pelo Dashboard, confirme o e-mail e insira seu UUID em `public.admin_users` usando o SQL Editor. O UUID não deve ser commitado.
 4. Cadastre os secrets diretamente nas Edge Functions:
 
@@ -11,7 +11,7 @@
    - `LIVEKIT_URL`
    - `LIVEKIT_API_KEY`
    - `LIVEKIT_API_SECRET`
-   - `DESKTOP_INVITE_REDIRECT_URL=fordkall://auth/callback`
+   - `DESKTOP_INVITE_REDIRECT_URL=splotys://auth/callback`
    - `FUNCTION_ALLOWED_ORIGINS`
    - `CALL_LIMIT_CRON_SECRET` (segredo usado pelo Supabase Cron para chamar `enforce-call-limits`)
    - `LIVEKIT_MONTHLY_PARTICIPANT_MINUTES_BUDGET` (opcional; padrão operacional 5.000)

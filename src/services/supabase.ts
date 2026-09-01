@@ -3,7 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.trim() || ''
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() || ''
 const MAX_SESSION_BYTES = 256 * 1024
-const AUTH_STORAGE_KEY = 'discortower.auth.session'
+const AUTH_STORAGE_KEY = 'splotys.auth.session'
 
 class MemorySessionStorage implements Storage {
   private readonly values = new Map<string, string>()
@@ -55,7 +55,7 @@ const getBrowserStorage = () => {
 }
 
 const createStorage = (initialValue: string | null) => {
-  const desktop = window.fordKallDesktop
+  const desktop = window.splotysDesktop
   if (!desktop) {
     const browserStorage = getBrowserStorage()
     return browserStorage
@@ -68,7 +68,7 @@ const createStorage = (initialValue: string | null) => {
 }
 
 const loadInitialSession = async () => {
-  if (window.fordKallDesktop) return window.fordKallDesktop.getAuthSessionBlob()
+  if (window.splotysDesktop) return window.splotysDesktop.getAuthSessionBlob()
   return getBrowserStorage().getItem(AUTH_STORAGE_KEY)
 }
 

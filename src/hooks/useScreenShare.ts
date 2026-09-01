@@ -98,7 +98,7 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
     setIsStarting(true)
     setError('')
     const { preset } = streamQualityPresets[quality]
-    const isDesktopApp = Boolean(window.fordKallDesktop)
+    const isDesktopApp = Boolean(window.splotysDesktop)
     const restoreDisplayMedia = isDesktopApp
       ? () => undefined
       : preferIsolatedWindowAudio()
@@ -145,7 +145,7 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
       setIsStarting(false)
       setError(
         isDesktopApp
-          ? 'O seletor do DiscorTower não concluiu a captura. Feche a janela de seleção e tente novamente.'
+          ? 'O seletor do splotys não concluiu a captura. Feche a janela de seleção e tente novamente.'
           : 'O Chrome não concluiu o seletor de tela. Feche a janela de seleção ou pressione Esc; o botão já foi liberado.',
       )
 

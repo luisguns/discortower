@@ -63,14 +63,14 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         run: |
-          $setup = Get-ChildItem -LiteralPath release -Filter 'DiscorTower-Setup-*-x64.exe' | Select-Object -First 1
+          $setup = Get-ChildItem -LiteralPath release -Filter 'splotys-Setup-*-x64.exe' | Select-Object -First 1
           if (-not $setup) { throw 'O instalador Setup não foi gerado.' }
-          Copy-Item -LiteralPath $setup.FullName -Destination 'release/DiscorTower-LTS-Windows-x64.exe'
+          Copy-Item -LiteralPath $setup.FullName -Destination 'release/splotys-LTS-Windows-x64.exe'
 
       - name: Upload Windows executables
         uses: actions/upload-artifact@v4
         with:
-          name: DiscorTower-Windows-${{ github.ref_name }}
+          name: splotys-Windows-${{ github.ref_name }}
           path: |
             release/*.exe
             release/latest.yml
@@ -83,4 +83,4 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" release/*.exe release/latest.yml release/*.blockmap --generate-notes --title "DiscorTower $GITHUB_REF_NAME"
+        run: gh release create "$GITHUB_REF_NAME" release/*.exe release/latest.yml release/*.blockmap --generate-notes --title "splotys $GITHUB_REF_NAME"

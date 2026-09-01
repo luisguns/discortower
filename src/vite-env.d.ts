@@ -10,13 +10,13 @@ interface ImportMeta {
   readonly env: ImportMetaEnv
 }
 
-interface FordKallDesktopInfo {
+interface SplotysDesktopInfo {
   platform: string
   version: string
   publicAppUrl: string
 }
 
-interface FordKallOverlayParticipant {
+interface SplotysOverlayParticipant {
   id: string
   name: string
   avatarDataUrl?: string
@@ -25,32 +25,34 @@ interface FordKallOverlayParticipant {
   speaking: boolean
 }
 
-interface FordKallOverlayState {
+interface SplotysOverlayState {
   enabled: boolean
-  participants: FordKallOverlayParticipant[]
+  participants: SplotysOverlayParticipant[]
 }
 
-interface FordKallDesktopApi {
+interface SplotysDesktopApi {
   readonly isDesktop: true
   readonly platform: string
   minimize: () => void
   openMicrophoneSettings: () => void
   setInCall: (inCall: boolean) => void
-  setGameOverlayState: (state: FordKallOverlayState) => void
+  setGameOverlayState: (state: SplotysOverlayState) => void
   setGameOverlaySpeakers: (participantIds: string[]) => void
   setShortcutBindings: (bindings: import('./types').ShortcutBindings) => void
   setShortcutCaptureActive: (active: boolean) => void
   getUpdateState: () => Promise<import('./types').AppUpdateState>
   checkForUpdates: () => Promise<import('./types').AppUpdateState>
   installUpdate: () => void
-  getInfo: () => Promise<FordKallDesktopInfo | null>
+  getInfo: () => Promise<SplotysDesktopInfo | null>
   detectKnownActivity: (candidates: Array<{ id: string; processNames: string[] }>) => Promise<{ activityId: string; iconDataUrl?: string } | null>
   setFullscreen: (fullscreen: boolean) => Promise<boolean>
   getAuthCallback: () => Promise<string | null>
+  getInviteToken: () => Promise<string | null>
   getAuthSessionBlob: () => Promise<string | null>
   setAuthSessionBlob: (session: string) => Promise<boolean>
   clearAuthSession: () => Promise<boolean>
   onOpenRoom: (listener: (roomCode: string) => void) => () => void
+  onOpenInvite: (listener: (token: string) => void) => () => void
   onAuthCallback: (listener: (callbackUrl: string) => void) => () => void
   onShortcut: (listener: (action: import('./types').ShortcutAction) => void) => () => void
   onShortcutStatus: (listener: (status: { failedActions: import('./types').ShortcutAction[] }) => void) => () => void
@@ -59,5 +61,5 @@ interface FordKallDesktopApi {
 }
 
 interface Window {
-  readonly fordKallDesktop?: FordKallDesktopApi
+  readonly splotysDesktop?: SplotysDesktopApi
 }

@@ -127,7 +127,7 @@ export const prepareProfileAvatar = async (file: File) => {
 
 export const serializeParticipantProfile = (profile: LocalProfile) =>
   JSON.stringify({
-    fordKallProfile: {
+    splotysProfile: {
       version: PROFILE_METADATA_VERSION,
       avatarDataUrl: isSafeAvatarDataUrl(profile.avatarDataUrl)
         ? profile.avatarDataUrl
@@ -142,8 +142,8 @@ const profileFromMetadata = (metadata?: string) => {
     const parsed: unknown = JSON.parse(metadata)
     if (!parsed || typeof parsed !== 'object') return undefined
     const profile = (parsed as {
-      fordKallProfile?: { version?: unknown; avatarDataUrl?: unknown; nameStyle?: Partial<ProfileNameStyle> }
-    }).fordKallProfile
+      splotysProfile?: { version?: unknown; avatarDataUrl?: unknown; nameStyle?: Partial<ProfileNameStyle> }
+    }).splotysProfile
     if (profile?.version !== 1 && profile?.version !== PROFILE_METADATA_VERSION) return undefined
     return profile
   } catch {

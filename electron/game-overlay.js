@@ -53,9 +53,9 @@ const render = (state) => {
   })
 }
 
-if (window.fordKallOverlay) {
-  window.fordKallOverlay.onState(render)
-  window.fordKallOverlay.onSpeakers((participantIds) => {
+if (window.splotysOverlay) {
+  window.splotysOverlay.onState(render)
+  window.splotysOverlay.onSpeakers((participantIds) => {
     const activeIds = new Set(Array.isArray(participantIds) ? participantIds : [])
     participantRows.forEach((row, participantId) => {
       row.classList.toggle('is-speaking', activeIds.has(participantId))

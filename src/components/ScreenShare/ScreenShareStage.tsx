@@ -350,7 +350,7 @@ export const ScreenShareStage = ({
     popupVideo.muted = true
     popupVideo.playsInline = true
 
-    popup.document.title = `${selectedLive.participantName} · DiscorTower`
+    popup.document.title = `${selectedLive.participantName} · splotys`
     popup.document.head.replaceChildren(style)
     popup.document.body.replaceChildren(bar, popupVideo)
 

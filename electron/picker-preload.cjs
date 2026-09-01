@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
-contextBridge.exposeInMainWorld('fordKallCapturePicker', {
+contextBridge.exposeInMainWorld('splotysCapturePicker', {
   platform: process.platform,
   listSources: () => ipcRenderer.invoke('capture-picker:list'),
   select: (id, withAudio) => ipcRenderer.send('capture-picker:select', { id, withAudio }),

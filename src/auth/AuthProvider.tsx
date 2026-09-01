@@ -97,7 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       try {
         await initializeSupabase()
-        const pendingCallback = await window.fordKallDesktop?.getAuthCallback()
+        const pendingCallback = await window.splotysDesktop?.getAuthCallback()
         await consumeCallback(pendingCallback || undefined)
         const nextSession = await currentSession()
         if (mounted) await loadAccess(nextSession)
@@ -108,7 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }, 0)
         })
         unsubscribe = data.subscription.unsubscribe
-        unsubscribeDesktopCallback = window.fordKallDesktop?.onAuthCallback((callbackUrl) => {
+        unsubscribeDesktopCallback = window.splotysDesktop?.onAuthCallback((callbackUrl) => {
           void consumeCallback(callbackUrl)
         }) || (() => undefined)
       } catch {

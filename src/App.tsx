@@ -5,6 +5,7 @@ import { InviteCompletionScreen } from './auth/InviteCompletionScreen'
 import { AdminPanel } from './admin/AdminPanel'
 import { CallScreen } from './components/Call/CallScreen'
 import { CallSidebar } from './components/Call/CallSidebar'
+import { LandingPage } from './components/Landing/LandingPage'
 import { LobbyWorkspace as Lobby } from './components/Lobby/LobbyWorkspace'
 import { AppSettingsScreen } from './components/Settings/AppSettingsScreen'
 import { useLiveKitRoom } from './hooks/useLiveKitRoom'
@@ -28,6 +29,12 @@ function App() {
   const [fullscreen, setFullscreen] = useState(false)
   const [lobbyDestination, setLobbyDestination] = useState<'home' | 'profile' | undefined>()
   const [callActivitySettingsOpen, setCallActivitySettingsOpen] = useState(false)
+  const [desktopInviteToken, setDesktopInviteToken] = useState('')
+  const [webLoginOpen, setWebLoginOpen] = useState(() => {
+    if (typeof window === 'undefined' || window.splotysDesktop) return true
+    const params = new URL(window.location.href).searchParams
+    return params.has('login') || params.has('invite') || params.has('code') || params.has('error')
+  })
 
   useEffect(() => {
     if (auth.status !== 'authenticated') return
@@ -45,13 +52,21 @@ function App() {
 
   useEffect(() => {
     if (auth.status !== 'authenticated' || typeof window === 'undefined') return
-    const invite = new URL(window.location.href).searchParams.get('invite')
+    const invite = desktopInviteToken || new URL(window.location.href).searchParams.get('invite')
     if (!invite) return
     void acceptChannelInvite(invite).then((result) => {
       const url = new URL(window.location.href); url.searchParams.delete('invite'); url.searchParams.set('channel', result.channelId); window.history.replaceState(null, '', url)
+      setDesktopInviteToken('')
       setChannelId(result.channelId)
     }).catch(() => { /* lobby surfaces the unavailable invite without leaking its token */ })
-  }, [auth.status])
+  }, [auth.status, desktopInviteToken])
+
+  useEffect(() => {
+    const desktop = window.splotysDesktop
+    if (!desktop) return
+    void desktop.getInviteToken().then((token) => { if (token) setDesktopInviteToken(token) })
+    return desktop.onOpenInvite(setDesktopInviteToken)
+  }, [])
 
   useEffect(() => {
     if (auth.status !== 'authenticated') return
@@ -74,7 +89,7 @@ function App() {
   const toggleFullscreen = async () => {
     const next = !fullscreen
     try {
-      if (window.fordKallDesktop) setFullscreen(await window.fordKallDesktop.setFullscreen(next))
+      if (window.splotysDesktop) setFullscreen(await window.splotysDesktop.setFullscreen(next))
       else if (next) { await document.documentElement.requestFullscreen(); setFullscreen(true) }
       else { await document.exitFullscreen(); setFullscreen(false) }
     } catch { setFullscreen(false) }
@@ -87,23 +102,23 @@ function App() {
   }, [auth.status, liveKit.leave, liveKit.room])
 
   useEffect(() => {
-    const desktop = window.fordKallDesktop
+    const desktop = window.splotysDesktop
     if (!desktop) return
     desktop.setInCall(Boolean(liveKit.room))
     return () => desktop.setInCall(false)
   }, [liveKit.room])
 
-  useEffect(() => window.fordKallDesktop?.onFullscreenChange(setFullscreen), [])
+  useEffect(() => window.splotysDesktop?.onFullscreenChange(setFullscreen), [])
 
   useEffect(() => {
     if (liveKit.room || !fullscreen) return
-    if (window.fordKallDesktop) void window.fordKallDesktop.setFullscreen(false)
+    if (window.splotysDesktop) void window.splotysDesktop.setFullscreen(false)
     else if (document.fullscreenElement) void document.exitFullscreen()
     setFullscreen(false)
   }, [fullscreen, liveKit.room])
 
   useEffect(() => {
-    const desktop = window.fordKallDesktop
+    const desktop = window.splotysDesktop
     if (!desktop) return
     return desktop.onOpenRoom((nextRoomCode) => {
       if (liveKit.room) return
@@ -133,7 +148,10 @@ function App() {
   if (auth.status === 'initializing') return <AuthLoadingScreen />
   if (auth.status === 'disabled') return <AccountDisabledScreen onSignOut={auth.signOut} />
   if (auth.status !== 'authenticated' || !auth.access) {
-    return <LoginScreen error={auth.status === 'error' ? auth.error : undefined} onLogin={auth.signIn} onResetPassword={auth.resetPassword} />
+    if (!window.splotysDesktop && !webLoginOpen) {
+      return <LandingPage onEnter={() => { window.history.replaceState(null, '', '?login=1'); setWebLoginOpen(true) }} />
+    }
+    return <LoginScreen error={auth.status === 'error' ? auth.error : undefined} onBack={!window.splotysDesktop ? () => { window.history.replaceState(null, '', '/'); setWebLoginOpen(false) } : undefined} onLogin={auth.signIn} onResetPassword={auth.resetPassword} />
   }
 
   if (auth.credentialSetup) {

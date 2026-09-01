@@ -110,7 +110,7 @@ export const Lobby = ({ status, connectionError, initialChannelId, channels, can
   return <main className="channel-home">
     <div className="channel-home__grid" aria-hidden="true" />
     <aside className="channel-home__sidebar">
-      <header className="channel-home__brand"><BrandMark /><div><p>PRIVATE COMMS</p><strong>DISCORTOWER</strong></div></header>
+      <header className="channel-home__brand"><BrandMark /><div><p>PRIVATE COMMS</p><strong>SPLOTYS</strong></div></header>
       <div className="channel-home__channel-heading"><span>Seus canais</span><div><b>{channels.length}</b>{canCreateChannel && <button aria-label="Criar novo canal" aria-pressed={creating} className={creating ? 'is-active' : ''} onClick={() => setCreating((current) => !current)} title="Criar novo canal" type="button">+</button>}</div></div>
       <nav className="channel-home__channel-list" aria-label="Canais disponíveis">
         {channels.map((channel) => <button aria-current={channel.id === channelId ? 'page' : undefined} className={channel.id === channelId ? 'is-active' : ''} key={channel.id} onClick={() => setChannelId(channel.id)} type="button">

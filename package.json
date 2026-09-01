@@ -1,10 +1,10 @@
 {
-  "name": "discortower",
-  "productName": "DiscorTower",
+  "name": "splotys",
+  "productName": "splotys",
   "private": true,
   "version": "0.5.3",
-  "description": "Call privada de voz, camera e compartilhamento de tela entre amigos.",
-  "author": "Matheus Torres",
+  "description": "Comunicação privada por voz, vídeo e compartilhamento de tela entre amigos.",
+  "author": "Gunns Dev",
   "homepage": "https://splotys.com/",
   "repository": {
     "type": "git",
@@ -45,9 +45,9 @@
     "wait-on": "^9.1.0"
   },
   "build": {
-    "appId": "dev.11a3.fordkall",
-    "productName": "DiscorTower",
-    "copyright": "Copyright © 2026 Matheus Torres",
+    "appId": "dev.gunns.splotys",
+    "productName": "splotys",
+    "copyright": "Copyright © 2026 Gunns Dev",
     "asar": true,
     "npmRebuild": false,
     "electronLanguages": [
@@ -78,23 +78,23 @@
     ],
     "protocols": [
       {
-        "name": "Sala do DiscorTower",
+        "name": "Sala do splotys",
         "schemes": [
-          "fordkall"
+          "splotys"
         ]
       }
     ],
-    "artifactName": "DiscorTower-Portable-${version}-${arch}.${ext}",
+    "artifactName": "splotys-Portable-${version}-${arch}.${ext}",
     "mac": {
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "O DiscorTower usa o microfone para transmitir sua voz durante a call.",
-        "NSCameraUsageDescription": "O DiscorTower usa a câmera quando você decide ligá-la durante a call.",
-        "NSAudioCaptureUsageDescription": "O DiscorTower pode capturar o áudio da tela quando você escolhe compartilhá-lo."
+        "NSMicrophoneUsageDescription": "O splotys usa o microfone para transmitir sua voz durante a call.",
+        "NSCameraUsageDescription": "O splotys usa a câmera quando você decide ligá-la durante a call.",
+        "NSAudioCaptureUsageDescription": "O splotys pode capturar o áudio da tela quando você escolhe compartilhá-lo."
       }
     },
     "win": {
       "icon": "build/icon.png",
-      "executableName": "DiscorTower",
+      "executableName": "splotys",
       "requestedExecutionLevel": "asInvoker",
       "target": [
         {
@@ -112,14 +112,14 @@
       ]
     },
     "nsis": {
-      "artifactName": "DiscorTower-Setup-${version}-${arch}.${ext}",
+      "artifactName": "splotys-Setup-${version}-${arch}.${ext}",
       "oneClick": false,
       "perMachine": false,
       "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "DiscorTower",
+      "shortcutName": "splotys",
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false,
       "installerLanguages": [

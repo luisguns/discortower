@@ -5,7 +5,7 @@ import type { RecognizedActivity } from '../types'
 export const useDesktopActivity = (active: boolean, sharingEnabled: boolean) => {
   const [activity, setActivity] = useState<RecognizedActivity | undefined>()
   useEffect(() => {
-    const desktop = window.fordKallDesktop
+    const desktop = window.splotysDesktop
     if (!active) {
       setActivity(undefined)
       return

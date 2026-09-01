@@ -185,7 +185,7 @@ export const AdminPanel = ({ currentUser, onClose, onLogout }: AdminPanelProps) 
   return (
     <main className="admin-shell">
       <header className="admin-header">
-        <div className="brand brand--compact"><BrandMark /><h1>DISCORTOWER</h1></div>
+        <div className="brand brand--compact"><BrandMark /><h1>SPLOTYS</h1></div>
         <div className="admin-header__identity"><span>ADMIN</span><strong>{currentUser.displayName || currentUser.email}</strong><button onClick={() => void onLogout()} type="button">Sair</button></div>
       </header>
       <div className="admin-layout">

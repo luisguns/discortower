@@ -18,8 +18,8 @@ const { spawn } = require('node:child_process')
 const fs = require('node:fs/promises')
 const path = require('node:path')
 
-const APP_ID = 'dev.11a3.fordkall'
-const APP_SCHEME = 'fordkall-app'
+const APP_ID = 'dev.gunns.splotys'
+const APP_SCHEME = 'splotys-app'
 const APP_ORIGIN = `${APP_SCHEME}://app`
 const PICKER_ORIGIN = `${APP_SCHEME}://picker`
 const OVERLAY_ORIGIN = `${APP_SCHEME}://overlay`
@@ -35,6 +35,7 @@ let isQuitting = false
 let isInCall = false
 let trayHintShown = false
 let pendingRoomCode = ''
+let pendingInviteToken = ''
 let pendingAuthCallback = ''
 let activePicker = null
 let overlayWindow = null
@@ -117,10 +118,10 @@ const normalizeRoomCode = (value) =>
   value.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9_-]/g, '').toUpperCase()
 
 const roomCodeFromDeepLink = (value) => {
-  if (typeof value !== 'string' || !value.toLowerCase().startsWith('fordkall://')) return ''
+  if (typeof value !== 'string' || !value.toLowerCase().startsWith('splotys://')) return ''
   try {
     const url = new URL(value)
-    if (url.hostname.toLowerCase() === 'auth') return ''
+    if (['auth', 'invite'].includes(url.hostname.toLowerCase())) return ''
     const explicitRoom = url.searchParams.get('room')
     if (explicitRoom) return normalizeRoomCode(explicitRoom)
 
@@ -133,8 +134,20 @@ const roomCodeFromDeepLink = (value) => {
   }
 }
 
+const inviteTokenFromDeepLink = (value) => {
+  if (typeof value !== 'string' || !value.toLowerCase().startsWith('splotys://')) return ''
+  try {
+    const url = new URL(value)
+    if (url.hostname.toLowerCase() !== 'invite') return ''
+    const token = url.searchParams.get('token')?.trim() || ''
+    return /^[a-zA-Z0-9_-]{16,256}$/.test(token) ? token : ''
+  } catch {
+    return ''
+  }
+}
+
 const authCallbackFromDeepLink = (value) => {
-  if (typeof value !== 'string' || !value.toLowerCase().startsWith('fordkall://')) return ''
+  if (typeof value !== 'string' || !value.toLowerCase().startsWith('splotys://')) return ''
   try {
     const url = new URL(value)
     const allowedKeys = new Set(['code', 'error', 'error_code', 'error_description', 'type'])
@@ -164,6 +177,14 @@ const findAuthCallbackInArguments = (argumentsList) => {
   return ''
 }
 
+const findInviteTokenInArguments = (argumentsList) => {
+  for (const argument of argumentsList) {
+    const token = inviteTokenFromDeepLink(argument)
+    if (token) return token
+  }
+  return ''
+}
+
 const showMainWindow = () => {
   if (!mainWindow || mainWindow.isDestroyed()) return
   if (mainWindow.isMinimized()) mainWindow.restore()
@@ -178,6 +199,15 @@ const sendRoomCode = (roomCode) => {
   if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isLoading()) return
   mainWindow.webContents.send('desktop:open-room', normalizedRoom)
   pendingRoomCode = ''
+}
+
+const sendInviteToken = (token) => {
+  const safeToken = typeof token === 'string' && /^[a-zA-Z0-9_-]{16,256}$/.test(token) ? token : ''
+  if (!safeToken) return
+  pendingInviteToken = safeToken
+  if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isLoading()) return
+  mainWindow.webContents.send('desktop:open-invite', safeToken)
+  pendingInviteToken = ''
 }
 
 const sendAuthCallback = (callbackUrl) => {
@@ -195,6 +225,8 @@ app.on('second-instance', (_event, commandLine) => {
   if (callbackUrl) sendAuthCallback(callbackUrl)
   const roomCode = findRoomCodeInArguments(commandLine)
   if (roomCode) sendRoomCode(roomCode)
+  const inviteToken = findInviteTokenInArguments(commandLine)
+  if (inviteToken) sendInviteToken(inviteToken)
 })
 
 app.on('open-url', (event, url) => {
@@ -206,6 +238,8 @@ app.on('open-url', (event, url) => {
   }
   const roomCode = roomCodeFromDeepLink(url)
   if (roomCode) sendRoomCode(roomCode)
+  const inviteToken = inviteTokenFromDeepLink(url)
+  if (inviteToken) sendInviteToken(inviteToken)
 })
 
 const iconPath = () => app.isPackaged
@@ -342,7 +376,7 @@ const openCapturePicker = async () => {
     parent: mainWindow || undefined,
     modal: Boolean(mainWindow),
     show: false,
-    title: 'Escolher o que compartilhar · DiscorTower',
+    title: 'Escolher o que compartilhar · splotys',
     icon: iconPath(),
     backgroundColor: '#080a09',
     autoHideMenuBar: true,
@@ -485,7 +519,7 @@ const excludedOverlayProcesses = new Set([
   'electron',
   'explorer',
   'firefox',
-  'discortower',
+  'splotys',
   'msedge',
   'opera',
   'searchhost',
@@ -498,7 +532,7 @@ const foregroundWatcherScript = String.raw`
 $source = @'
 using System;
 using System.Runtime.InteropServices;
-public static class FordKallForegroundWindow {
+public static class SplotysForegroundWindow {
   [StructLayout(LayoutKind.Sequential)]
   public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
@@ -508,11 +542,11 @@ public static class FordKallForegroundWindow {
 '@
 Add-Type -TypeDefinition $source
 while ($true) {
-  $handle = [FordKallForegroundWindow]::GetForegroundWindow()
-  $rect = New-Object FordKallForegroundWindow+RECT
+  $handle = [SplotysForegroundWindow]::GetForegroundWindow()
+  $rect = New-Object SplotysForegroundWindow+RECT
   $processId = [uint32]0
-  if ($handle -ne [IntPtr]::Zero -and [FordKallForegroundWindow]::GetWindowRect($handle, [ref]$rect)) {
-    [void][FordKallForegroundWindow]::GetWindowThreadProcessId($handle, [ref]$processId)
+  if ($handle -ne [IntPtr]::Zero -and [SplotysForegroundWindow]::GetWindowRect($handle, [ref]$rect)) {
+    [void][SplotysForegroundWindow]::GetWindowThreadProcessId($handle, [ref]$processId)
     $processName = ''
     try { $processName = (Get-Process -Id $processId -ErrorAction Stop).ProcessName } catch {}
     [PSCustomObject]@{
@@ -832,14 +866,14 @@ const configureAutoUpdater = () => {
   autoUpdater.disableWebInstaller = true
 
   autoUpdater.on('checking-for-update', () => {
-    setUpdateState({ status: 'checking', message: 'Consultando as releases do DiscorTower…' })
+    setUpdateState({ status: 'checking', message: 'Consultando as releases do splotys…' })
   })
   autoUpdater.on('update-available', (info) => {
     setUpdateState({
       status: 'downloading',
       availableVersion: info.version,
       percent: 0,
-      message: `Baixando DiscorTower ${info.version}…`,
+      message: `Baixando splotys ${info.version}…`,
     })
   })
   autoUpdater.on('download-progress', (progress) => {
@@ -872,7 +906,7 @@ const configureAutoUpdater = () => {
 const checkForAppUpdates = async () => {
   if (!autoUpdateSupported()) return updateState
   if (['checking', 'downloading', 'ready'].includes(updateState.status)) return updateState
-  setUpdateState({ status: 'checking', message: 'Consultando as releases do DiscorTower…' })
+  setUpdateState({ status: 'checking', message: 'Consultando as releases do splotys…' })
   try {
     await autoUpdater.checkForUpdates()
   } catch {
@@ -908,6 +942,13 @@ const installRendererIpc = () => {
     const callbackUrl = pendingAuthCallback
     pendingAuthCallback = ''
     return callbackUrl || null
+  })
+
+  ipcMain.handle('invite:get-pending', (event) => {
+    if (!isMainRenderer(event)) return null
+    const token = pendingInviteToken
+    pendingInviteToken = ''
+    return token || null
   })
 
   ipcMain.handle('auth:get-session', async (event) => {
@@ -1037,7 +1078,7 @@ const rebuildTrayMenu = () => {
   if (!tray) return
   tray.setContextMenu(Menu.buildFromTemplate([
     {
-      label: isInCall ? 'Voltar para a call' : 'Abrir DiscorTower',
+      label: isInCall ? 'Voltar para a call' : 'Abrir splotys',
       click: showMainWindow,
     },
     {
@@ -1047,7 +1088,7 @@ const rebuildTrayMenu = () => {
     },
     { type: 'separator' },
     {
-      label: 'Sair do DiscorTower',
+      label: 'Sair do splotys',
       click: () => {
         isQuitting = true
         app.quit()
@@ -1059,7 +1100,7 @@ const rebuildTrayMenu = () => {
 const createTray = () => {
   const trayImage = nativeImage.createFromPath(iconPath()).resize({ width: 20, height: 20 })
   tray = new Tray(trayImage)
-  tray.setToolTip('DiscorTower')
+  tray.setToolTip('splotys')
   tray.on('click', showMainWindow)
   rebuildTrayMenu()
 }
@@ -1081,11 +1122,13 @@ const configureWindowNavigation = (window) => {
       }
     }
 
-    if (url.startsWith('fordkall://')) {
+    if (url.startsWith('splotys://')) {
       const callbackUrl = authCallbackFromDeepLink(url)
       if (callbackUrl) sendAuthCallback(callbackUrl)
       const roomCode = roomCodeFromDeepLink(url)
       if (roomCode) sendRoomCode(roomCode)
+      const inviteToken = inviteTokenFromDeepLink(url)
+      if (inviteToken) sendInviteToken(inviteToken)
       return { action: 'deny' }
     }
 
@@ -1111,7 +1154,7 @@ const createMainWindow = async () => {
     minWidth: 760,
     minHeight: 560,
     show: false,
-    title: 'DiscorTower',
+    title: 'splotys',
     icon: iconPath(),
     backgroundColor: '#080a09',
     autoHideMenuBar: true,
@@ -1140,7 +1183,7 @@ const createMainWindow = async () => {
     if (!trayHintShown && tray && process.platform === 'win32') {
       trayHintShown = true
       tray.displayBalloon({
-        title: 'DiscorTower continua na call',
+        title: 'splotys continua na call',
         content: 'A janela foi fechada, mas seu áudio continua ativo. Use o ícone perto do relógio para voltar ou sair.',
         iconType: 'info',
       })
@@ -1163,9 +1206,9 @@ const createMainWindow = async () => {
 
 const registerDeepLinkProtocol = () => {
   if (process.defaultApp && process.argv[1]) {
-    app.setAsDefaultProtocolClient('fordkall', process.execPath, [path.resolve(process.argv[1])])
+    app.setAsDefaultProtocolClient('splotys', process.execPath, [path.resolve(process.argv[1])])
   } else {
-    app.setAsDefaultProtocolClient('fordkall')
+    app.setAsDefaultProtocolClient('splotys')
   }
 }
 
@@ -1180,6 +1223,7 @@ app.whenReady().then(async () => {
   createTray()
 
   pendingRoomCode = findRoomCodeInArguments(process.argv)
+  pendingInviteToken = findInviteTokenInArguments(process.argv)
   pendingAuthCallback = findAuthCallbackInArguments(process.argv)
   await createMainWindow()
   scheduleUpdateChecks()
@@ -1189,7 +1233,7 @@ app.whenReady().then(async () => {
     else void createMainWindow()
   })
 }).catch((error) => {
-  console.error('DiscorTower failed to start', error)
+  console.error('splotys failed to start', error)
   app.quit()
 })
 

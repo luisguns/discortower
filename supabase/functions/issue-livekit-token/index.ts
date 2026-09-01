@@ -50,7 +50,7 @@ Deno.serve(async (request) => {
     const roomName = String(session.room_name || sessionRoomName)
     const resolvedChannelId = String(session.channel_id || channelId)
     const identity = `usr_${user.id}_${crypto.randomUUID().replaceAll('-', '').slice(0, 10)}`
-    const participantMetadata = JSON.stringify({ fordKallProfile: { version: 2, avatarDataUrl: typeof profile.avatar_url === 'string' ? profile.avatar_url : undefined, nameStyle: { font: profile.name_font, color: profile.name_color, effect: profile.name_effect, weight: profile.name_weight, spacing: profile.name_spacing, casing: profile.name_case, badge: profile.name_badge, animation: profile.name_animation } } })
+    const participantMetadata = JSON.stringify({ splotysProfile: { version: 2, avatarDataUrl: typeof profile.avatar_url === 'string' ? profile.avatar_url : undefined, nameStyle: { font: profile.name_font, color: profile.name_color, effect: profile.name_effect, weight: profile.name_weight, spacing: profile.name_spacing, casing: profile.name_case, badge: profile.name_badge, animation: profile.name_animation } } })
     const restricted = await client.from('call_media_restrictions').select('screen_share_blocked').eq('room_session_id', session.id).eq('user_id', user.id).maybeSingle()
     let token: { participantToken: string; serverUrl: string }
     try {

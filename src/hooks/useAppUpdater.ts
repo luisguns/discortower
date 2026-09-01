@@ -8,7 +8,7 @@ const webState: AppUpdateState = {
 }
 
 export const useAppUpdater = () => {
-  const desktop = window.fordKallDesktop
+  const desktop = window.splotysDesktop
   const [state, setState] = useState<AppUpdateState>(webState)
 
   useEffect(() => {

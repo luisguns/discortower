@@ -164,9 +164,9 @@ export const SettingsModal = ({
               </button>
             ))}
             <small>
-              {window.fordKallDesktop
-                ? `DiscorTower ${updater.state.currentVersion || ''}`
-                : 'DiscorTower Web'}
+              {window.splotysDesktop
+                ? `splotys ${updater.state.currentVersion || ''}`
+                : 'splotys Web'}
             </small>
           </nav>
 
@@ -327,7 +327,7 @@ export const SettingsModal = ({
             {page === 'shortcuts' && (
               <div className="settings-page">
                 <SettingsCard
-                  description={window.fordKallDesktop
+                  description={window.splotysDesktop
                     ? 'Funcionam globalmente, inclusive com o jogo em foco.'
                     : 'No navegador funcionam enquanto a página estiver em foco.'}
                   title="Controles rápidos"
@@ -389,7 +389,7 @@ export const SettingsModal = ({
                     <i aria-hidden="true" />
                   </label>
 
-                  {window.fordKallDesktop?.platform === 'win32' && (
+                  {window.splotysDesktop?.platform === 'win32' && (
                     <>
                       <label className="setting-switch">
                         <span>
@@ -404,7 +404,7 @@ export const SettingsModal = ({
                   )}
                 </SettingsCard>
 
-                {window.fordKallDesktop && (
+                {window.splotysDesktop && (
                   <SettingsCard description="O app consulta as releases oficiais do GitHub." title="Atualizações">
                     <div className={`settings-update-card is-${updater.state.status}`}>
                       <span className="settings-update-card__icon"><Icon name="refresh" /></span>
@@ -412,7 +412,7 @@ export const SettingsModal = ({
                         <strong>
                           {updater.state.status === 'ready'
                             ? `Versão ${updater.state.availableVersion} pronta`
-                            : `DiscorTower ${updater.state.currentVersion}`}
+                            : `splotys ${updater.state.currentVersion}`}
                         </strong>
                         <p>{updater.state.message}</p>
                         {updater.state.status === 'downloading' && (

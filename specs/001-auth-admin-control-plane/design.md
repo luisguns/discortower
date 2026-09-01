@@ -1,11 +1,11 @@
-# Design técnico — Plano de controle seguro do DiscorTower
+# Design técnico — Plano de controle seguro do splotys
 
 Este documento implementa os requisitos definidos em `requirements.md`. O princípio central é que o renderer Electron é um cliente não confiável: ele pode conhecer endpoints públicos, modelos e telas, mas não recebe autoridade por possuir o código.
 
 ## 1. Arquitetura
 
 ```text
-┌──────────────────────── DiscorTower Desktop ────────────────────────┐
+┌──────────────────────── splotys Desktop ────────────────────────┐
 │ React renderer                                                      │
 │  login, lobby, call, painel admin                                  │
 │       │ JWT de usuário                       │ token de participante │
