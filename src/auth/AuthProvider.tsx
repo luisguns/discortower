@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { Session, User } from '@supabase/supabase-js'
 import {
   currentSession,
+  claimMyUsername,
   exchangeAuthCallback,
   getAccessContext,
   getAuthCallbackType,
@@ -26,6 +27,7 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<{ ok: boolean; message?: string }>
   resetPassword: (email: string) => Promise<{ ok: boolean; message?: string }>
   updateProfile: (profile: LocalProfile) => Promise<AccountProfile | null>
+  claimUsername: (username: string) => Promise<AccountProfile | null>
   completeCredentialSetup: (password: string) => Promise<{ ok: boolean; message?: string }>
   signOut: () => Promise<void>
 }
@@ -33,6 +35,8 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 const friendlyProfileError = (error: unknown) => {
+  if (error instanceof Error && error.message === 'USERNAME_INVALID') return 'Use de 3 a 24 caracteres: letras minúsculas, números ou _.'
+  if (error instanceof Error && error.message === 'USERNAME_TAKEN') return 'Esse @username já está em uso. Escolha outro.'
   if (error instanceof Error && error.message === 'PROFILE_NAME_INVALID') {
     return 'Use um nome entre 1 e 48 caracteres.'
   }
@@ -157,6 +161,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [])
 
+  const claimUsername = useCallback(async (username: string) => {
+    try {
+      const nextProfile = await claimMyUsername(username)
+      setAccess((current) => current ? { ...current, profile: nextProfile } : current)
+      return nextProfile
+    } catch (profileError) {
+      setError(friendlyProfileError(profileError))
+      return null
+    }
+  }, [])
+
   const signOut = useCallback(async () => {
     try {
       await signOutFromSupabase()
@@ -181,6 +196,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const value = useMemo<AuthContextValue>(() => ({
     access,
+    claimUsername,
     completeCredentialSetup,
     credentialSetup,
     error,
@@ -191,7 +207,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     status,
     updateProfile,
     user: session?.user ?? null,
-  }), [access, completeCredentialSetup, credentialSetup, error, resetPassword, session, signIn, signOut, status, updateProfile])
+  }), [access, claimUsername, completeCredentialSetup, credentialSetup, error, resetPassword, session, signIn, signOut, status, updateProfile])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

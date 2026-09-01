@@ -85,11 +85,76 @@ export interface AccessCapabilities {
 
 export interface AccountProfile extends LocalProfile {
   userId: string
+  username?: string
+  usernameConfigured: boolean
   email?: string
   status: AccountStatus
   role: AccountRole
   createdAt?: string
   updatedAt?: string
+}
+
+export type FriendshipStatus = 'pending' | 'accepted' | 'removed'
+
+export interface FriendProfile {
+  userId: string
+  username: string
+  displayName: string
+  avatarDataUrl?: string
+  nameStyle?: ProfileNameStyle
+}
+
+export interface FriendSummary extends FriendProfile {
+  friendshipId: string
+  online: boolean
+  activity?: RecognizedActivity
+}
+
+export interface FriendRequestSummary extends FriendProfile {
+  friendshipId: string
+  requestedAt: string
+}
+
+export interface BlockedUserSummary extends FriendProfile {
+  blockedAt: string
+}
+
+export type DirectMessageKind = 'text' | 'image'
+export type DirectMessageStatus = 'sending' | 'sent' | 'error'
+
+export interface DirectMessage {
+  id: number | string
+  conversationId: string
+  senderId: string
+  recipientId: string
+  kind: DirectMessageKind
+  text?: string
+  imageUrl?: string
+  imageName?: string
+  imageMime?: string
+  imageSize?: number
+  storagePath?: string
+  createdAt: string
+  deletedAt?: string
+  status?: DirectMessageStatus
+  localId?: string
+}
+
+export interface DirectConversationSummary {
+  id: string
+  friend: FriendProfile
+  friendshipStatus: FriendshipStatus
+  lastMessage: { id: number; senderId: string; kind: DirectMessageKind; text?: string; createdAt: string } | null
+  lastMessageAt?: string
+  unreadCount: number
+}
+
+export interface SocialOverview {
+  friends: FriendSummary[]
+  incoming: FriendRequestSummary[]
+  outgoing: FriendRequestSummary[]
+  blocked: BlockedUserSummary[]
+  conversations: DirectConversationSummary[]
 }
 
 export interface AccessContext {

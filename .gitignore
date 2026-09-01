@@ -2,6 +2,8 @@ node_modules
 dist
 release
 .codex-electron-validation/
+.codex-msix-artifact/
+splotys-msix.zip
 .env
 .env.local
 .env.*.local

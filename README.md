@@ -1,6 +1,8 @@
 # splotys
 
-Call privada de voz e compartilhamento de tela entre amigos, com contas acessíveis por convite e autorização server-side para as salas LiveKit.
+Um espaço social para gamers encontrarem sua turma, formarem squads e jogarem juntos. Hoje o produto começa com amigos, canais privados, calls de voz, vídeo e compartilhamento de tela; sua evolução planejada inclui descoberta de jogadores, squads e lobbies por afinidade — uma experiência de matchmaking social inspirada na fluidez de apps de encontro.
+
+O nome **splotys** nasce da combinação de **spot** (o lugar onde a turma se encontra) com **play** (a vontade de jogar). Essa ideia também orienta a marca: um ponto de encontro gamer, e não apenas mais um aplicativo de chamadas.
 
 ## O que já funciona
 

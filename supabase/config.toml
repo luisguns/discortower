@@ -40,3 +40,6 @@ verify_jwt = false
 
 [functions.channel-presence]
 verify_jwt = false
+
+[functions.social-action]
+verify_jwt = false

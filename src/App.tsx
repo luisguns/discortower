@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { AccountDisabledScreen, AuthLoadingScreen, LoginScreen } from './auth/LoginScreen'
 import { useAuth } from './auth/AuthProvider'
 import { InviteCompletionScreen } from './auth/InviteCompletionScreen'
+import { UsernameSetupScreen } from './auth/UsernameSetupScreen'
 import { AdminPanel } from './admin/AdminPanel'
 import { CallScreen } from './components/Call/CallScreen'
 import { CallSidebar } from './components/Call/CallSidebar'
@@ -13,8 +14,11 @@ import { useDesktopActivity } from './hooks/useDesktopActivity'
 import { getChannelIdFromUrl, replaceChannelIdInCurrentUrl } from './services/livekit'
 import { acceptChannelInvite, archiveChannel, createCall, createChannel, createChannelInvite, createChannelInviteLink, listChannels, renameChannel, subscribeToChannels } from './services/channels'
 import { listChannelPresence } from './services/presence'
+import { listSocial, subscribeToSocial } from './services/social'
 import { getActivitySharingEnabled, saveActivitySharingEnabled } from './storage/preferences'
-import type { ChannelPresence, ChannelSummary, LocalProfile } from './types'
+import type { ChannelPresence, ChannelSummary, LocalProfile, SocialOverview } from './types'
+
+const emptySocialOverview: SocialOverview = { friends: [], incoming: [], outgoing: [], blocked: [], conversations: [] }
 
 function App() {
   const auth = useAuth()
@@ -23,6 +27,7 @@ function App() {
   const [activeCallId, setActiveCallId] = useState('')
   const [channels, setChannels] = useState<ChannelSummary[]>([])
   const [presence, setPresence] = useState<ChannelPresence[]>([])
+  const [social, setSocial] = useState<SocialOverview>(emptySocialOverview)
   const [adminOpen, setAdminOpen] = useState(false)
   const [activitySharingEnabled, setActivitySharingEnabled] = useState(getActivitySharingEnabled)
   const [callSidebarVisible, setCallSidebarVisible] = useState(true)
@@ -78,6 +83,23 @@ function App() {
     const timer = window.setInterval(() => void load(), 15_000)
     return () => { mounted = false; window.clearInterval(timer) }
   }, [auth.status])
+
+  const refreshSocial = async () => {
+    if (auth.status !== 'authenticated' || !auth.access?.profile.usernameConfigured) { setSocial(emptySocialOverview); return }
+    try { setSocial(await listSocial()) } catch { setSocial(emptySocialOverview) }
+  }
+
+  useEffect(() => {
+    if (auth.status !== 'authenticated' || !auth.access?.profile.usernameConfigured || !auth.access?.userId) { setSocial(emptySocialOverview); return }
+    let mounted = true
+    const load = async () => { try { const next = await listSocial(); if (mounted) setSocial(next) } catch { if (mounted) setSocial(emptySocialOverview) } }
+    void load()
+    const unsubscribe = subscribeToSocial(auth.access.userId, () => { window.setTimeout(() => void load(), 120) }, (message) => {
+      if (message.senderId === auth.access?.userId || document.visibilityState === 'visible' || typeof Notification === 'undefined' || Notification.permission !== 'granted') return
+      try { new Notification('Splotys', { body: message.kind === 'image' ? 'Enviou uma imagem' : 'Nova mensagem' }) } catch { /* Notifications are supplementary. */ }
+    })
+    return () => { mounted = false; unsubscribe() }
+  }, [auth.access?.profile.usernameConfigured, auth.access?.userId, auth.status])
 
   const localActivity = useDesktopActivity(auth.status === 'authenticated', activitySharingEnabled)
 
@@ -158,6 +180,10 @@ function App() {
     return <InviteCompletionScreen mode={auth.credentialSetup} onComplete={auth.completeCredentialSetup} onLogout={logout} />
   }
 
+  if (!auth.access.profile.usernameConfigured) {
+    return <UsernameSetupScreen error={auth.error} onSubmit={async (username) => Boolean(await auth.claimUsername(username))} />
+  }
+
   if (adminOpen && auth.access.isAdmin) {
     return <AdminPanel currentUser={auth.access.profile} onClose={() => setAdminOpen(false)} onLogout={logout} />
   }
@@ -227,9 +253,12 @@ function App() {
       onLogout={logout}
       onActivitySharingChange={changeActivitySharing}
       onProfileChange={auth.updateProfile}
+      onUsernameChange={auth.claimUsername}
       onOpenAdmin={() => setAdminOpen(true)}
       onJoin={join}
       profile={auth.access.profile}
+      social={social}
+      onRefreshSocial={refreshSocial}
       status={liveKit.status}
     />
   )

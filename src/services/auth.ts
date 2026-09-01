@@ -14,6 +14,8 @@ type RawAccessContext = {
   profile?: {
     user_id?: unknown
     display_name?: unknown
+    username?: unknown
+    username_configured?: unknown
     avatar_url?: unknown
     status?: unknown
     created_at?: unknown
@@ -40,6 +42,8 @@ const profileFromRaw = (raw: RawAccessContext, user: User): AccountProfile | nul
   return {
     userId: profile.user_id,
     displayName: typeof profile.display_name === 'string' ? profile.display_name : '',
+    username: typeof profile.username === 'string' ? profile.username : undefined,
+    usernameConfigured: profile.username_configured === true,
     avatarDataUrl: typeof profile.avatar_url === 'string' ? profile.avatar_url : undefined,
     email: user.email,
     status: profile.status,
@@ -140,6 +144,18 @@ export const updateMyProfile = async (profile: LocalProfile): Promise<AccountPro
     p_name_spacing: nameStyle.spacing,
     p_name_weight: nameStyle.weight,
   })
+  if (error) throw error
+  const { data: userData } = await getSupabase().auth.getUser()
+  if (!userData.user) throw new Error('AUTH_REQUIRED')
+  const context = accessContextFromResponse(data, userData.user)
+  if (!context) throw new Error('ACCESS_CONTEXT_INVALID')
+  return context.profile
+}
+
+export const claimMyUsername = async (username: string): Promise<AccountProfile> => {
+  const normalizedUsername = username.trim().toLowerCase().replace(/^@/, '')
+  if (!/^[a-z0-9_]{3,24}$/.test(normalizedUsername)) throw new Error('USERNAME_INVALID')
+  const { data, error } = await getSupabase().rpc('claim_my_username', { p_username: normalizedUsername })
   if (error) throw error
   const { data: userData } = await getSupabase().auth.getUser()
   if (!userData.user) throw new Error('AUTH_REQUIRED')
