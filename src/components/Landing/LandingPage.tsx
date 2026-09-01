@@ -14,11 +14,15 @@ const startDownload = (event: MouseEvent<HTMLAnchorElement>) => {
 
 export const LandingPage = ({ onEnter }: LandingPageProps) => (
   <main className="landing-shell">
-    <div className="landing-noise" aria-hidden="true" />
+    <div className="landing-orbits" aria-hidden="true">
+      <i />
+      <i />
+      <i />
+    </div>
     <header className="landing-nav">
       <a className="landing-brand" href="#inicio" aria-label="splotys — início">
         <BrandMark />
-        <span><strong>splotys</strong><small>private comms</small></span>
+        <span><strong>splotys</strong><small>conversas privadas</small></span>
       </a>
       <nav aria-label="Navegação principal">
         <a href="#produto">Produto</a>

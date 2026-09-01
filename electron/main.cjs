@@ -378,7 +378,7 @@ const openCapturePicker = async () => {
     show: false,
     title: 'Escolher o que compartilhar · splotys',
     icon: iconPath(),
-    backgroundColor: '#080a09',
+    backgroundColor: '#0f1020',
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'picker-preload.cjs'),
@@ -1156,7 +1156,7 @@ const createMainWindow = async () => {
     show: false,
     title: 'splotys',
     icon: iconPath(),
-    backgroundColor: '#080a09',
+    backgroundColor: '#0f1020',
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),

@@ -32,18 +32,18 @@ body {
   align-items: center;
   gap: 9px;
   padding: 5px 9px 5px 5px;
-  border: 1px solid rgba(119, 133, 121, 0.4);
+  border: 1px solid rgba(124, 140, 255, 0.34);
   border-radius: 12px;
-  background: rgba(5, 8, 6, 0.84);
+  background: rgba(15, 16, 32, 0.88);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
-  color: #dfe6df;
+  color: #f6f4ff;
   transition: border-color 100ms ease, background 100ms ease;
 }
 
 .participant.is-speaking {
-  border-color: rgba(185, 239, 58, 0.92);
-  background: rgba(14, 20, 10, 0.9);
-  box-shadow: 0 0 0 1px rgba(185, 239, 58, 0.16), 0 8px 24px rgba(0, 0, 0, 0.32);
+  border-color: rgba(255, 107, 138, 0.92);
+  background: rgba(29, 31, 54, 0.94);
+  box-shadow: 0 0 0 1px rgba(255, 107, 138, 0.16), 0 8px 24px rgba(0, 0, 0, 0.32);
 }
 
 .avatar {
@@ -51,10 +51,10 @@ body {
   width: 32px;
   height: 32px;
   place-items: center;
-  border: 1px solid rgba(185, 239, 58, 0.28);
+  border: 1px solid rgba(255, 107, 138, 0.28);
   border-radius: 50%;
-  background: #182015;
-  color: #b9ef3a;
+  background: #252844;
+  color: #ff6b8a;
   font-size: 12px;
   font-weight: 900;
   overflow: hidden;
@@ -67,8 +67,8 @@ body {
 }
 
 .is-speaking .avatar {
-  border-color: #b9ef3a;
-  box-shadow: 0 0 12px rgba(185, 239, 58, 0.28);
+  border-color: #ff6b8a;
+  box-shadow: 0 0 12px rgba(255, 107, 138, 0.28);
 }
 
 .name {
@@ -94,7 +94,7 @@ body {
   width: 18px;
   height: 18px;
   place-items: center;
-  color: #b9ef3a;
+  color: #ff6b8a;
 }
 
 .mic.is-muted { color: #ff7a84; }
