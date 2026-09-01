@@ -1,12 +1,7 @@
-import { useState, type FormEvent, type MouseEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { BrandMark } from '../components/ui/BrandMark'
 import { Icon } from '../components/ui/Icon'
-import { downloadWindowsLts as startWindowsLtsDownload, WINDOWS_LTS_DOWNLOAD_URL } from '../services/downloads'
-
-const downloadWindowsLts = async (event: MouseEvent<HTMLAnchorElement>) => {
-  event.preventDefault()
-  await startWindowsLtsDownload()
-}
+import { WINDOWS_STORE_PRODUCT_URL } from '../services/downloads'
 
 interface LoginScreenProps {
   error?: string
@@ -94,8 +89,8 @@ export const LoginScreen = ({ error, onBack, onLogin, onResetPassword }: LoginSc
         {!window.splotysDesktop && (
           <div className="auth-external-actions">
             {desktopInviteUrl && <a className="auth-download" href={desktopInviteUrl}><span><strong>Abrir convite no splotys</strong><small>Continuar no aplicativo para Windows</small></span><Icon name="chevron" /></a>}
-            <a className="auth-download" href={WINDOWS_LTS_DOWNLOAD_URL} onClick={(event) => void downloadWindowsLts(event)}>
-              <span><strong>Baixar LTS para Windows</strong><small>Setup x64 · atualização automática</small></span>
+            <a className="auth-download" href={WINDOWS_STORE_PRODUCT_URL}>
+              <span><strong>Baixar na Microsoft Store</strong><small>Instalação e atualizações gerenciadas pela Microsoft</small></span>
               <Icon name="chevron" />
             </a>
           </div>

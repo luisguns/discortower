@@ -1,15 +1,9 @@
-import type { MouseEvent } from 'react'
-import { downloadWindowsLts, WINDOWS_LTS_DOWNLOAD_URL } from '../../services/downloads'
+import { WINDOWS_STORE_PRODUCT_URL } from '../../services/downloads'
 import { BrandMark } from '../ui/BrandMark'
 import { Icon } from '../ui/Icon'
 
 interface LandingPageProps {
   onEnter: () => void
-}
-
-const startDownload = (event: MouseEvent<HTMLAnchorElement>) => {
-  event.preventDefault()
-  void downloadWindowsLts()
 }
 
 export const LandingPage = ({ onEnter }: LandingPageProps) => (
@@ -31,7 +25,7 @@ export const LandingPage = ({ onEnter }: LandingPageProps) => (
       </nav>
       <div className="landing-nav__actions">
         <button className="landing-nav__login" onClick={onEnter} type="button">Entrar</button>
-        <a className="landing-nav__download" href={WINDOWS_LTS_DOWNLOAD_URL} onClick={startDownload}>Baixar <Icon name="chevron" /></a>
+        <a className="landing-nav__download" href={WINDOWS_STORE_PRODUCT_URL}>Microsoft Store <Icon name="chevron" /></a>
       </div>
     </header>
 
@@ -41,10 +35,10 @@ export const LandingPage = ({ onEnter }: LandingPageProps) => (
         <h1>Converse perto.<br /><em>Mesmo de longe.</em></h1>
         <p className="landing-lead">O splotys reúne sua turma em canais privados, com chamadas rápidas, compartilhamento de tela e controle total sobre microfone e câmera.</p>
         <div className="landing-hero__actions">
-          <a className="landing-button landing-button--primary" href={WINDOWS_LTS_DOWNLOAD_URL} onClick={startDownload}>Baixar para Windows <Icon name="chevron" /></a>
+          <a className="landing-button landing-button--primary" href={WINDOWS_STORE_PRODUCT_URL}>Baixar na Microsoft Store <Icon name="chevron" /></a>
           <button className="landing-button landing-button--ghost" onClick={onEnter} type="button">Entrar na sua conta</button>
         </div>
-        <p className="landing-meta"><span className="status-dot" /> Windows 10/11 · x64 · atualizações automáticas</p>
+        <p className="landing-meta"><span className="status-dot" /> Windows 10/11 · x64 · atualizações pela Microsoft Store</p>
       </div>
 
       <div className="landing-preview" aria-label="Prévia do aplicativo splotys">

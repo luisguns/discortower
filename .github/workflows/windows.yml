@@ -1,4 +1,4 @@
-name: Build Windows desktop app
+name: Build Windows technical artifacts
 
 on:
   workflow_dispatch:
@@ -50,23 +50,6 @@ jobs:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
           VITE_SUPABASE_AUTH_REDIRECT_URL: ${{ vars.VITE_SUPABASE_AUTH_REDIRECT_URL }}
-          WINDOWS_SIGNING_REQUIRED: ${{ startsWith(github.ref, 'refs/tags/') }}
-          AZURE_SIGNING_ENDPOINT: ${{ vars.AZURE_SIGNING_ENDPOINT }}
-          AZURE_CODE_SIGNING_ACCOUNT_NAME: ${{ vars.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
-          AZURE_CERTIFICATE_PROFILE_NAME: ${{ vars.AZURE_CERTIFICATE_PROFILE_NAME }}
-          AZURE_PUBLISHER_NAME: ${{ vars.AZURE_PUBLISHER_NAME }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-
-      - name: Create stable LTS download name
-        if: startsWith(github.ref, 'refs/tags/')
-        shell: pwsh
-        run: |
-          $setup = Get-ChildItem -LiteralPath release -Filter 'splotys-Setup-*-x64.exe' | Select-Object -First 1
-          if (-not $setup) { throw 'O instalador Setup não foi gerado.' }
-          Copy-Item -LiteralPath $setup.FullName -Destination 'release/splotys-LTS-Windows-x64.exe'
-
       - name: Upload Windows executables
         uses: actions/upload-artifact@v4
         with:

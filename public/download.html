@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#0f1020" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src https://api.github.com; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'none'; object-src 'none'; base-uri 'none'" />
-    <title>Baixar splotys LTS</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; img-src 'none'; object-src 'none'; base-uri 'none'" />
+    <title>Baixar splotys na Microsoft Store</title>
     <style>
       :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; color: #f6f4ff; background: #0f1020; }
       * { box-sizing: border-box; }
@@ -31,38 +31,11 @@
         <span class="mark" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M13 15.5A5.5 5.5 0 0 1 18.5 10h11a5.5 5.5 0 0 1 5.5 5.5v9a5.5 5.5 0 0 1-5.5 5.5h-5.7L16 36v-6.6a5.5 5.5 0 0 1-3-4.9v-9Z"/><path d="M18 20.2c1.5-1.5 3-2.2 4.5-2.2s3 .7 4.5 2.2 3 2.3 4.5 2.3M18 25.7c1.2-1.1 2.5-1.7 3.8-1.7s2.6.6 3.9 1.7"/></svg></span>
         <span><strong>splotys</strong><small>versão estável para Windows</small></span>
       </div>
-      <p>Download LTS</p>
-      <h1>Preparando seu instalador.</h1>
-      <div id="status" role="status">Buscando a versão mais recente e segura para Windows x64…</div>
-      <button id="retry" type="button" hidden>Tentar novamente</button>
+      <p>Download oficial</p>
+      <h1>Disponível na Microsoft Store.</h1>
+      <div id="status" role="status">Instale pelo canal oficial para receber atualizações e verificações de segurança da Microsoft.</div>
+      <a href="https://apps.microsoft.com/detail/9NDJ98TPK08P?hl=pt-br&gl=BR">Abrir Microsoft Store</a>
       <a href="/">Voltar ao site</a>
     </main>
-    <script>
-      const status = document.querySelector('#status')
-      const retry = document.querySelector('#retry')
-      const findInstaller = (assets) => assets.find(({ name }) => name === 'splotys-LTS-Windows-x64.exe')
-        || assets.find(({ name }) => /^splotys-Setup-[\w.-]+-x64\.exe$/i.test(name || ''))
-        || assets.find(({ name }) => /^DiscorTower-Setup-[\w.-]+-x64\.exe$/i.test(name || ''))
-
-      const start = async () => {
-        retry.hidden = true
-        status.textContent = 'Buscando a versão mais recente e segura para Windows x64…'
-        try {
-          const response = await fetch('https://api.github.com/repos/luisguns/discortower/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
-          if (!response.ok) throw new Error('release unavailable')
-          const release = await response.json()
-          const installer = findInstaller(release.assets || [])
-          if (!installer || !installer.browser_download_url) throw new Error('installer unavailable')
-          status.textContent = 'Download iniciado. Você pode fechar esta página quando o arquivo aparecer.'
-          window.location.assign(installer.browser_download_url)
-        } catch {
-          status.textContent = 'Não foi possível preparar o download agora. Verifique sua conexão e tente novamente.'
-          retry.hidden = false
-        }
-      }
-
-      retry.addEventListener('click', start)
-      start()
-    </script>
   </body>
 </html>
