@@ -5,6 +5,7 @@ export type IconName =
   | 'camera'
   | 'cameraOff'
   | 'chat'
+  | 'check'
   | 'chevron'
   | 'collapse'
   | 'copy'
@@ -63,6 +64,7 @@ const paths: Record<IconName, React.ReactNode> = {
       <path d="M7 13h6" />
     </>
   ),
+  check: <path d="m5 12 4.2 4.2L19 6.5" />,
   chevron: <path d="m9 18 6-6-6-6" />,
   collapse: (
     <>

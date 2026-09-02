@@ -39,6 +39,7 @@ export const FriendsWorkspace = ({ profile, overview, onRefresh }: Props) => {
   const [messages, setMessages] = useState<DirectMessage[]>([])
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [confirm, setConfirm] = useState<{ action: 'remove_friend' | 'block_user'; friend: FriendProfile } | null>(null)
   const [reporting, setReporting] = useState<FriendProfile | null>(null)
   const [reportReason, setReportReason] = useState<ContentReportReason>('harassment')
@@ -49,7 +50,10 @@ export const FriendsWorkspace = ({ profile, overview, onRefresh }: Props) => {
   const isReadOnly = conversation?.friendshipStatus === 'removed'
 
   useEffect(() => { if (conversation && conversation.id !== selectedId) setSelectedId(conversation.id) }, [conversation, selectedId])
-  useEffect(() => { if (tab !== 'add' && !overview.conversations.length && overview.friends.length === 0) setTab('add') }, [overview.conversations.length, overview.friends.length, tab])
+  useEffect(() => {
+    const hasSocialActivity = overview.conversations.length || overview.friends.length || overview.incoming.length || overview.outgoing.length || overview.blocked.length
+    if (tab !== 'add' && !hasSocialActivity) setTab('add')
+  }, [overview.blocked.length, overview.conversations.length, overview.friends.length, overview.incoming.length, overview.outgoing.length, tab])
 
   useEffect(() => {
     let active = true
@@ -67,10 +71,26 @@ export const FriendsWorkspace = ({ profile, overview, onRefresh }: Props) => {
     }
     void load()
     return () => { active = false }
-  }, [conversation?.id, overview])
+  }, [conversation?.id])
 
   const refresh = async () => { try { await onRefresh(); setError('') } catch { setError('Não foi possível atualizar seus amigos.') } }
-  const act = async (action: Parameters<typeof socialAction>[0], targetUserId: string) => { try { await socialAction(action, targetUserId); await refresh(); if (action === 'block_user') setSelectedId('') } catch (actionError) { setError(friendlyError(actionError)) } }
+  const act = async (action: Parameters<typeof socialAction>[0], targetUserId: string, successMessage?: string) => {
+    try {
+      setError('')
+      await socialAction(action, targetUserId)
+      await refresh()
+      if (action === 'block_user') setSelectedId('')
+      if (successMessage) setNotice(successMessage)
+      return true
+    } catch (actionError) {
+      setError(friendlyError(actionError))
+      return false
+    }
+  }
+  const sendFriendRequest = async (friend: FriendProfile) => {
+    const sent = await act('send_request', friend.userId, `Pedido enviado para @${friend.username}.`)
+    if (sent) setSearchResult((current) => current?.profile?.userId === friend.userId ? { ...current, relationship: 'outgoing' } : current)
+  }
   const searchUser = async (event: FormEvent) => { event.preventDefault(); try { setError(''); setSearchResult(await searchSocialUser(search)) } catch (searchError) { setSearchResult(null); setError(friendlyError(searchError)) } }
 
   const sendText = async (value: string) => {
@@ -131,10 +151,11 @@ export const FriendsWorkspace = ({ profile, overview, onRefresh }: Props) => {
 
     <section className="social-main">
       {tab === 'add' ? <div className="social-discovery"><p className="eyebrow">ENCONTRE SUA DUPLA</p><h2>Adicione pelo <em>@username.</em></h2><p>A busca só funciona com o identificador completo.</p><form onSubmit={(event) => void searchUser(event)}><div><b>@</b><input autoCapitalize="none" onChange={(event) => setSearch(event.target.value)} placeholder="username" spellCheck={false} value={search.replace(/^@/, '')} /></div><button className="social-primary" disabled={!search.trim()} type="submit">BUSCAR <Icon name="chevron" /></button></form>
-        {searchResult?.profile && <article className="social-search-result"><FriendIdentity friend={searchResult.profile} /><div>{searchResult.relationship === 'self' ? <small>Esse é o seu perfil.</small> : searchResult.relationship === 'friend' ? <small>Vocês já são amigos.</small> : searchResult.relationship === 'outgoing' ? <small>Pedido já enviado.</small> : searchResult.relationship === 'incoming' ? <button className="social-primary" onClick={() => void act('accept_request', searchResult.profile!.userId)} type="button">ACEITAR PEDIDO</button> : <button className="social-primary" onClick={() => void act('send_request', searchResult.profile!.userId)} type="button">ADICIONAR AMIGO</button>}</div></article>}
+        {searchResult?.profile && <article className="social-search-result"><FriendIdentity friend={searchResult.profile} /><div>{searchResult.relationship === 'self' ? <small>Esse é o seu perfil.</small> : searchResult.relationship === 'friend' ? <small>Vocês já são amigos.</small> : searchResult.relationship === 'outgoing' ? <small>Pedido já enviado.</small> : searchResult.relationship === 'incoming' ? <button className="social-primary" onClick={() => void act('accept_request', searchResult.profile!.userId)} type="button">ACEITAR PEDIDO</button> : <button className="social-primary" onClick={() => void sendFriendRequest(searchResult.profile!)} type="button">ADICIONAR AMIGO</button>}</div></article>}
         {searchResult && !searchResult.profile && <div className="social-search-empty"><Icon name="warning" /><strong>Nenhum perfil encontrado.</strong><span>Confira o @username e tente novamente.</span></div>}
       </div> : conversation && friend ? <DirectConversation key={conversation.id} currentUserId={profile.userId} friend={friend} isReadOnly={isReadOnly} loading={loadingMessages} messages={messages} onDelete={removeMessage} onImage={sendImage} onRemove={() => setConfirm({ action: 'remove_friend', friend })} onReRequest={() => void act('send_request', friend.userId)} onSend={sendText} onBlock={() => setConfirm({ action: 'block_user', friend })} onReport={() => setReporting(friend)} fileRef={fileRef} /> : <div className="social-empty"><span><Icon name="chat" /></span><p className="eyebrow">CONVERSAS PRIVADAS</p><h2>Seu círculo, por perto.</h2><p>Selecione um amigo ou encontre alguém pelo @username.</p><button className="social-primary" onClick={() => setTab('add')} type="button">ADICIONAR AMIGO</button></div>}
       {error && <div className="social-error" role="alert"><Icon name="warning" /><span>{error}</span><button aria-label="Fechar erro" onClick={() => setError('')} type="button"><Icon name="x" /></button></div>}
+      {notice && <div className="social-notice" role="status"><Icon name="check" /><span>{notice}</span><button aria-label="Fechar aviso" onClick={() => setNotice('')} type="button"><Icon name="x" /></button></div>}
     </section>
     {confirm && <div className="social-confirm-backdrop" role="presentation"><section aria-modal="true" className="social-confirm" role="dialog"><p className="eyebrow">CONFIRMAR AÇÃO</p><h2>{confirm.action === 'block_user' ? `Bloquear @${confirm.friend.username}?` : 'Remover amizade?'}</h2><p>{confirm.action === 'block_user' ? 'A amizade será removida e a conversa ficará inacessível para ambos.' : 'O histórico continuará disponível, mas novas mensagens ficarão bloqueadas.'}</p><div><button onClick={() => setConfirm(null)} type="button">Cancelar</button><button className="is-danger" onClick={() => { void act(confirm.action, confirm.friend.userId); setConfirm(null) }} type="button">{confirm.action === 'block_user' ? 'BLOQUEAR' : 'REMOVER'}</button></div></section></div>}
     {reporting && <div className="social-confirm-backdrop" role="presentation"><section aria-modal="true" className="social-confirm social-report" role="dialog"><p className="eyebrow">SEGURANÇA DA COMUNIDADE</p><h2>Reportar @{reporting.username}</h2><p>Envie a denúncia para análise. Se houver risco imediato, bloqueie a pessoa também.</p><label>Motivo<select aria-label="Motivo da denúncia" onChange={(event) => setReportReason(event.target.value as ContentReportReason)} value={reportReason}><option value="harassment">Assédio ou bullying</option><option value="hate_or_discrimination">Ódio ou discriminação</option><option value="sexual_content">Conteúdo sexual</option><option value="violence_or_threat">Ameaça ou violência</option><option value="spam_or_scam">Spam ou golpe</option><option value="other">Outro</option></select></label><label>Contexto opcional<textarea aria-label="Contexto da denúncia" maxLength={1000} onChange={(event) => setReportDetails(event.target.value)} placeholder="Conte o que aconteceu" value={reportDetails} /></label><a href="/community-guidelines.html" rel="noreferrer" target="_blank">Ler diretrizes da comunidade</a><div><button onClick={() => setReporting(null)} type="button">Cancelar</button><button className="is-danger" onClick={() => void submitReport()} type="button">ENVIAR DENÚNCIA</button></div></section></div>}
