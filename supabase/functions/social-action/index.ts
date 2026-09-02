@@ -3,6 +3,7 @@ import { enforceRateLimit } from '../_shared/rate-limit.ts'
 
 const isUuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value)
 const normalizeUsername = (value: unknown) => typeof value === 'string' ? value.trim().toLowerCase().replace(/^@/, '') : ''
+const reportReasons = new Set(['harassment', 'hate_or_discrimination', 'sexual_content', 'violence_or_threat', 'spam_or_scam', 'other'])
 
 const assertActiveAccount = async (client: Awaited<ReturnType<typeof requireUser>>['client'], userId: string) => {
   const [{ data: profile }, { data: admin }, { data: invitation }] = await Promise.all([
@@ -114,6 +115,20 @@ const listSocial = async (client: Awaited<ReturnType<typeof requireUser>>['clien
   return { friends, incoming, outgoing, blocked: blockedUsers, conversations: directConversations }
 }
 
+const submitContentReport = async (client: Awaited<ReturnType<typeof requireUser>>['client'], actorId: string, body: Record<string, unknown>) => {
+  if (!isUuid(body?.targetUserId) || body.targetUserId === actorId) throw new HttpError(400, 'TARGET_INVALID')
+  const reason = typeof body?.reason === 'string' ? body.reason : ''
+  const details = typeof body?.details === 'string' ? body.details.trim().slice(0, 1000) : ''
+  if (!reportReasons.has(reason)) throw new HttpError(400, 'REPORT_REASON_INVALID')
+  await enforceRateLimit(client, `content-report:${actorId}`, 10, 3600)
+  const { data: target, error: targetError } = await client.from('profiles').select('user_id').eq('user_id', body.targetUserId).maybeSingle()
+  if (targetError) throw targetError
+  if (!target) throw new HttpError(404, 'SOCIAL_TARGET_NOT_FOUND')
+  const { error } = await client.from('content_reports').insert({ reporter_id: actorId, subject_user_id: body.targetUserId, reason, details })
+  if (error) throw error
+  return { ok: true }
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return optionsResponse(request)
   try {
@@ -124,6 +139,7 @@ Deno.serve(async (request) => {
     const action = typeof body?.action === 'string' ? body.action : ''
     if (action === 'search_user') return jsonResponse(request, await searchUser(client, user.id, body?.username))
     if (action === 'list_social') return jsonResponse(request, await listSocial(client, user.id))
+    if (action === 'report_user') return jsonResponse(request, await submitContentReport(client, user.id, body))
     if (!['send_request', 'accept_request', 'decline_request', 'cancel_request', 'remove_friend', 'block_user', 'unblock_user'].includes(action)) throw new HttpError(400, 'ACTION_INVALID')
     if (!isUuid(body?.targetUserId)) throw new HttpError(400, 'TARGET_INVALID')
     await enforceRateLimit(client, `social-action:${user.id}`, action === 'send_request' ? 10 : 60, action === 'send_request' ? 3600 : 60)

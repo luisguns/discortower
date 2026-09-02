@@ -87,7 +87,7 @@ export const LandingPage = ({ onEnter }: LandingPageProps) => (
     <footer className="landing-footer">
       <div className="landing-brand"><BrandMark /><span><strong>splotys</strong><small>Gunns Dev · 2026</small></span></div>
       <p>Comunicação privada para grupos que preferem estar juntos.</p>
-      <div><a href="/privacy.html">Privacidade</a><a href="mailto:privacy@splotys.com">Contato</a></div>
+      <div><a href="/privacy.html">Privacidade</a><a href="/community-guidelines.html">Diretrizes da comunidade</a><a href="mailto:gustavo.inerd1830@gmail.com">Contato</a></div>
     </footer>
   </main>
 )

@@ -7,6 +7,7 @@ export const MAX_DIRECT_MESSAGE_IMAGE_SIZE = 4 * 1024 * 1024
 const supportedImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
 
 type SocialAction = 'send_request' | 'accept_request' | 'decline_request' | 'cancel_request' | 'remove_friend' | 'block_user' | 'unblock_user'
+export type ContentReportReason = 'harassment' | 'hate_or_discrimination' | 'sexual_content' | 'violence_or_threat' | 'spam_or_scam' | 'other'
 type RawMessage = {
   id: number
   conversation_id: string
@@ -46,6 +47,7 @@ const messageFromRaw = (message: RawMessage): DirectMessage => ({
 export const listSocial = () => invoke<SocialOverview>({ action: 'list_social' })
 export const searchSocialUser = (username: string) => invoke<{ profile: SocialOverview['friends'][number] | null; relationship: 'self' | 'friend' | 'outgoing' | 'incoming' | 'none' | null }>({ action: 'search_user', username })
 export const socialAction = (action: SocialAction, targetUserId: string) => invoke<{ ok: true }>({ action, targetUserId })
+export const submitContentReport = (targetUserId: string, reason: ContentReportReason, details: string) => invoke<{ ok: true }>({ action: 'report_user', targetUserId, reason, details })
 
 export const listDirectMessages = async (conversationId: string, beforeId?: number) => {
   let query = getSupabase().from('direct_messages').select('*').eq('conversation_id', conversationId).order('id', { ascending: false }).limit(50)
