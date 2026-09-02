@@ -1,7 +1,12 @@
-create type public.content_report_reason as enum ('harassment', 'hate_or_discrimination', 'sexual_content', 'violence_or_threat', 'spam_or_scam', 'other');
-create type public.content_report_status as enum ('open', 'reviewing', 'resolved', 'dismissed');
+do $$ begin
+  create type public.content_report_reason as enum ('harassment', 'hate_or_discrimination', 'sexual_content', 'violence_or_threat', 'spam_or_scam', 'other');
+exception when duplicate_object then null; end $$;
 
-create table public.content_reports (
+do $$ begin
+  create type public.content_report_status as enum ('open', 'reviewing', 'resolved', 'dismissed');
+exception when duplicate_object then null; end $$;
+
+create table if not exists public.content_reports (
   id uuid primary key default gen_random_uuid(),
   reporter_id uuid not null references auth.users(id) on delete cascade,
   subject_user_id uuid not null references auth.users(id) on delete cascade,
@@ -16,17 +21,19 @@ create table public.content_reports (
   constraint content_reports_distinct_users check (reporter_id <> subject_user_id)
 );
 
-create index content_reports_open_created_idx on public.content_reports (status, created_at desc);
-create index content_reports_subject_idx on public.content_reports (subject_user_id, created_at desc);
+create index if not exists content_reports_open_created_idx on public.content_reports (status, created_at desc);
+create index if not exists content_reports_subject_idx on public.content_reports (subject_user_id, created_at desc);
 
 alter table public.content_reports enable row level security;
 revoke all on public.content_reports from public, anon, authenticated;
 grant insert, select on public.content_reports to authenticated;
 
+drop policy if exists content_reports_reporter_read on public.content_reports;
 create policy content_reports_reporter_read on public.content_reports
   for select to authenticated
   using (reporter_id = (select auth.uid()) or public.is_admin());
 
+drop policy if exists content_reports_reporter_create on public.content_reports;
 create policy content_reports_reporter_create on public.content_reports
   for insert to authenticated
   with check (
