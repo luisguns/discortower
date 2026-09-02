@@ -10,6 +10,7 @@ config.appx = {
   publisher: 'CN=22879DE7-5B1B-400E-B9D0-AC6A48145396',
   publisherDisplayName: 'Gunns Dev',
   displayName: 'splotys',
+  backgroundColor: '#151427',
   // Keep the Store application identity stable across package updates.
   applicationId: 'DiscorTower',
   artifactName: 'splotys-Store-${version}-${arch}.${ext}',
