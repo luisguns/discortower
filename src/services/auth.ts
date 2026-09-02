@@ -94,7 +94,11 @@ export const exchangeAuthCallback = async (value?: string) => {
   const callbackUrl = getCurrentAuthCallbackUrl(value)
   if (!callbackUrl) return null
   const code = callbackUrl.searchParams.get('code')
-  if (!code || code.length > 2048) throw new Error('AUTH_CALLBACK_INVALID')
+  // Implicit email callbacks put the recovery/invite marker in the URL hash.
+  // Supabase restores that session during client initialization, so there is no
+  // PKCE code for us to exchange here.
+  if (!code) return null
+  if (code.length > 2048) throw new Error('AUTH_CALLBACK_INVALID')
   const supabase = getSupabase()
   const { error } = await supabase.auth.exchangeCodeForSession(code)
   clearAuthCallbackParams()

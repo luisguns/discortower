@@ -51,13 +51,20 @@ export const hasAuthCallbackCode = (value?: string) => {
 }
 
 export const getCurrentAuthCallbackUrl = (value?: string) => {
-  if (!hasAuthCallbackCode(value)) return null
   const callbackUrl = new URL(value || window.location.href)
+  const hashParams = new URLSearchParams(callbackUrl.hash.replace(/^#/, ''))
+  const callbackType = callbackUrl.searchParams.get('type') || hashParams.get('type') || ''
+  if (!callbackUrl.searchParams.get('code') && !['invite', 'recovery', 'signup'].includes(callbackType)) return null
   if (!isAllowedAuthCallback(callbackUrl.toString())) return null
   return callbackUrl
 }
 
-export const getAuthCallbackType = (value?: string) => getCurrentAuthCallbackUrl(value)?.searchParams.get('type') || ''
+export const getAuthCallbackType = (value?: string) => {
+  const callbackUrl = getCurrentAuthCallbackUrl(value)
+  if (!callbackUrl) return ''
+  const hashParams = new URLSearchParams(callbackUrl.hash.replace(/^#/, ''))
+  return callbackUrl.searchParams.get('type') || hashParams.get('type') || ''
+}
 
 export const clearAuthCallbackParams = () => {
   if (typeof window === 'undefined') return
