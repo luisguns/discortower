@@ -4,6 +4,11 @@ import { enforceRateLimit } from '../_shared/rate-limit.ts'
 
 const normalizeEmail = (value: string) => value.trim().toLocaleLowerCase()
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const invitationRedirect = (value: string) => {
+  const url = new URL(value)
+  url.searchParams.set('type', 'invite')
+  return url.toString()
+}
 
 const invitationResponse = (row: Record<string, unknown>) => ({
   id: row.id,
@@ -52,8 +57,9 @@ Deno.serve(async (request) => {
     const desktopRedirect = Deno.env.get('DESKTOP_INVITE_REDIRECT_URL')?.trim() || ''
     const requestedRedirect = typeof body?.redirectTo === 'string' ? body.redirectTo.trim() : ''
     if (requestedRedirect && ![defaultRedirect, desktopRedirect].includes(requestedRedirect)) throw new HttpError(400, 'REDIRECT_NOT_ALLOWED')
-    const redirectTo = requestedRedirect || defaultRedirect
-    if (!redirectTo) throw new Error('INVITE_REDIRECT_NOT_CONFIGURED')
+    const redirectBase = requestedRedirect || defaultRedirect
+    if (!redirectBase) throw new Error('INVITE_REDIRECT_NOT_CONFIGURED')
+    const redirectTo = invitationRedirect(redirectBase)
 
     const { data: invited, error: inviteError } = await client.auth.admin.inviteUserByEmail(email, { redirectTo })
     if (inviteError || !invited.user) throw new HttpError(400, 'INVITATION_NOT_SENT')

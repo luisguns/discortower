@@ -126,7 +126,7 @@ export const signInWithPassword = async (email: string, password: string): Promi
 export const requestPasswordReset = async (email: string): Promise<AuthResult> => {
   const normalizedEmail = email.trim().toLocaleLowerCase()
   if (!normalizedEmail) return { ok: true }
-  await getSupabase().auth.resetPasswordForEmail(normalizedEmail, { redirectTo: getAuthRedirectUrl() })
+  await getSupabase().auth.resetPasswordForEmail(normalizedEmail, { redirectTo: getAuthRedirectUrl('recovery') })
   // Deliberately do not expose whether the address exists.
   return { ok: true }
 }

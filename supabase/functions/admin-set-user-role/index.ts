@@ -17,8 +17,9 @@ Deno.serve(async (request) => {
     if (actorRole === 'manager' || targetUserId === user.id) throw new HttpError(403, 'ROLE_ASSIGNMENT_FORBIDDEN')
     const { data: targetAdmin } = await client.from('admin_users').select('user_id').eq('user_id', targetUserId).maybeSingle()
     if (targetAdmin) throw new HttpError(403, 'OWNER_PROTECTED')
-    const { error } = await client.from('profiles').update({ role }).eq('user_id', targetUserId)
+    const { data: updatedProfile, error } = await client.from('profiles').update({ role }).eq('user_id', targetUserId).select('user_id,role').maybeSingle()
     if (error) throw new Error('USER_ROLE_UPDATE_FAILED')
+    if (!updatedProfile) throw new HttpError(404, 'USER_NOT_FOUND')
     await writeAudit(client, { action: 'user_role_changed', actorUserId: user.id, targetUserId, result: 'success', metadata: { role } })
     return jsonResponse(request, { ok: true, role })
   } catch (error) { return handleFunctionError(request, error) }

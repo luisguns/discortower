@@ -9,6 +9,7 @@ import {
   getCallGuardrailSettings,
   revokeInvitation,
   roomAction,
+  setUserRole,
   setUserStatus,
   updateCallGuardrailSettings,
   subscribeToAdminChanges,
@@ -102,6 +103,23 @@ export const AdminPanel = ({ currentUser, onClose, onLogout }: AdminPanelProps) 
       await load()
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : 'Não foi possível atualizar a conta.')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const updateUserRole = async (user: AdminUser, role: 'manager' | 'host' | 'member') => {
+    if (currentUser.role !== 'owner' || user.userId === currentUser.userId || user.role === 'owner' || user.role === role) return
+    if (!window.confirm(`Alterar ${user.email} de ${statusLabel(user.role)} para ${statusLabel(role)}?`)) { setUsers((current) => [...current]); return }
+    setBusy(`role:${user.userId}`)
+    setError('')
+    setNotice('')
+    try {
+      await setUserRole(user.userId, role)
+      setNotice(`${user.displayName || user.email} agora é ${statusLabel(role)}.`)
+      await load()
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'Não foi possível alterar o perfil do usuário.')
     } finally {
       setBusy('')
     }
@@ -207,7 +225,7 @@ export const AdminPanel = ({ currentUser, onClose, onLogout }: AdminPanelProps) 
           {loading && !rooms.length && !users.length && !invitations.length ? <div className="admin-empty"><span className="spinner" /> Carregando dados protegidos…</div> : (
             <>
               {tab === 'rooms' && <RoomsTable rooms={rooms} busy={busy} onEnd={endRoom} onRemove={removeParticipant} />}
-              {tab === 'users' && <UsersTable currentUserId={currentUser.userId} users={users} busy={busy} onToggle={updateUser} />}
+              {tab === 'users' && <UsersTable canChangeRoles={currentUser.role === 'owner'} currentUserId={currentUser.userId} users={users} busy={busy} onRoleChange={updateUserRole} onToggle={updateUser} />}
               {tab === 'invitations' && <InvitationsTable email={email} inviteRole={inviteRole} canInviteManagers={currentUser.role === 'owner'} busy={busy} invitations={invitations} onRoleChange={setInviteRole} onEmailChange={setEmail} onInvite={() => void submitInvitation()} onRevoke={revoke} />}
               {tab === 'settings' && currentUser.role === 'owner' && <GuardrailsForm settings={guardrails} busy={busy === 'settings'} onChange={setGuardrails} onSave={() => void saveGuardrails()} />}
             </>
@@ -244,8 +262,8 @@ const GuardrailsForm = ({ settings, busy, onChange, onSave }: { settings: CallGu
   return <div className="admin-settings"><p className="admin-settings__hint">Somente o proprietário pode alterar estes limites. Eles são aplicados pelo worker de controle a cada minuto.</p><div className="admin-settings__grid">{fields.map(([key, label, min]) => <label key={key}>{label}<input min={min} onChange={(event) => update(key, event.target.value)} step="1" type="number" value={settings[key] as number} /></label>)}</div><button className="primary-button" disabled={busy} onClick={onSave} type="button">{busy ? 'Salvando…' : 'Salvar limites'}</button></div>
 }
 
-const UsersTable = ({ users, currentUserId, busy, onToggle }: { users: AdminUser[]; currentUserId: string; busy: string; onToggle: (user: AdminUser) => Promise<void> }) => (
-  <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Usuário</th><th>Tipo</th><th>Estado</th><th>Criado</th><th>Último acesso</th><th /></tr></thead><tbody>{users.map((user) => <tr key={user.userId}><td><strong>{user.displayName || 'Sem nome'}</strong><small>{user.email}</small>{user.userId === currentUserId && <em>proprietário</em>}</td><td>{statusLabel(user.role)}</td><td><span className={`admin-status admin-status--${user.status}`} />{statusLabel(user.status)}</td><td>{formatDate(user.createdAt)}</td><td>{formatDate(user.lastSignInAt)}</td><td><button disabled={user.userId === currentUserId || busy === user.userId} onClick={() => void onToggle(user)} type="button">{user.status === 'active' ? 'Desativar' : 'Reativar'}</button></td></tr>)}</tbody></table>{!users.length && <div className="admin-empty">Nenhum usuário encontrado.</div>}</div>
+const UsersTable = ({ users, currentUserId, canChangeRoles, busy, onToggle, onRoleChange }: { users: AdminUser[]; currentUserId: string; canChangeRoles: boolean; busy: string; onToggle: (user: AdminUser) => Promise<void>; onRoleChange: (user: AdminUser, role: 'manager' | 'host' | 'member') => Promise<void> }) => (
+  <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Usuário</th><th>Perfil de acesso</th><th>Estado</th><th>Criado</th><th>Último acesso</th><th /></tr></thead><tbody>{users.map((user) => { const roleBusy = busy === `role:${user.userId}`; const roleEditable = canChangeRoles && user.userId !== currentUserId && user.role !== 'owner'; return <tr key={user.userId}><td><strong>{user.displayName || 'Sem nome'}</strong><small>{user.email}</small>{user.userId === currentUserId && <em>você</em>}</td><td>{roleEditable ? <select aria-label={`Perfil de acesso de ${user.displayName || user.email}`} className="admin-role-select" disabled={roleBusy} onChange={(event) => void onRoleChange(user, event.target.value as 'manager' | 'host' | 'member')} value={user.role}><option value="manager">Gerente</option><option value="host">Host</option><option value="member">Membro</option></select> : <span className="admin-role-label">{statusLabel(user.role)}</span>}</td><td><span className={`admin-status admin-status--${user.status}`} />{statusLabel(user.status)}</td><td>{formatDate(user.createdAt)}</td><td>{formatDate(user.lastSignInAt)}</td><td><button disabled={user.userId === currentUserId || busy === user.userId || roleBusy} onClick={() => void onToggle(user)} type="button">{user.status === 'active' ? 'Desativar' : 'Reativar'}</button></td></tr> })}</tbody></table>{!users.length && <div className="admin-empty">Nenhum usuário encontrado.</div>}</div>
 )
 
 const InvitationsTable = ({ invitations, email, inviteRole, canInviteManagers, busy, onRoleChange, onEmailChange, onInvite, onRevoke }: { invitations: AdminInvitation[]; email: string; inviteRole: 'manager' | 'host' | 'member'; canInviteManagers: boolean; busy: string; onRoleChange: (value: 'manager' | 'host' | 'member') => void; onEmailChange: (value: string) => void; onInvite: () => void; onRevoke: (invitation: AdminInvitation) => Promise<void> }) => (

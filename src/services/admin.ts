@@ -99,6 +99,9 @@ export const listAdminUsers = () => invokeAdmin<{ users: AdminUser[] }>('admin-l
 export const setUserStatus = (userId: string, status: 'active' | 'disabled') =>
   invokeAdmin<{ ok: boolean; removalFailures?: number; revokedSessions?: boolean }>('admin-set-user-status', { status, userId })
 
+export const setUserRole = (userId: string, role: Exclude<AccountRole, 'owner'>) =>
+  invokeAdmin<{ ok: true; role: Exclude<AccountRole, 'owner'> }>('admin-set-user-role', { role, userId })
+
 export const getAdminUsageSummary = () => invokeAdmin<AdminUsageSummary>('admin-usage-summary', {})
 
 export const getCallGuardrailSettings = () => invokeAdmin<{ settings: CallGuardrailSettings }>('admin-call-settings', { action: 'get' }).then((result) => result.settings)

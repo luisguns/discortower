@@ -19,6 +19,8 @@ import { getActivitySharingEnabled, saveActivitySharingEnabled } from './storage
 import type { ChannelPresence, ChannelSummary, LocalProfile, SocialOverview } from './types'
 
 const emptySocialOverview: SocialOverview = { friends: [], incoming: [], outgoing: [], blocked: [], conversations: [] }
+const channelInviteTokenFromUrl = () => typeof window === 'undefined' ? '' : new URL(window.location.href).searchParams.get('invite') || ''
+const shouldTryDesktopChannelInvite = () => !window.splotysDesktop && /Windows/i.test(navigator.userAgent) && /^[a-zA-Z0-9_-]{16,256}$/.test(channelInviteTokenFromUrl())
 
 function App() {
   const auth = useAuth()
@@ -35,6 +37,7 @@ function App() {
   const [lobbyDestination, setLobbyDestination] = useState<'home' | 'profile' | undefined>()
   const [callActivitySettingsOpen, setCallActivitySettingsOpen] = useState(false)
   const [desktopInviteToken, setDesktopInviteToken] = useState('')
+  const [webChannelInviteReady, setWebChannelInviteReady] = useState(() => !shouldTryDesktopChannelInvite())
   const [webLoginOpen, setWebLoginOpen] = useState(() => {
     if (typeof window === 'undefined' || window.splotysDesktop) return true
     const params = new URL(window.location.href).searchParams
@@ -56,7 +59,24 @@ function App() {
   }, [auth.access?.capabilities.canManageAllChannels, auth.access?.userId, auth.status])
 
   useEffect(() => {
+    if (!shouldTryDesktopChannelInvite()) return
+    const token = channelInviteTokenFromUrl()
+    const historyState = window.history.state && typeof window.history.state === 'object' ? window.history.state : {}
+    if (historyState.splotysChannelInviteAppAttempted !== true) {
+      window.history.replaceState({ ...historyState, splotysChannelInviteAppAttempted: true }, '', window.location.href)
+      window.location.assign(`splotys://invite?token=${encodeURIComponent(token)}`)
+    }
+    const enableWebFallback = () => {
+      if (document.visibilityState === 'visible') setWebChannelInviteReady(true)
+      else document.addEventListener('visibilitychange', enableWebFallback, { once: true })
+    }
+    const timer = window.setTimeout(enableWebFallback, 1400)
+    return () => { window.clearTimeout(timer); document.removeEventListener('visibilitychange', enableWebFallback) }
+  }, [])
+
+  useEffect(() => {
     if (auth.status !== 'authenticated' || typeof window === 'undefined') return
+    if (!window.splotysDesktop && !webChannelInviteReady) return
     const invite = desktopInviteToken || new URL(window.location.href).searchParams.get('invite')
     if (!invite) return
     void acceptChannelInvite(invite).then((result) => {
@@ -64,7 +84,7 @@ function App() {
       setDesktopInviteToken('')
       setChannelId(result.channelId)
     }).catch(() => { /* lobby surfaces the unavailable invite without leaking its token */ })
-  }, [auth.status, desktopInviteToken])
+  }, [auth.status, desktopInviteToken, webChannelInviteReady])
 
   useEffect(() => {
     const desktop = window.splotysDesktop

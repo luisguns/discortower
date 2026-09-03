@@ -76,14 +76,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let mounted = true
     let unsubscribe: () => void = () => undefined
     let unsubscribeDesktopCallback: () => void = () => undefined
+    let callbackEventType: 'recovery' | null = null
 
     const consumeCallback = async (callbackUrl?: string) => {
       try {
         await initializeSupabase()
         const callbackType = getAuthCallbackType(callbackUrl)
-        await exchangeAuthCallback(callbackUrl)
-        if (callbackType === 'invite' || callbackType === 'recovery') setCredentialSetup(callbackType)
-        if (mounted) await loadAccess(await currentSession())
+        const exchanged = await exchangeAuthCallback(callbackUrl)
+        const nextSession = await currentSession()
+        const setupType = callbackType === 'invite' || callbackType === 'recovery'
+          ? callbackType
+          : callbackEventType || (exchanged && nextSession?.user.invited_at ? 'invite' : null)
+        if (setupType) setCredentialSetup(setupType)
+        if (mounted) await loadAccess(nextSession)
       } catch {
         if (mounted) {
           setStatus('error')
@@ -101,17 +106,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       try {
         await initializeSupabase()
-        const pendingCallback = await window.splotysDesktop?.getAuthCallback()
-        await consumeCallback(pendingCallback || undefined)
-        const nextSession = await currentSession()
-        if (mounted) await loadAccess(nextSession)
-
-        const { data } = getSupabase().auth.onAuthStateChange((_event, nextSession) => {
+        const { data } = getSupabase().auth.onAuthStateChange((event, nextSession) => {
+          if (event === 'INITIAL_SESSION') return
+          if (event === 'PASSWORD_RECOVERY') { callbackEventType = 'recovery'; setCredentialSetup('recovery') }
           window.setTimeout(() => {
             if (mounted) void loadAccess(nextSession)
           }, 0)
         })
         unsubscribe = data.subscription.unsubscribe
+        const pendingCallback = await window.splotysDesktop?.getAuthCallback()
+        await consumeCallback(pendingCallback || undefined)
+        const nextSession = await currentSession()
+        if (mounted) await loadAccess(nextSession)
         unsubscribeDesktopCallback = window.splotysDesktop?.onAuthCallback((callbackUrl) => {
           void consumeCallback(callbackUrl)
         }) || (() => undefined)

@@ -24,6 +24,8 @@ Deno.serve(async (request) => {
       if (!invite || invite.revoked_at || new Date(invite.expires_at).getTime() <= Date.now() || invite.use_count >= invite.max_uses) throw new HttpError(410, 'INVITE_EXPIRED')
       const { data: channel } = await client.from('channels').select('id,status').eq('id', invite.channel_id).eq('status', 'active').maybeSingle()
       if (!channel) throw new HttpError(404, 'CHANNEL_NOT_FOUND')
+      const { data: existingMembership } = await client.from('channel_members').select('channel_id').eq('channel_id', invite.channel_id).eq('user_id', user.id).maybeSingle()
+      if (existingMembership) return jsonResponse(request, { ok: true, channelId: invite.channel_id })
       const { error } = await client.from('channel_members').upsert({ channel_id: invite.channel_id, user_id: user.id, role: 'member', added_by: invite.created_by }, { onConflict: 'channel_id,user_id' })
       if (error) throw error
       const { error: useError } = await client.from('channel_invites').update({ use_count: invite.use_count + 1 }).eq('id', invite.id).lt('use_count', invite.max_uses)

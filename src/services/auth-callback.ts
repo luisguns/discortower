@@ -12,12 +12,18 @@ const callbackDestination = (value: string) => {
   }
 }
 
-export const getAuthRedirectUrl = () => {
-  if (typeof window !== 'undefined' && window.splotysDesktop) return 'splotys://auth/callback'
+export const getAuthRedirectUrl = (type?: 'invite' | 'recovery') => {
+  const withType = (value: string) => {
+    if (!type) return value
+    const url = new URL(value)
+    url.searchParams.set('type', type)
+    return url.toString()
+  }
+  if (typeof window !== 'undefined' && window.splotysDesktop) return withType('splotys://auth/callback')
   const configured = configuredRedirectUrl()
-  if (configured) return configured
+  if (configured) return withType(configured)
   if (typeof window === 'undefined') return ''
-  return `${window.location.origin}/`
+  return withType(`${window.location.origin}/`)
 }
 
 const allowedCallbackUrls = () => {

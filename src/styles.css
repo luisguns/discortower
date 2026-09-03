@@ -7221,6 +7221,10 @@ svg {
 .admin-table td strong { color: #d7d7dd; font-size: 10px; }
 .admin-table td small { margin-top: 4px; color: #6e6c7e; font-size: 8px; }
 .admin-table td em { margin-top: 4px; color: var(--accent); font-size: 7px; font-style: normal; letter-spacing: 0.08em; text-transform: uppercase; }
+.admin-role-select { min-width: 112px; height: 32px; padding: 0 28px 0 10px; border: 1px solid #444a67; border-radius: 6px; background: #17182b; color: #d8d6e0; font-size: 9px; font-weight: 600; outline: none; }
+.admin-role-select:hover:not(:disabled),
+.admin-role-select:focus { border-color: #67618c; color: #fff7fa; }
+.admin-role-label { color: #bbb8c7; font-weight: 600; }
 
 .admin-invites { display: grid; gap: 14px; }
 .admin-invite-form { display: flex; gap: 9px; }
