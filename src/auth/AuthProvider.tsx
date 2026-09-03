@@ -6,6 +6,7 @@ import {
   exchangeAuthCallback,
   getAccessContext,
   getAuthCallbackType,
+  redeemInviteCode as redeemInviteCodeService,
   signInWithPassword,
   signOut as signOutFromSupabase,
   requestPasswordReset,
@@ -26,6 +27,7 @@ interface AuthContextValue {
   credentialSetup: 'invite' | 'recovery' | null
   signIn: (email: string, password: string) => Promise<{ ok: boolean; message?: string }>
   resetPassword: (email: string) => Promise<{ ok: boolean; message?: string }>
+  redeemInviteCode: (code: string, email: string, password: string) => Promise<{ ok: boolean; message?: string }>
   updateProfile: (profile: LocalProfile) => Promise<AccountProfile | null>
   claimUsername: (username: string) => Promise<AccountProfile | null>
   completeCredentialSetup: (password: string) => Promise<{ ok: boolean; message?: string }>
@@ -178,6 +180,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [])
 
+  const redeemInviteCode = useCallback(async (code: string, email: string, password: string) => {
+    try {
+      return await redeemInviteCodeService(code, email, password)
+    } catch {
+      return { ok: false, message: 'Não foi possível criar a conta. Tente novamente.' }
+    }
+  }, [])
+
   const signOut = useCallback(async () => {
     try {
       await signOutFromSupabase()
@@ -206,6 +216,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     completeCredentialSetup,
     credentialSetup,
     error,
+    redeemInviteCode,
     resetPassword,
     session,
     signIn,
@@ -213,7 +224,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     status,
     updateProfile,
     user: session?.user ?? null,
-  }), [access, claimUsername, completeCredentialSetup, credentialSetup, error, resetPassword, session, signIn, signOut, status, updateProfile])
+  }), [access, claimUsername, completeCredentialSetup, credentialSetup, error, redeemInviteCode, resetPassword, session, signIn, signOut, status, updateProfile])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

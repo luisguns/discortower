@@ -10,5 +10,6 @@ splotys-msix.zip
 supabase/.temp/
 *.tsbuildinfo
 .DS_Store
+.claude/
 vite.config.js
 vite.config.d.ts

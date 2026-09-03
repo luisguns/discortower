@@ -174,6 +174,26 @@ export const updatePassword = async (password: string): Promise<AuthResult> => {
   return error ? { ok: false, message: 'Não foi possível definir essa senha. Tente novamente.' } : { ok: true }
 }
 
+export const redeemInviteCode = async (code: string, email: string, password: string): Promise<AuthResult> => {
+  const { data, error } = await getSupabase().functions.invoke('redeem-invite-code', {
+    body: { code, email, password },
+  })
+  if (error) {
+    const status = error.context instanceof Response ? error.context.status : 0
+    if (status === 400) {
+      const body = data as { error?: string } | null
+      if (body?.error === 'INVALID_OR_EXPIRED_CODE') return { ok: false, message: 'Código inválido ou expirado.' }
+      if (body?.error === 'INVALID_EMAIL') return { ok: false, message: 'E-mail inválido.' }
+      if (body?.error === 'INVALID_PASSWORD') return { ok: false, message: 'A senha precisa ter entre 8 e 128 caracteres.' }
+      if (body?.error === 'ACCOUNT_CREATION_FAILED') return { ok: false, message: 'Não foi possível criar a conta. Tente outro e-mail.' }
+    }
+    if (status === 409) return { ok: false, message: 'Esse e-mail já está cadastrado.' }
+    if (status === 429) return { ok: false, message: 'Muitas tentativas. Aguarde alguns minutos.' }
+    return { ok: false, message: 'Não foi possível criar a conta. Tente novamente.' }
+  }
+  return { ok: true }
+}
+
 export const signOut = async () => {
   await getSupabase().auth.signOut({ scope: 'local' })
 }

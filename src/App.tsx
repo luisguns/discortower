@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AccountDisabledScreen, AuthLoadingScreen, LoginScreen } from './auth/LoginScreen'
 import { useAuth } from './auth/AuthProvider'
+import { InviteCodeScreen } from './auth/InviteCodeScreen'
 import { InviteCompletionScreen } from './auth/InviteCompletionScreen'
 import { UsernameSetupScreen } from './auth/UsernameSetupScreen'
 import { AdminPanel } from './admin/AdminPanel'
@@ -38,6 +39,7 @@ function App() {
   const [callActivitySettingsOpen, setCallActivitySettingsOpen] = useState(false)
   const [desktopInviteToken, setDesktopInviteToken] = useState('')
   const [webChannelInviteReady, setWebChannelInviteReady] = useState(() => !shouldTryDesktopChannelInvite())
+  const [inviteCodeOpen, setInviteCodeOpen] = useState(false)
   const [webLoginOpen, setWebLoginOpen] = useState(() => {
     if (typeof window === 'undefined' || window.splotysDesktop) return true
     const params = new URL(window.location.href).searchParams
@@ -190,10 +192,13 @@ function App() {
   if (auth.status === 'initializing') return <AuthLoadingScreen />
   if (auth.status === 'disabled') return <AccountDisabledScreen onSignOut={auth.signOut} />
   if (auth.status !== 'authenticated' || !auth.access) {
+    if (inviteCodeOpen) {
+      return <InviteCodeScreen onRedeem={auth.redeemInviteCode} onBack={() => setInviteCodeOpen(false)} />
+    }
     if (!window.splotysDesktop && !webLoginOpen) {
       return <LandingPage onEnter={() => { window.history.replaceState(null, '', '?login=1'); setWebLoginOpen(true) }} />
     }
-    return <LoginScreen error={auth.status === 'error' ? auth.error : undefined} onBack={!window.splotysDesktop ? () => { window.history.replaceState(null, '', '/'); setWebLoginOpen(false) } : undefined} onLogin={auth.signIn} onResetPassword={auth.resetPassword} />
+    return <LoginScreen error={auth.status === 'error' ? auth.error : undefined} onBack={!window.splotysDesktop ? () => { window.history.replaceState(null, '', '/'); setWebLoginOpen(false) } : undefined} onLogin={auth.signIn} onResetPassword={auth.resetPassword} onInviteCode={() => setInviteCodeOpen(true)} />
   }
 
   if (auth.credentialSetup) {

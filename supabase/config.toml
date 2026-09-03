@@ -11,6 +11,12 @@ verify_jwt = false
 [functions.admin-invite-user]
 verify_jwt = false
 
+[functions.admin-invite-code]
+verify_jwt = false
+
+[functions.redeem-invite-code]
+verify_jwt = false
+
 [functions.admin-list-users]
 verify_jwt = false
 

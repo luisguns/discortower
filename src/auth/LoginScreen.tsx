@@ -6,11 +6,12 @@ import { WINDOWS_STORE_PRODUCT_URL } from '../services/downloads'
 interface LoginScreenProps {
   error?: string
   onBack?: () => void
+  onInviteCode?: () => void
   onLogin: (email: string, password: string) => Promise<{ ok: boolean; message?: string }>
   onResetPassword: (email: string) => Promise<{ ok: boolean; message?: string }>
 }
 
-export const LoginScreen = ({ error, onBack, onLogin, onResetPassword }: LoginScreenProps) => {
+export const LoginScreen = ({ error, onBack, onInviteCode, onLogin, onResetPassword }: LoginScreenProps) => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [formError, setFormError] = useState('')
@@ -85,6 +86,7 @@ export const LoginScreen = ({ error, onBack, onLogin, onResetPassword }: LoginSc
             {busy ? <><span className="spinner" /> Verificando</> : <>Entrar <Icon name="chevron" /></>}
           </button>
           <button className="auth-link" disabled={busy} onClick={() => void forgotPassword()} type="button">Esqueci minha senha</button>
+          {onInviteCode && <button className="auth-link" disabled={busy} onClick={onInviteCode} type="button">Tenho um código de convite</button>}
         </form>
         {!window.splotysDesktop && (
           <div className="auth-external-actions">

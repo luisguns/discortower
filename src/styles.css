@@ -44,9 +44,17 @@ body {
   overflow: hidden;
 }
 
-.web-app-shell,
 .desktop-app-shell,
 .desktop-app-shell__content { width: 100%; min-height: 100%; }
+
+.web-app-shell {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
 
 .desktop-app-shell {
   display: grid;
@@ -7145,6 +7153,7 @@ svg {
 .admin-status--pending { background: var(--warning); }
 .admin-status--disabled,
 .admin-status--revoked { background: var(--danger); }
+.admin-status--used { background: #6e6c7e; }
 
 .admin-room-meta {
   display: grid;

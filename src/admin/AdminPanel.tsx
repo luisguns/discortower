@@ -2,18 +2,22 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   AdminApiError,
   createInvitation,
+  createInviteCode,
   listAdminInvitations,
   listAdminRooms,
   listAdminUsers,
+  listInviteCodes,
   getAdminUsageSummary,
   getCallGuardrailSettings,
   revokeInvitation,
+  revokeInviteCode,
   roomAction,
   setUserRole,
   setUserStatus,
   updateCallGuardrailSettings,
   subscribeToAdminChanges,
   type AdminInvitation,
+  type AdminInviteCode,
   type AdminRoom,
   type AdminUser,
   type AdminUsageSummary,
@@ -50,18 +54,21 @@ const formatDuration = (startedAt?: string, endedAt?: string) => {
   return `${Math.floor(seconds / 60)}min ${String(seconds % 60).padStart(2, '0')}s`
 }
 
-const statusLabel = (status: string) => ({ active: 'Ativo', disabled: 'Desativado', pending: 'Pendente', accepted: 'Aceito', revoked: 'Revogado', expired: 'Expirado', open: 'Aberta', starting: 'Iniciando', closed: 'Encerrada', owner: 'Proprietário', manager: 'Gerente', host: 'Host', member: 'Membro' }[status] || status)
+const statusLabel = (status: string) => ({ active: 'Ativo', disabled: 'Desativado', pending: 'Pendente', accepted: 'Aceito', revoked: 'Revogado', expired: 'Expirado', used: 'Usado', open: 'Aberta', starting: 'Iniciando', closed: 'Encerrada', owner: 'Proprietário', manager: 'Gerente', host: 'Host', member: 'Membro' }[status] || status)
 
 export const AdminPanel = ({ currentUser, onClose, onLogout }: AdminPanelProps) => {
   const [tab, setTab] = useState<AdminTab>('rooms')
   const [rooms, setRooms] = useState<AdminRoom[]>([])
   const [users, setUsers] = useState<AdminUser[]>([])
   const [invitations, setInvitations] = useState<AdminInvitation[]>([])
+  const [inviteCodes, setInviteCodes] = useState<AdminInviteCode[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const [email, setEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<'manager' | 'host' | 'member'>('member')
+  const [codeRole, setCodeRole] = useState<'manager' | 'host' | 'member'>('member')
+  const [codeLabel, setCodeLabel] = useState('')
   const [notice, setNotice] = useState('')
   const [usage, setUsage] = useState<AdminUsageSummary | null>(null)
   const [guardrails, setGuardrails] = useState<CallGuardrailSettings>(defaultGuardrails)
@@ -70,10 +77,11 @@ export const AdminPanel = ({ currentUser, onClose, onLogout }: AdminPanelProps) 
     setLoading(true)
     setError('')
     try {
-      const [nextRooms, nextUsers, nextInvitations, nextUsage, nextGuardrails] = await Promise.all([listAdminRooms(), listAdminUsers(), listAdminInvitations(), getAdminUsageSummary(), currentUser.role === 'owner' ? getCallGuardrailSettings() : Promise.resolve(null)])
+      const [nextRooms, nextUsers, nextInvitations, nextInviteCodes, nextUsage, nextGuardrails] = await Promise.all([listAdminRooms(), listAdminUsers(), listAdminInvitations(), listInviteCodes(), getAdminUsageSummary(), currentUser.role === 'owner' ? getCallGuardrailSettings() : Promise.resolve(null)])
       setRooms(nextRooms)
       setUsers(nextUsers)
       setInvitations(nextInvitations)
+      setInviteCodes(nextInviteCodes)
       setUsage(nextUsage)
       if (nextGuardrails) setGuardrails(nextGuardrails)
     } catch (loadError) {
@@ -140,6 +148,41 @@ export const AdminPanel = ({ currentUser, onClose, onLogout }: AdminPanelProps) 
     } finally {
       setBusy('')
     }
+  }
+
+  const submitInviteCode = async () => {
+    setBusy('code')
+    setError('')
+    setNotice('')
+    try {
+      const created = await createInviteCode(codeRole, codeLabel)
+      setCodeLabel('')
+      setNotice(`Código gerado: ${created.code}`)
+      await load()
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'Não foi possível gerar o código.')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const revokeCode = async (code: AdminInviteCode) => {
+    if (!window.confirm(`Revogar o código ${code.code}?`)) return
+    setBusy(code.id)
+    try {
+      await revokeInviteCode(code.id)
+      await load()
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'Não foi possível revogar o código.')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const copyCode = (code: string) => {
+    void navigator.clipboard.writeText(code).then(() => {
+      setNotice(`Código ${code} copiado.`)
+    })
   }
 
   const revoke = async (invitation: AdminInvitation) => {
@@ -226,7 +269,10 @@ export const AdminPanel = ({ currentUser, onClose, onLogout }: AdminPanelProps) 
             <>
               {tab === 'rooms' && <RoomsTable rooms={rooms} busy={busy} onEnd={endRoom} onRemove={removeParticipant} />}
               {tab === 'users' && <UsersTable canChangeRoles={currentUser.role === 'owner'} currentUserId={currentUser.userId} users={users} busy={busy} onRoleChange={updateUserRole} onToggle={updateUser} />}
-              {tab === 'invitations' && <InvitationsTable email={email} inviteRole={inviteRole} canInviteManagers={currentUser.role === 'owner'} busy={busy} invitations={invitations} onRoleChange={setInviteRole} onEmailChange={setEmail} onInvite={() => void submitInvitation()} onRevoke={revoke} />}
+              {tab === 'invitations' && <>
+                <InviteCodesSection codeLabel={codeLabel} codeRole={codeRole} canInviteManagers={currentUser.role === 'owner'} busy={busy} codes={inviteCodes} onRoleChange={setCodeRole} onLabelChange={setCodeLabel} onCreate={() => void submitInviteCode()} onRevoke={revokeCode} onCopy={copyCode} />
+                <InvitationsTable email={email} inviteRole={inviteRole} canInviteManagers={currentUser.role === 'owner'} busy={busy} invitations={invitations} onRoleChange={setInviteRole} onEmailChange={setEmail} onInvite={() => void submitInvitation()} onRevoke={revoke} />
+              </>}
               {tab === 'settings' && currentUser.role === 'owner' && <GuardrailsForm settings={guardrails} busy={busy === 'settings'} onChange={setGuardrails} onSave={() => void saveGuardrails()} />}
             </>
           )}
@@ -266,6 +312,47 @@ const UsersTable = ({ users, currentUserId, canChangeRoles, busy, onToggle, onRo
   <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Usuário</th><th>Perfil de acesso</th><th>Estado</th><th>Criado</th><th>Último acesso</th><th /></tr></thead><tbody>{users.map((user) => { const roleBusy = busy === `role:${user.userId}`; const roleEditable = canChangeRoles && user.userId !== currentUserId && user.role !== 'owner'; return <tr key={user.userId}><td><strong>{user.displayName || 'Sem nome'}</strong><small>{user.email}</small>{user.userId === currentUserId && <em>você</em>}</td><td>{roleEditable ? <select aria-label={`Perfil de acesso de ${user.displayName || user.email}`} className="admin-role-select" disabled={roleBusy} onChange={(event) => void onRoleChange(user, event.target.value as 'manager' | 'host' | 'member')} value={user.role}><option value="manager">Gerente</option><option value="host">Host</option><option value="member">Membro</option></select> : <span className="admin-role-label">{statusLabel(user.role)}</span>}</td><td><span className={`admin-status admin-status--${user.status}`} />{statusLabel(user.status)}</td><td>{formatDate(user.createdAt)}</td><td>{formatDate(user.lastSignInAt)}</td><td><button disabled={user.userId === currentUserId || busy === user.userId || roleBusy} onClick={() => void onToggle(user)} type="button">{user.status === 'active' ? 'Desativar' : 'Reativar'}</button></td></tr> })}</tbody></table>{!users.length && <div className="admin-empty">Nenhum usuário encontrado.</div>}</div>
 )
 
+const InviteCodesSection = ({ codes, codeLabel, codeRole, canInviteManagers, busy, onRoleChange, onLabelChange, onCreate, onRevoke, onCopy }: { codes: AdminInviteCode[]; codeLabel: string; codeRole: 'manager' | 'host' | 'member'; canInviteManagers: boolean; busy: string; onRoleChange: (value: 'manager' | 'host' | 'member') => void; onLabelChange: (value: string) => void; onCreate: () => void; onRevoke: (code: AdminInviteCode) => Promise<void>; onCopy: (code: string) => void }) => (
+  <div className="admin-invites">
+    <p className="eyebrow">CÓDIGOS DE CONVITE</p>
+    <div className="admin-invite-form">
+      <input aria-label="Rótulo opcional" onChange={(event) => onLabelChange(event.target.value)} placeholder="Rótulo (opcional)" type="text" value={codeLabel} />
+      <select aria-label="Tipo de usuário" onChange={(event) => onRoleChange(event.target.value as 'manager' | 'host' | 'member')} value={codeRole}>
+        {canInviteManagers && <option value="manager">Gerente</option>}
+        <option value="host">Host</option>
+        <option value="member">Membro</option>
+      </select>
+      <button className="primary-button" disabled={busy === 'code'} onClick={onCreate} type="button">Gerar código <Icon name="chevron" /></button>
+    </div>
+    <div className="admin-table-wrap">
+      <table className="admin-table">
+        <thead><tr><th>Código</th><th>Rótulo</th><th>Tipo</th><th>Estado</th><th>Criado</th><th>Expira</th><th /></tr></thead>
+        <tbody>{codes.map((code) => (
+          <tr key={code.id}>
+            <td><strong style={{ fontFamily: 'var(--font-mono, monospace)', letterSpacing: '0.08em' }}>{code.code}</strong></td>
+            <td>{code.label || '—'}</td>
+            <td>{statusLabel(code.role)}</td>
+            <td><span className={`admin-status admin-status--${code.status}`} />{statusLabel(code.status)}</td>
+            <td>{formatDate(code.createdAt)}</td>
+            <td>{formatDate(code.expiresAt)}</td>
+            <td>
+              {code.status === 'active' && <>
+                <button disabled={busy === code.id} onClick={() => onCopy(code.code)} type="button">Copiar</button>
+                <button disabled={busy === code.id} onClick={() => void onRevoke(code)} type="button">Revogar</button>
+              </>}
+            </td>
+          </tr>
+        ))}</tbody>
+      </table>
+      {!codes.length && <div className="admin-empty">Nenhum código gerado.</div>}
+    </div>
+  </div>
+)
+
 const InvitationsTable = ({ invitations, email, inviteRole, canInviteManagers, busy, onRoleChange, onEmailChange, onInvite, onRevoke }: { invitations: AdminInvitation[]; email: string; inviteRole: 'manager' | 'host' | 'member'; canInviteManagers: boolean; busy: string; onRoleChange: (value: 'manager' | 'host' | 'member') => void; onEmailChange: (value: string) => void; onInvite: () => void; onRevoke: (invitation: AdminInvitation) => Promise<void> }) => (
-  <div className="admin-invites"><div className="admin-invite-form"><input aria-label="E-mail do convidado" onChange={(event) => onEmailChange(event.target.value)} placeholder="convidado@exemplo.com" type="email" value={email} /><select aria-label="Tipo de usuário" onChange={(event) => onRoleChange(event.target.value as 'manager' | 'host' | 'member')} value={inviteRole}>{canInviteManagers && <option value="manager">Gerente</option>}<option value="host">Host</option><option value="member">Membro</option></select><button className="primary-button" disabled={!email.trim() || busy === 'invite'} onClick={onInvite} type="button">Enviar convite <Icon name="send" /></button></div><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>E-mail</th><th>Tipo</th><th>Estado</th><th>Criado</th><th>Expira</th><th /></tr></thead><tbody>{invitations.map((invitation) => <tr key={invitation.id}><td><strong>{invitation.email}</strong></td><td>{invitation.role}</td><td><span className={`admin-status admin-status--${invitation.status}`} />{statusLabel(invitation.status)}</td><td>{formatDate(invitation.createdAt)}</td><td>{formatDate(invitation.expiresAt)}</td><td>{invitation.status === 'pending' && <button disabled={busy === invitation.id} onClick={() => void onRevoke(invitation)} type="button">Revogar</button>}</td></tr>)}</tbody></table>{!invitations.length && <div className="admin-empty">Nenhum convite emitido.</div>}</div></div>
+  <div className="admin-invites">
+    <p className="eyebrow">CONVITES POR E-MAIL</p>
+    <div className="admin-invite-form"><input aria-label="E-mail do convidado" onChange={(event) => onEmailChange(event.target.value)} placeholder="convidado@exemplo.com" type="email" value={email} /><select aria-label="Tipo de usuário" onChange={(event) => onRoleChange(event.target.value as 'manager' | 'host' | 'member')} value={inviteRole}>{canInviteManagers && <option value="manager">Gerente</option>}<option value="host">Host</option><option value="member">Membro</option></select><button className="primary-button" disabled={!email.trim() || busy === 'invite'} onClick={onInvite} type="button">Enviar convite <Icon name="send" /></button></div>
+    <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>E-mail</th><th>Tipo</th><th>Estado</th><th>Criado</th><th>Expira</th><th /></tr></thead><tbody>{invitations.map((invitation) => <tr key={invitation.id}><td><strong>{invitation.email}</strong></td><td>{invitation.role}</td><td><span className={`admin-status admin-status--${invitation.status}`} />{statusLabel(invitation.status)}</td><td>{formatDate(invitation.createdAt)}</td><td>{formatDate(invitation.expiresAt)}</td><td>{invitation.status === 'pending' && <button disabled={busy === invitation.id} onClick={() => void onRevoke(invitation)} type="button">Revogar</button>}</td></tr>)}</tbody></table>{!invitations.length && <div className="admin-empty">Nenhum convite emitido.</div>}</div>
+  </div>
 )

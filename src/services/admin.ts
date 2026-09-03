@@ -24,6 +24,17 @@ export interface AdminInvitation {
   acceptedAt?: string
 }
 
+export interface AdminInviteCode {
+  id: string
+  code: string
+  label: string
+  role: Exclude<AccountRole, 'owner'>
+  status: 'active' | 'used' | 'revoked' | 'expired'
+  createdAt: string
+  expiresAt: string
+  usedAt?: string
+}
+
 export interface AdminParticipant {
   id: string
   userId?: string
@@ -115,6 +126,30 @@ export const createInvitation = (email: string, role: Exclude<AccountRole, 'owne
 export const revokeInvitation = (invitationId: string) =>
   invokeAdmin<{ ok: true }>('admin-invite-user', { action: 'revoke', invitationId })
 
+export const createInviteCode = (role: Exclude<AccountRole, 'owner'> = 'member', label = '') =>
+  invokeAdmin<{ code: AdminInviteCode }>('admin-invite-code', { action: 'create', role, label }).then((result) => result.code)
+
+export const revokeInviteCode = (codeId: string) =>
+  invokeAdmin<{ code: AdminInviteCode }>('admin-invite-code', { action: 'revoke', codeId })
+
+export const listInviteCodes = async () => {
+  const { data, error } = await getSupabase()
+    .from('invite_codes')
+    .select('id,code,label,role,status,created_at,expires_at,used_at')
+    .order('created_at', { ascending: false })
+    .limit(100)
+  return rows(data, error).map((item) => ({
+    id: item.id,
+    code: `${(item.code as string).slice(0, 4)}-${(item.code as string).slice(4)}`,
+    label: item.label || '',
+    role: item.role || 'member',
+    status: item.status,
+    createdAt: item.created_at,
+    expiresAt: item.expires_at,
+    usedAt: item.used_at || undefined,
+  })) as AdminInviteCode[]
+}
+
 export const listAdminInvitations = async () => {
   const { data, error } = await getSupabase()
     .from('invitations')
@@ -176,6 +211,7 @@ export const subscribeToAdminChanges = (onChange: () => void) => {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'room_sessions' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'participant_sessions' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'invitations' }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'invite_codes' }, onChange)
     .subscribe()
   return () => {
     void supabase.removeChannel(channel)
