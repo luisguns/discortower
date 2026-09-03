@@ -34,6 +34,9 @@ interface SplotysDesktopApi {
   readonly isDesktop: true
   readonly platform: string
   minimize: () => void
+  toggleMaximize: () => Promise<boolean>
+  isMaximized: () => Promise<boolean>
+  closeWindow: () => void
   openMicrophoneSettings: () => void
   setInCall: (inCall: boolean) => void
   setGameOverlayState: (state: SplotysOverlayState) => void
@@ -58,6 +61,7 @@ interface SplotysDesktopApi {
   onShortcutStatus: (listener: (status: { failedActions: import('./types').ShortcutAction[] }) => void) => () => void
   onUpdateState: (listener: (state: import('./types').AppUpdateState) => void) => () => void
   onFullscreenChange: (listener: (fullscreen: boolean) => void) => () => void
+  onMaximizedChange: (listener: (maximized: boolean) => void) => () => void
 }
 
 interface Window {

@@ -4,6 +4,9 @@ contextBridge.exposeInMainWorld('splotysDesktop', {
   isDesktop: true,
   platform: process.platform,
   minimize: () => ipcRenderer.send('desktop:minimize'),
+  toggleMaximize: () => ipcRenderer.invoke('desktop:toggle-maximize'),
+  isMaximized: () => ipcRenderer.invoke('desktop:is-maximized'),
+  closeWindow: () => ipcRenderer.send('desktop:close-window'),
   openMicrophoneSettings: () => ipcRenderer.send('desktop:open-microphone-settings'),
   setInCall: (inCall) => ipcRenderer.send('desktop:set-in-call', inCall === true),
   setGameOverlayState: (state) => ipcRenderer.send('desktop:set-game-overlay-state', state),
@@ -55,5 +58,10 @@ contextBridge.exposeInMainWorld('splotysDesktop', {
     const wrappedListener = (_event, fullscreen) => listener(fullscreen === true)
     ipcRenderer.on('desktop:fullscreen-changed', wrappedListener)
     return () => ipcRenderer.removeListener('desktop:fullscreen-changed', wrappedListener)
+  },
+  onMaximizedChange: (listener) => {
+    const wrappedListener = (_event, maximized) => listener(maximized === true)
+    ipcRenderer.on('desktop:maximized-changed', wrappedListener)
+    return () => ipcRenderer.removeListener('desktop:maximized-changed', wrappedListener)
   },
 })

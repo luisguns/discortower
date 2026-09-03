@@ -1014,6 +1014,23 @@ const installRendererIpc = () => {
     mainWindow.minimize()
   })
 
+  ipcMain.handle('desktop:toggle-maximize', (event) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents) return false
+    if (mainWindow.isMaximized()) mainWindow.unmaximize()
+    else mainWindow.maximize()
+    return mainWindow.isMaximized()
+  })
+
+  ipcMain.handle('desktop:is-maximized', (event) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents) return false
+    return mainWindow.isMaximized()
+  })
+
+  ipcMain.on('desktop:close-window', (event) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents) return
+    mainWindow.close()
+  })
+
   ipcMain.on('desktop:open-microphone-settings', (event) => {
     if (!mainWindow || event.sender !== mainWindow.webContents) return
     if (process.platform === 'win32') {
@@ -1158,6 +1175,9 @@ const createMainWindow = async () => {
     icon: iconPath(),
     backgroundColor: '#0f1020',
     autoHideMenuBar: true,
+    frame: false,
+    thickFrame: true,
+    roundedCorners: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -1169,6 +1189,8 @@ const createMainWindow = async () => {
   })
   mainWindow.on('enter-full-screen', () => mainWindow?.webContents.send('desktop:fullscreen-changed', true))
   mainWindow.on('leave-full-screen', () => mainWindow?.webContents.send('desktop:fullscreen-changed', false))
+  mainWindow.on('maximize', () => mainWindow?.webContents.send('desktop:maximized-changed', true))
+  mainWindow.on('unmaximize', () => mainWindow?.webContents.send('desktop:maximized-changed', false))
 
   configureWindowNavigation(mainWindow)
 
