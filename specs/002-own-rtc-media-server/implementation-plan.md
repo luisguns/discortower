@@ -7,6 +7,10 @@ o bloqueiam (de [`open-questions.md`](open-questions.md)), entregáveis concreto
 
 > Antes de cada estágio: leia [`tracking.md`](tracking.md) (estado) e cheque decisões `OPEN` que
 > bloqueiam. Regra R2 do contrato: indefinição vira pergunta, nunca suposição.
+>
+> **Smoke test manual:** cada estágio tem um roteiro passo a passo em
+> [`smoke-tests.md`](smoke-tests.md) para você validar o funcionamento e a evolução (regressão)
+> antes de marcar o gate abaixo. O gate é o critério oficial; o smoke é como você o exercita à mão.
 
 Legenda de gate: `[ ]` pendente · `[x]` feito. O status real por estágio fica em `tracking.md`.
 

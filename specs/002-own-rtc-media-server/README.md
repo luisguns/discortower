@@ -14,6 +14,7 @@ estágios testáveis**, o **contrato anti-alucinação** e o **registro de decis
 1. [`implementation-plan.md`](implementation-plan.md) — os estágios, cada um com entrada, entregável, gate de saída testável e checkpoints de decisão.
 2. [`tracking.md`](tracking.md) — **estado do progresso para tocar o plano em múltiplos chats.** Comece e termine cada sessão por aqui.
 3. [`open-questions.md`](open-questions.md) — **registro de decisões em aberto (ODR).** Toda indefinição vive aqui e bloqueia estágios até ser decidida.
+4. [`smoke-tests.md`](smoke-tests.md) — **roteiro de smoke test manual por estágio** (E2→E10): como provar que o estágio funciona e que os anteriores não quebraram, antes de marcar o gate.
 
 ## Como trabalhar em múltiplos chats (leia primeiro)
 
