@@ -119,8 +119,9 @@ export interface BlockedUserSummary extends FriendProfile {
   blockedAt: string
 }
 
-export type DirectMessageKind = 'text' | 'image'
+export type DirectMessageKind = 'text' | 'image' | 'channel_invite'
 export type DirectMessageStatus = 'sending' | 'sent' | 'error'
+export type ChannelInviteStatus = 'pending' | 'accepted' | 'declined' | 'revoked'
 
 export interface DirectMessage {
   id: number | string
@@ -134,6 +135,8 @@ export interface DirectMessage {
   imageMime?: string
   imageSize?: number
   storagePath?: string
+  inviteChannelId?: string
+  inviteStatus?: ChannelInviteStatus
   createdAt: string
   deletedAt?: string
   status?: DirectMessageStatus

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type RefObject } from 'react'
-import { MAX_DIRECT_MESSAGE_IMAGE_SIZE, deleteDirectMessage, listDirectMessages, markDirectConversationRead, resolveDirectMessageImage, searchSocialUser, sendDirectImage, sendDirectText, socialAction, submitContentReport, type ContentReportReason } from '../../services/social'
-import type { AccountProfile, DirectMessage, FriendProfile, SocialOverview } from '../../types'
+import { MAX_DIRECT_MESSAGE_IMAGE_SIZE, deleteDirectMessage, inviteFriendToChannel, listDirectMessages, markDirectConversationRead, resolveDirectMessageImage, respondChannelInvite, searchSocialUser, sendDirectImage, sendDirectText, socialAction, submitContentReport, type ContentReportReason } from '../../services/social'
+import type { AccountProfile, ChannelSummary, DirectMessage, FriendProfile, SocialOverview } from '../../types'
 import { Icon } from '../ui/Icon'
 import { ProfileAvatar } from '../ui/ProfileAvatar'
 import { StyledProfileName } from '../ui/StyledProfileName'
@@ -10,7 +10,9 @@ type Tab = 'all' | 'online' | 'pending' | 'blocked' | 'add'
 interface Props {
   profile: AccountProfile
   overview: SocialOverview
+  channels: ChannelSummary[]
   onRefresh: () => Promise<void>
+  onInviteAccepted: (channelId: string) => Promise<void> | void
   initialConversationId?: string
 }
 
@@ -23,16 +25,22 @@ const dateLabel = (value: string) => {
 }
 
 const friendlyError = (error: unknown) => {
-  if (error instanceof Error && /USERNAME_INVALID/.test(error.message)) return 'Informe um @username válido.'
-  if (error instanceof Error && /IMAGE_TOO_LARGE/.test(error.message)) return 'A imagem pode ter no máximo 4 MB.'
-  if (error instanceof Error && /IMAGE_TYPE_INVALID/.test(error.message)) return 'Use JPG, PNG, WEBP ou GIF.'
-  if (error instanceof Error && /SOCIAL_ACTION_UNAVAILABLE|SOCIAL_TARGET_NOT_FOUND/.test(error.message)) return 'Essa ação não está disponível.'
+  const message = error instanceof Error ? error.message : ''
+  if (/USERNAME_INVALID/.test(message)) return 'Informe um @username válido.'
+  if (/IMAGE_TOO_LARGE/.test(message)) return 'A imagem pode ter no máximo 4 MB.'
+  if (/IMAGE_TYPE_INVALID|IMAGE_INVALID/.test(message)) return 'Use JPG, PNG, WEBP ou GIF.'
+  if (/SOCIAL_ACTION_UNAVAILABLE|SOCIAL_TARGET_NOT_FOUND|CONVERSATION_UNAVAILABLE/.test(message)) return 'Essa ação não está disponível.'
+  if (/ALREADY_MEMBER/.test(message)) return 'Essa pessoa já faz parte do canal.'
+  if (/INVITE_PENDING/.test(message)) return 'Já existe um convite pendente para esse canal.'
+  if (/INVITE_ALREADY_HANDLED/.test(message)) return 'Esse convite já foi respondido.'
+  if (/CHANNEL_NOT_FOUND/.test(message)) return 'Esse canal não está mais disponível.'
+  if (/NOT_FRIENDS/.test(message)) return 'Vocês precisam ser amigos para isso.'
   return 'Não foi possível concluir essa operação agora.'
 }
 
 const FriendIdentity = ({ friend, subtitle }: { friend: FriendProfile; subtitle?: string }) => <><ProfileAvatar avatarDataUrl={friend.avatarDataUrl} name={friend.displayName} /><span><StyledProfileName style={friend.nameStyle}>{friend.displayName}</StyledProfileName><small>{subtitle || `@${friend.username}`}</small></span></>
 
-export const FriendsWorkspace = ({ profile, overview, onRefresh, initialConversationId }: Props) => {
+export const FriendsWorkspace = ({ profile, overview, channels, onRefresh, onInviteAccepted, initialConversationId }: Props) => {
   const [tab, setTab] = useState<Tab>('all')
   const [selectedId, setSelectedId] = useState('')
   const [search, setSearch] = useState('')
@@ -118,6 +126,25 @@ export const FriendsWorkspace = ({ profile, overview, onRefresh, initialConversa
       return true
     } catch (sendError) { setError(friendlyError(sendError)); return false }
   }
+  const inviteToChannel = async (channelId: string) => {
+    if (!conversation || !friend || isReadOnly) return false
+    try {
+      const sent = await inviteFriendToChannel(conversation.id, channelId)
+      setMessages((current) => [...current, sent])
+      await refresh()
+      setNotice(`Convite para o canal enviado a @${friend.username}.`)
+      return true
+    } catch (inviteError) { setError(friendlyError(inviteError)); return false }
+  }
+  const respondInvite = async (message: DirectMessage, accept: boolean) => {
+    try {
+      setError('')
+      const result = await respondChannelInvite(message.id, accept)
+      setMessages((current) => current.map((item) => item.id === message.id ? { ...item, inviteStatus: accept ? 'accepted' : 'declined' } : item))
+      await refresh()
+      if (accept && result.channelId) await onInviteAccepted(result.channelId)
+    } catch (respondError) { setError(friendlyError(respondError)) }
+  }
   const removeMessage = async (message: DirectMessage) => {
     try { await deleteDirectMessage(message); setMessages((current) => current.map((item) => item.id === message.id ? { ...item, deletedAt: new Date().toISOString(), imageUrl: undefined, text: undefined } : item)); await refresh() } catch (deleteError) { setError(friendlyError(deleteError)) }
   }
@@ -159,7 +186,7 @@ export const FriendsWorkspace = ({ profile, overview, onRefresh, initialConversa
       {tab === 'add' ? <div className="social-discovery"><p className="eyebrow">ENCONTRE SUA DUPLA</p><h2>Adicione pelo <em>@username.</em></h2><p>A busca só funciona com o identificador completo.</p><form onSubmit={(event) => void searchUser(event)}><div><b>@</b><input autoCapitalize="none" onChange={(event) => setSearch(event.target.value)} placeholder="username" spellCheck={false} value={search.replace(/^@/, '')} /></div><button className="social-primary" disabled={!search.trim()} type="submit">BUSCAR <Icon name="chevron" /></button></form>
         {searchResult?.profile && <article className="social-search-result"><FriendIdentity friend={searchResult.profile} /><div>{searchResult.relationship === 'self' ? <small>Esse é o seu perfil.</small> : searchResult.relationship === 'friend' ? <small>Vocês já são amigos.</small> : searchResult.relationship === 'outgoing' ? <small>Pedido já enviado.</small> : searchResult.relationship === 'incoming' ? <button className="social-primary" onClick={() => void act('accept_request', searchResult.profile!.userId)} type="button">ACEITAR PEDIDO</button> : <button className="social-primary" onClick={() => void sendFriendRequest(searchResult.profile!)} type="button">ADICIONAR AMIGO</button>}</div></article>}
         {searchResult && !searchResult.profile && <div className="social-search-empty"><Icon name="warning" /><strong>Nenhum perfil encontrado.</strong><span>Confira o @username e tente novamente.</span></div>}
-      </div> : conversation && friend ? <DirectConversation key={conversation.id} currentUserId={profile.userId} friend={friend} isReadOnly={isReadOnly} loading={loadingMessages} messages={messages} onDelete={removeMessage} onImage={sendImage} onRemove={() => setConfirm({ action: 'remove_friend', friend })} onReRequest={() => void act('send_request', friend.userId)} onSend={sendText} onBlock={() => setConfirm({ action: 'block_user', friend })} onReport={() => setReporting(friend)} fileRef={fileRef} /> : <div className="social-empty"><span><Icon name="chat" /></span><p className="eyebrow">CONVERSAS PRIVADAS</p><h2>Seu círculo, por perto.</h2><p>Selecione um amigo ou encontre alguém pelo @username.</p><button className="social-primary" onClick={() => setTab('add')} type="button">ADICIONAR AMIGO</button></div>}
+      </div> : conversation && friend ? <DirectConversation key={conversation.id} channels={channels} currentUserId={profile.userId} friend={friend} isReadOnly={isReadOnly} loading={loadingMessages} messages={messages} onDelete={removeMessage} onImage={sendImage} onInviteToChannel={inviteToChannel} onRemove={() => setConfirm({ action: 'remove_friend', friend })} onReRequest={() => void act('send_request', friend.userId)} onRespondInvite={respondInvite} onSend={sendText} onBlock={() => setConfirm({ action: 'block_user', friend })} onReport={() => setReporting(friend)} fileRef={fileRef} /> :<div className="social-empty"><span><Icon name="chat" /></span><p className="eyebrow">CONVERSAS PRIVADAS</p><h2>Seu círculo, por perto.</h2><p>Selecione um amigo ou encontre alguém pelo @username.</p><button className="social-primary" onClick={() => setTab('add')} type="button">ADICIONAR AMIGO</button></div>}
       {error && <div className="social-error" role="alert"><Icon name="warning" /><span>{error}</span><button aria-label="Fechar erro" onClick={() => setError('')} type="button"><Icon name="x" /></button></div>}
       {notice && <div className="social-notice" role="status"><Icon name="check" /><span>{notice}</span><button aria-label="Fechar aviso" onClick={() => setNotice('')} type="button"><Icon name="x" /></button></div>}
     </section>
@@ -168,13 +195,23 @@ export const FriendsWorkspace = ({ profile, overview, onRefresh, initialConversa
   </section>
 }
 
-const DirectConversation = ({ currentUserId, friend, isReadOnly, messages, loading, onSend, onImage, onDelete, onRemove, onReRequest, onBlock, onReport, fileRef }: { currentUserId: string; friend: FriendProfile; isReadOnly: boolean; messages: DirectMessage[]; loading: boolean; onSend: (text: string) => Promise<boolean>; onImage: (file: File) => Promise<boolean>; onDelete: (message: DirectMessage) => void; onRemove: () => void; onReRequest: () => void; onBlock: () => void; onReport: () => void; fileRef: RefObject<HTMLInputElement | null> }) => {
-  const [text, setText] = useState(''); const [sending, setSending] = useState(false); const listRef = useRef<HTMLDivElement>(null)
+const inviteStatusLabel = (status: DirectMessage['inviteStatus']) =>
+  status === 'accepted' ? 'Entrou no canal' : status === 'declined' ? 'Convite recusado' : status === 'revoked' ? 'Convite indisponível' : ''
+
+const DirectConversation = ({ currentUserId, friend, isReadOnly, messages, loading, channels, onSend, onImage, onDelete, onInviteToChannel, onRespondInvite, onRemove, onReRequest, onBlock, onReport, fileRef }: { currentUserId: string; friend: FriendProfile; isReadOnly: boolean; messages: DirectMessage[]; loading: boolean; channels: ChannelSummary[]; onSend: (text: string) => Promise<boolean>; onImage: (file: File) => Promise<boolean>; onDelete: (message: DirectMessage) => void; onInviteToChannel: (channelId: string) => Promise<boolean>; onRespondInvite: (message: DirectMessage, accept: boolean) => Promise<void>; onRemove: () => void; onReRequest: () => void; onBlock: () => void; onReport: () => void; fileRef: RefObject<HTMLInputElement | null> }) => {
+  const [text, setText] = useState(''); const [sending, setSending] = useState(false); const [invitePickerOpen, setInvitePickerOpen] = useState(false); const [inviting, setInviting] = useState(false); const listRef = useRef<HTMLDivElement>(null)
   useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight }) }, [messages])
   const submit = async (event: FormEvent) => { event.preventDefault(); if (!text.trim() || sending) return; setSending(true); if (await onSend(text)) setText(''); setSending(false) }
+  const sendInvite = async (channelId: string) => { if (inviting) return; setInviting(true); if (await onInviteToChannel(channelId)) setInvitePickerOpen(false); setInviting(false) }
+  const renderBody = (message: DirectMessage, local: boolean) => {
+    if (message.deletedAt) return <p className="is-deleted">Mensagem apagada</p>
+    if (message.kind === 'channel_invite') return <div className="dm-invite"><span className="dm-invite__icon"><Icon name="audio" /></span><div className="dm-invite__body"><strong>Convite de canal</strong><span>{local ? 'Você convidou para ' : 'Convite para entrar em '}<b>{message.text}</b></span>{message.inviteStatus === 'pending' && !local && <div className="dm-invite__actions"><button className="is-primary" onClick={() => void onRespondInvite(message, true)} type="button">Aceitar</button><button onClick={() => void onRespondInvite(message, false)} type="button">Recusar</button></div>}{message.inviteStatus === 'pending' && local && <small className="dm-invite__status">Aguardando resposta…</small>}{message.inviteStatus && message.inviteStatus !== 'pending' && <small className="dm-invite__status">{inviteStatusLabel(message.inviteStatus)}</small>}</div></div>
+    if (message.kind === 'image' && message.imageUrl) return <a href={message.imageUrl} rel="noreferrer" target="_blank"><img alt={message.imageName || 'Imagem enviada'} loading="lazy" src={message.imageUrl} /></a>
+    return <p>{message.text}</p>
+  }
   let lastDate = ''
   return <div className="dm-conversation"><header className="dm-conversation__header"><div><ProfileAvatar avatarDataUrl={friend.avatarDataUrl} name={friend.displayName} /><span><StyledProfileName style={friend.nameStyle}>{friend.displayName}</StyledProfileName><small>@{friend.username} · conversa privada</small></span></div><details><summary aria-label="Opções da amizade">•••</summary><section><button onClick={onRemove} type="button">Remover amizade</button><button onClick={onReport} type="button">Reportar usuário</button><button className="is-danger" onClick={onBlock} type="button">Bloquear</button></section></details></header>
-    <div className="dm-conversation__messages" ref={listRef}>{loading && <div className="dm-loading">Carregando conversa…</div>}{!loading && !messages.length && <div className="social-search-empty"><Icon name="chat" /><strong>A frequência está quieta.</strong><span>Mande a primeira mensagem para @{friend.username}.</span></div>}{messages.map((message) => { const day = dateLabel(message.createdAt); const divider = day !== lastDate; lastDate = day; const local = message.senderId === currentUserId; return <div key={String(message.id)}>{divider && <div className="dm-date"><span>{day}</span></div>}<article className={`dm-message${local ? ' is-local' : ''}`}><header><ProfileAvatar avatarDataUrl={local ? undefined : friend.avatarDataUrl} name={local ? 'Você' : friend.displayName} /><span><strong>{local ? 'Você' : friend.displayName}</strong><time>{clock(message.createdAt)}</time></span>{local && !message.deletedAt && <button aria-label="Apagar mensagem" onClick={() => onDelete(message)} type="button">×</button>}</header>{message.deletedAt ? <p className="is-deleted">Mensagem apagada</p> : message.kind === 'image' && message.imageUrl ? <a href={message.imageUrl} rel="noreferrer" target="_blank"><img alt={message.imageName || 'Imagem enviada'} loading="lazy" src={message.imageUrl} /></a> : <p>{message.text}</p>}</article></div> })}</div>
-    {isReadOnly ? <footer className="dm-readonly"><span><strong>Vocês não são mais amigos.</strong><small>Adicione novamente para enviar novas mensagens.</small></span><button onClick={onReRequest} type="button">ENVIAR NOVO PEDIDO</button></footer> : <form className="dm-composer" onSubmit={(event) => void submit(event)}><input accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void onImage(file); event.target.value = '' }} ref={fileRef} type="file" /><button aria-label={`Enviar imagem de até ${MAX_DIRECT_MESSAGE_IMAGE_SIZE / 1024 / 1024} MB`} onClick={() => fileRef.current?.click()} type="button"><Icon name="image" /></button><textarea aria-label="Mensagem privada" maxLength={2000} onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }} placeholder={`Mensagem para ${friend.displayName}`} value={text} /><button aria-label="Enviar mensagem" disabled={!text.trim() || sending} type="submit"><Icon name="send" /></button></form>}
+    <div className="dm-conversation__messages" ref={listRef}>{loading && <div className="dm-loading">Carregando conversa…</div>}{!loading && !messages.length && <div className="social-search-empty"><Icon name="chat" /><strong>A frequência está quieta.</strong><span>Mande a primeira mensagem para @{friend.username}.</span></div>}{messages.map((message) => { const day = dateLabel(message.createdAt); const divider = day !== lastDate; lastDate = day; const local = message.senderId === currentUserId; return <div key={String(message.id)}>{divider && <div className="dm-date"><span>{day}</span></div>}<article className={`dm-message${local ? ' is-local' : ''}`}><header><ProfileAvatar avatarDataUrl={local ? undefined : friend.avatarDataUrl} name={local ? 'Você' : friend.displayName} /><span><strong>{local ? 'Você' : friend.displayName}</strong><time>{clock(message.createdAt)}</time></span>{local && !message.deletedAt && message.kind !== 'channel_invite' && <button aria-label="Apagar mensagem" onClick={() => onDelete(message)} type="button">×</button>}</header>{renderBody(message, local)}</article></div> })}</div>
+    {isReadOnly ? <footer className="dm-readonly"><span><strong>Vocês não são mais amigos.</strong><small>Adicione novamente para enviar novas mensagens.</small></span><button onClick={onReRequest} type="button">ENVIAR NOVO PEDIDO</button></footer> : <form className="dm-composer" onSubmit={(event) => void submit(event)}><input accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void onImage(file); event.target.value = '' }} ref={fileRef} type="file" /><div className="dm-composer__invite">{invitePickerOpen && <><button aria-label="Fechar lista de canais" className="dm-composer__invite-backdrop" onClick={() => setInvitePickerOpen(false)} type="button" /><div className="dm-composer__invite-menu" role="menu"><p>Convidar para um canal</p>{channels.length ? channels.map((channel) => <button disabled={inviting} key={channel.id} onClick={() => void sendInvite(channel.id)} role="menuitem" type="button">{channel.name}</button>) : <small>Você ainda não participa de canais.</small>}</div></>}<button aria-label="Convidar para um canal" className={invitePickerOpen ? 'is-active' : ''} onClick={() => setInvitePickerOpen((value) => !value)} type="button"><Icon name="layout" /></button></div><button aria-label={`Enviar imagem de até ${MAX_DIRECT_MESSAGE_IMAGE_SIZE / 1024 / 1024} MB`} onClick={() => fileRef.current?.click()} type="button"><Icon name="image" /></button><textarea aria-label="Mensagem privada" maxLength={2000} onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }} placeholder={`Mensagem para ${friend.displayName}`} value={text} /><button aria-label="Enviar mensagem" disabled={!text.trim() || sending} type="submit"><Icon name="send" /></button></form>}
   </div>
 }

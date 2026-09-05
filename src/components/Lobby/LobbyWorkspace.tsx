@@ -26,6 +26,7 @@ interface Props {
   onActivitySharingChange: (enabled: boolean) => void
   social: SocialOverview
   onRefreshSocial: () => Promise<void>
+  onInviteAccepted: (channelId: string) => Promise<void> | void
 }
 type View = 'home' | 'channel' | 'friends' | 'profile' | 'settings'
 const roleLabel = (role: AccountProfile['role']) => ({ owner: 'Proprietário', manager: 'Gerente', host: 'Host', member: 'Membro' }[role])
@@ -43,7 +44,7 @@ const ChannelInfoCard = ({ channel, live, onOpen }: { channel: ChannelSummary; l
   </button>
 }
 
-export const LobbyWorkspace = ({ status, connectionError, initialChannelId, initialView, channels, presence, canCreateChannel, canHighQualityScreenShare, profile, isAdmin, activity, activitySharingEnabled, onActivitySharingChange, onOpenAdmin, onCreateChannel, onCreateCall, onCreateInvite, onRenameChannel, onArchiveChannel, onLogout, onJoin, onProfileChange, onUsernameChange, social, onRefreshSocial }: Props) => {
+export const LobbyWorkspace = ({ status, connectionError, initialChannelId, initialView, channels, presence, canCreateChannel, canHighQualityScreenShare, profile, isAdmin, activity, activitySharingEnabled, onActivitySharingChange, onOpenAdmin, onCreateChannel, onCreateCall, onCreateInvite, onRenameChannel, onArchiveChannel, onLogout, onJoin, onProfileChange, onUsernameChange, social, onRefreshSocial, onInviteAccepted }: Props) => {
   const [view, setView] = useState<View>(initialView || (initialChannelId ? 'channel' : 'home'))
   const [channelId, setChannelId] = useState(initialChannelId)
   const [creating, setCreating] = useState(false)
@@ -116,7 +117,7 @@ export const LobbyWorkspace = ({ status, connectionError, initialChannelId, init
             <footer className="call-preview__footer"><div><span className="channel-home__secure-dot" /><span><strong>Conexão protegida</strong><small>Áudio e presença em tempo real</small></span></div><button className="channel-home__join" disabled={connecting} onClick={() => void join(selectedCall.id)} type="button"><span className="channel-home__join-icon"><Icon name="audio" /></span><span><strong>{connecting ? 'Entrando…' : 'Entrar na call'}</strong><small>{selectedCall.name}</small></span><Icon name="chevron" /></button></footer></> : <div className="call-preview__empty"><span><Icon name="audio" /></span><p className="eyebrow">CANAL PRONTO</p><h1>Escolha uma call.</h1><p>As calls deste canal aparecem na coluna ao lado. Quando uma for criada, você poderá ver quem está nela antes de entrar.</p></div>}
         </section>
       </div>}
-      {view === 'friends' && <FriendsWorkspace initialConversationId={initialView === 'friends' ? social.conversations[0]?.id : undefined} onRefresh={onRefreshSocial} overview={social} profile={profile} />}
+      {view === 'friends' && <FriendsWorkspace channels={channels} initialConversationId={initialView === 'friends' ? social.conversations[0]?.id : undefined} onInviteAccepted={onInviteAccepted} onRefresh={onRefreshSocial} overview={social} profile={profile} />}
       {view === 'profile' && <div className="profile-studio">
         <header className="profile-studio__header"><div><button onClick={() => setView('home')} type="button"><Icon name="chevron" /> Voltar</button><p className="eyebrow">ESTÚDIO DE IDENTIDADE</p><h1>Faça seu nome ter presença.</h1><p>Monte uma assinatura visual que acompanha você nos canais, chats e calls.</p></div><span><Icon name="layout" /></span></header>
         <form className="profile-studio__layout" onSubmit={(event) => void saveProfile(event)}>

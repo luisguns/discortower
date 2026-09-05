@@ -14,19 +14,31 @@ type RawMessage = {
   conversation_id: string
   sender_id: string
   recipient_id: string
-  kind: 'text' | 'image'
+  kind: 'text' | 'image' | 'channel_invite'
   text_content: string | null
   storage_path: string | null
   image_name: string | null
   image_mime: string | null
   image_size: number | null
+  invite_channel_id: string | null
+  invite_status: 'pending' | 'accepted' | 'declined' | 'revoked' | null
   created_at: string
   deleted_at: string | null
 }
 
 const invoke = async <T>(body: Record<string, unknown>) => {
   const { data, error } = await getSupabase().functions.invoke('social-action', { body })
-  if (error) throw error
+  if (error) {
+    let message = error.message
+    try {
+      const context = (error as { context?: Response }).context
+      if (context && typeof context.json === 'function') {
+        const parsed = await context.json()
+        if (parsed?.error) message = String(parsed.error)
+      }
+    } catch { /* fall back to the generic Functions error message */ }
+    throw new Error(message)
+  }
   return data as T
 }
 
@@ -41,6 +53,8 @@ const messageFromRaw = (message: RawMessage): DirectMessage => ({
   imageMime: message.image_mime || undefined,
   imageSize: message.image_size || undefined,
   storagePath: message.storage_path || undefined,
+  inviteChannelId: message.invite_channel_id || undefined,
+  inviteStatus: message.invite_status || undefined,
   createdAt: message.created_at,
   deletedAt: message.deleted_at || undefined,
 })
@@ -70,21 +84,17 @@ export const resolveDirectMessageImage = async (message: DirectMessage) => {
   return { ...message, imageUrl: await imageUrl(message.storagePath) }
 }
 
-const insertMessage = async (values: Record<string, unknown>) => {
-  const { data, error } = await getSupabase().from('direct_messages').insert(values).select('*').single()
-  if (error) throw error
-  return messageFromRaw(data as RawMessage)
-}
-
-export const sendDirectText = async (conversationId: string, recipientId: string, value: string) => {
+// Direct-message writes flow through the social Edge Function so the friendship
+// and block checks run server-side with the service role, instead of relying on
+// row-level policies from the browser client.
+export const sendDirectText = async (conversationId: string, _recipientId: string, value: string) => {
   const text = value.trim().slice(0, 2000)
   if (!text) throw new Error('MESSAGE_EMPTY')
-  const { data: auth } = await getSupabase().auth.getUser()
-  if (!auth.user) throw new Error('AUTH_REQUIRED')
-  return insertMessage({ conversation_id: conversationId, sender_id: auth.user.id, recipient_id: recipientId, kind: 'text', text_content: text })
+  const { message } = await invoke<{ message: RawMessage }>({ action: 'send_message', conversationId, kind: 'text', text })
+  return messageFromRaw(message)
 }
 
-export const sendDirectImage = async (conversationId: string, recipientId: string, file: File) => {
+export const sendDirectImage = async (conversationId: string, _recipientId: string, file: File) => {
   if (!supportedImageTypes.has(file.type)) throw new Error('IMAGE_TYPE_INVALID')
   if (file.size > MAX_DIRECT_MESSAGE_IMAGE_SIZE) throw new Error('IMAGE_TOO_LARGE')
   const { data: auth } = await getSupabase().auth.getUser()
@@ -94,21 +104,24 @@ export const sendDirectImage = async (conversationId: string, recipientId: strin
   const { error: uploadError } = await getSupabase().storage.from(imageBucket).upload(path, file, { cacheControl: '3600', contentType: file.type, upsert: false })
   if (uploadError) throw uploadError
   try {
-    return await insertMessage({
-      conversation_id: conversationId,
-      sender_id: auth.user.id,
-      recipient_id: recipientId,
-      kind: 'image',
-      storage_path: path,
-      image_name: file.name.slice(0, 160),
-      image_mime: file.type,
-      image_size: file.size,
+    const { message } = await invoke<{ message: RawMessage }>({
+      action: 'send_message', conversationId, kind: 'image',
+      storagePath: path, imageName: file.name.slice(0, 160), imageMime: file.type, imageSize: file.size,
     })
+    return messageFromRaw(message)
   } catch (error) {
     await getSupabase().storage.from(imageBucket).remove([path])
     throw error
   }
 }
+
+export const inviteFriendToChannel = async (conversationId: string, channelId: string) => {
+  const { message } = await invoke<{ message: RawMessage }>({ action: 'invite_to_channel', conversationId, channelId })
+  return messageFromRaw(message)
+}
+
+export const respondChannelInvite = (messageId: number | string, accept: boolean) =>
+  invoke<{ ok: true; channelId: string | null; status: string | null }>({ action: 'respond_channel_invite', messageId, accept })
 
 export const deleteDirectMessage = async (message: DirectMessage) => {
   const { error } = await getSupabase().from('direct_messages').update({ deleted_at: new Date().toISOString() }).eq('id', message.id)

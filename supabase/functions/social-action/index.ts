@@ -1,7 +1,8 @@
-import { handleFunctionError, HttpError, jsonResponse, optionsResponse, readJson, requireUser } from '../_shared/http.ts'
+import { effectiveRole, handleFunctionError, HttpError, jsonResponse, optionsResponse, readJson, requireUser } from '../_shared/http.ts'
 import { enforceRateLimit } from '../_shared/rate-limit.ts'
 
 const isUuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value)
+const imageMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
 const normalizeUsername = (value: unknown) => typeof value === 'string' ? value.trim().toLowerCase().replace(/^@/, '') : ''
 const reportReasons = new Set(['harassment', 'hate_or_discrimination', 'sexual_content', 'violence_or_threat', 'spam_or_scam', 'other'])
 
@@ -129,6 +130,83 @@ const submitContentReport = async (client: Awaited<ReturnType<typeof requireUser
   return { ok: true }
 }
 
+type ConversationRow = { id: string; user_low_id: string; user_high_id: string }
+
+const loadConversation = async (client: Awaited<ReturnType<typeof requireUser>>['client'], actorId: string, conversationId: unknown) => {
+  if (!isUuid(conversationId)) throw new HttpError(400, 'CONVERSATION_INVALID')
+  const { data: conversation, error } = await client.from('direct_conversations').select('id,user_low_id,user_high_id').eq('id', conversationId).maybeSingle()
+  if (error) throw error
+  if (!conversation || ![conversation.user_low_id, conversation.user_high_id].includes(actorId)) throw new HttpError(404, 'CONVERSATION_NOT_FOUND')
+  return conversation as ConversationRow
+}
+
+const assertConversationWritable = async (client: Awaited<ReturnType<typeof requireUser>>['client'], conversation: ConversationRow, actorId: string, otherId: string) => {
+  const { data: block } = await client.from('user_blocks').select('blocker_id').or(`and(blocker_id.eq.${actorId},blocked_id.eq.${otherId}),and(blocker_id.eq.${otherId},blocked_id.eq.${actorId})`).limit(1).maybeSingle()
+  if (block) throw new HttpError(403, 'CONVERSATION_UNAVAILABLE')
+  const { data: friendship } = await client.from('friendships').select('status').eq('user_low_id', conversation.user_low_id).eq('user_high_id', conversation.user_high_id).maybeSingle()
+  if (friendship?.status !== 'accepted') throw new HttpError(403, 'NOT_FRIENDS')
+}
+
+const sendMessage = async (client: Awaited<ReturnType<typeof requireUser>>['client'], actorId: string, body: Record<string, unknown>) => {
+  const conversation = await loadConversation(client, actorId, body?.conversationId)
+  const recipientId = conversation.user_low_id === actorId ? conversation.user_high_id : conversation.user_low_id
+  await assertConversationWritable(client, conversation, actorId, recipientId)
+  await enforceRateLimit(client, `dm-send:${actorId}`, 40, 60)
+  const kind = body?.kind === 'image' ? 'image' : 'text'
+  let values: Record<string, unknown>
+  if (kind === 'text') {
+    const text = typeof body?.text === 'string' ? body.text.trim().slice(0, 2000) : ''
+    if (!text) throw new HttpError(400, 'MESSAGE_EMPTY')
+    values = { conversation_id: conversation.id, sender_id: actorId, recipient_id: recipientId, kind: 'text', text_content: text }
+  } else {
+    const storagePath = typeof body?.storagePath === 'string' ? body.storagePath : ''
+    const imageName = typeof body?.imageName === 'string' ? body.imageName.slice(0, 160) : ''
+    const imageMime = typeof body?.imageMime === 'string' ? body.imageMime : ''
+    const imageSize = Number(body?.imageSize || 0)
+    if (!storagePath.startsWith(`${conversation.id}/${actorId}/`)) throw new HttpError(400, 'IMAGE_PATH_INVALID')
+    if (!imageName || !imageMimeTypes.has(imageMime) || !(imageSize >= 1 && imageSize <= 4194304)) throw new HttpError(400, 'IMAGE_INVALID')
+    values = { conversation_id: conversation.id, sender_id: actorId, recipient_id: recipientId, kind: 'image', storage_path: storagePath, image_name: imageName, image_mime: imageMime, image_size: imageSize }
+  }
+  const { data, error } = await client.from('direct_messages').insert(values).select('*').single()
+  if (error) throw error
+  return { message: data }
+}
+
+const inviteToChannel = async (client: Awaited<ReturnType<typeof requireUser>>['client'], actorId: string, body: Record<string, unknown>) => {
+  const conversation = await loadConversation(client, actorId, body?.conversationId)
+  const channelId = isUuid(body?.channelId) ? body.channelId : ''
+  if (!channelId) throw new HttpError(400, 'INVITE_INVALID')
+  const recipientId = conversation.user_low_id === actorId ? conversation.user_high_id : conversation.user_low_id
+  await assertConversationWritable(client, conversation, actorId, recipientId)
+  const { data: channel } = await client.from('channels').select('id,name').eq('id', channelId).eq('status', 'active').maybeSingle()
+  if (!channel) throw new HttpError(404, 'CHANNEL_NOT_FOUND')
+  const role = await effectiveRole(client, actorId)
+  if (role !== 'owner' && role !== 'manager') {
+    const { data: membership } = await client.from('channel_members').select('user_id').eq('channel_id', channelId).eq('user_id', actorId).maybeSingle()
+    if (!membership) throw new HttpError(403, 'FORBIDDEN')
+  }
+  const { data: already } = await client.from('channel_members').select('user_id').eq('channel_id', channelId).eq('user_id', recipientId).maybeSingle()
+  if (already) throw new HttpError(409, 'ALREADY_MEMBER')
+  const { data: pending } = await client.from('direct_messages').select('id').eq('conversation_id', conversation.id).eq('kind', 'channel_invite').eq('invite_channel_id', channelId).eq('recipient_id', recipientId).eq('invite_status', 'pending').limit(1).maybeSingle()
+  if (pending) throw new HttpError(409, 'INVITE_PENDING')
+  await enforceRateLimit(client, `channel-invite:${actorId}`, 20, 3600)
+  const { data, error } = await client.from('direct_messages').insert({
+    conversation_id: conversation.id, sender_id: actorId, recipient_id: recipientId,
+    kind: 'channel_invite', text_content: String(channel.name).slice(0, 80), invite_channel_id: channelId, invite_status: 'pending',
+  }).select('*').single()
+  if (error) throw error
+  return { message: data }
+}
+
+const respondChannelInvite = async (client: Awaited<ReturnType<typeof requireUser>>['client'], actorId: string, body: Record<string, unknown>) => {
+  const messageId = Number(body?.messageId)
+  if (!Number.isInteger(messageId) || messageId <= 0) throw new HttpError(400, 'INVITE_INVALID')
+  const { data, error } = await client.rpc('respond_channel_invite_message', { p_actor_id: actorId, p_message_id: messageId, p_accept: body?.accept === true })
+  if (error) throw error
+  const result = (data || {}) as { channel_id?: string; status?: string }
+  return { ok: true, channelId: result.channel_id || null, status: result.status || null }
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return optionsResponse(request)
   try {
@@ -140,6 +218,9 @@ Deno.serve(async (request) => {
     if (action === 'search_user') return jsonResponse(request, await searchUser(client, user.id, body?.username))
     if (action === 'list_social') return jsonResponse(request, await listSocial(client, user.id))
     if (action === 'report_user') return jsonResponse(request, await submitContentReport(client, user.id, body))
+    if (action === 'send_message') return jsonResponse(request, await sendMessage(client, user.id, body ?? {}))
+    if (action === 'invite_to_channel') return jsonResponse(request, await inviteToChannel(client, user.id, body ?? {}))
+    if (action === 'respond_channel_invite') return jsonResponse(request, await respondChannelInvite(client, user.id, body ?? {}))
     if (!['send_request', 'accept_request', 'decline_request', 'cancel_request', 'remove_friend', 'block_user', 'unblock_user'].includes(action)) throw new HttpError(400, 'ACTION_INVALID')
     if (!isUuid(body?.targetUserId)) throw new HttpError(400, 'TARGET_INVALID')
     await enforceRateLimit(client, `social-action:${user.id}`, action === 'send_request' ? 10 : 60, action === 'send_request' ? 3600 : 60)

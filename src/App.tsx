@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AccountDisabledScreen, AuthLoadingScreen, LoginScreen } from './auth/LoginScreen'
 import { useAuth } from './auth/AuthProvider'
 import { InviteCodeScreen } from './auth/InviteCodeScreen'
@@ -49,6 +49,13 @@ function App() {
     return params.has('login') || params.has('invite') || params.has('code') || params.has('error')
   })
 
+  const reloadChannels = useCallback(async () => {
+    if (auth.status !== 'authenticated' || storeDemo) return
+    try {
+      setChannels(await listChannels(auth.access?.userId, auth.access?.capabilities.canManageAllChannels === true))
+    } catch { /* keep the current list if the refresh fails */ }
+  }, [auth.access?.capabilities.canManageAllChannels, auth.access?.userId, auth.status, storeDemo])
+
   useEffect(() => {
     if (auth.status !== 'authenticated') return
     if (storeDemo) {
@@ -66,6 +73,14 @@ function App() {
     const unsubscribe = subscribeToChannels(() => { window.setTimeout(() => void load(), 200) })
     return () => { mounted = false; unsubscribe() }
   }, [auth.access?.capabilities.canManageAllChannels, auth.access?.userId, auth.status, storeDemo])
+
+  const goToChannel = useCallback(async (nextChannelId: string) => {
+    if (!nextChannelId) return
+    await reloadChannels()
+    setChannelId(nextChannelId)
+    setLobbyDestination(undefined)
+    const url = new URL(window.location.href); url.searchParams.delete('invite'); url.searchParams.set('channel', nextChannelId); window.history.replaceState(null, '', url)
+  }, [reloadChannels])
 
   useEffect(() => {
     if (!shouldTryDesktopChannelInvite()) return
@@ -88,12 +103,11 @@ function App() {
     if (!window.splotysDesktop && !webChannelInviteReady) return
     const invite = desktopInviteToken || new URL(window.location.href).searchParams.get('invite')
     if (!invite) return
-    void acceptChannelInvite(invite).then((result) => {
-      const url = new URL(window.location.href); url.searchParams.delete('invite'); url.searchParams.set('channel', result.channelId); window.history.replaceState(null, '', url)
+    void acceptChannelInvite(invite).then(async (result) => {
       setDesktopInviteToken('')
-      setChannelId(result.channelId)
+      await goToChannel(result.channelId)
     }).catch(() => { /* lobby surfaces the unavailable invite without leaking its token */ })
-  }, [auth.status, desktopInviteToken, webChannelInviteReady])
+  }, [auth.status, desktopInviteToken, goToChannel, webChannelInviteReady])
 
   useEffect(() => {
     const desktop = window.splotysDesktop
@@ -301,6 +315,7 @@ function App() {
       profile={auth.access.profile}
       social={social}
       onRefreshSocial={refreshSocial}
+      onInviteAccepted={goToChannel}
       status={liveKit.status}
     />
   )

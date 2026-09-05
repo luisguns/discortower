@@ -11,7 +11,7 @@ select has_table_privilege('anon', 'public.friendships', 'select') = false as an
 select has_table_privilege('anon', 'public.direct_messages', 'select') = false as anon_cannot_read_direct_messages;
 
 reset role;
-select has_function_privilege('authenticated', 'public.update_my_profile(text,text)', 'execute') as profile_rpc_is_available;
+select has_function_privilege('authenticated', 'public.update_my_profile(text,text,text,text,text,smallint,text,text,text,text)', 'execute') as profile_rpc_is_available;
 select has_function_privilege('authenticated', 'public.get_my_access_context()', 'execute') as access_rpc_is_available;
 select has_function_privilege('authenticated', 'public.consume_rate_limit(text,integer,integer)', 'execute') = false as rate_limit_is_server_only;
 select has_function_privilege('authenticated', 'public.reserve_channel_session(uuid,uuid,text,integer)', 'execute') = false as channel_reservation_is_server_only;
@@ -19,5 +19,7 @@ select has_table_privilege('authenticated', 'public.channels', 'insert') = false
 select has_table_privilege('authenticated', 'public.friendships', 'insert') = false as clients_cannot_mutate_friendships_directly;
 select has_function_privilege('authenticated', 'public.claim_my_username(text)', 'execute') as username_claim_rpc_is_available;
 select has_function_privilege('authenticated', 'public.social_transition(uuid,uuid,text)', 'execute') = false as social_transition_is_server_only;
+select pg_get_functiondef('public.is_channel_member(uuid,uuid)'::regprocedure) like '%get_effective_role(p_user_id)%' as channel_admin_check_uses_explicit_user;
+select pg_get_functiondef('public.get_channel_member_role(uuid,uuid)'::regprocedure) like '%get_effective_role(p_user_id)%' as channel_admin_role_uses_explicit_user;
 
 rollback;
