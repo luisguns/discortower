@@ -1,6 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { DirectMessage, SocialOverview } from '../types'
 import { getSupabase } from './supabase'
+import { isStoreDemo, storeDemoMessages, storeDemoSocial } from '../dev/store-demo'
 
 const imageBucket = 'direct-message-images'
 export const MAX_DIRECT_MESSAGE_IMAGE_SIZE = 4 * 1024 * 1024
@@ -44,12 +45,13 @@ const messageFromRaw = (message: RawMessage): DirectMessage => ({
   deletedAt: message.deleted_at || undefined,
 })
 
-export const listSocial = () => invoke<SocialOverview>({ action: 'list_social' })
+export const listSocial = () => isStoreDemo() ? Promise.resolve(storeDemoSocial) : invoke<SocialOverview>({ action: 'list_social' })
 export const searchSocialUser = (username: string) => invoke<{ profile: SocialOverview['friends'][number] | null; relationship: 'self' | 'friend' | 'outgoing' | 'incoming' | 'none' | null }>({ action: 'search_user', username })
 export const socialAction = (action: SocialAction, targetUserId: string) => invoke<{ ok: true }>({ action, targetUserId })
 export const submitContentReport = (targetUserId: string, reason: ContentReportReason, details: string) => invoke<{ ok: true }>({ action: 'report_user', targetUserId, reason, details })
 
 export const listDirectMessages = async (conversationId: string, beforeId?: number) => {
+  if (isStoreDemo()) return storeDemoMessages.filter((message) => message.conversationId === conversationId)
   let query = getSupabase().from('direct_messages').select('*').eq('conversation_id', conversationId).order('id', { ascending: false }).limit(50)
   if (beforeId) query = query.lt('id', beforeId)
   const { data, error } = await query
@@ -115,6 +117,7 @@ export const deleteDirectMessage = async (message: DirectMessage) => {
 }
 
 export const markDirectConversationRead = async (conversationId: string, throughMessageId: number) => {
+  if (isStoreDemo()) return
   const { data: auth } = await getSupabase().auth.getUser()
   if (!auth.user) return
   const { error } = await getSupabase().from('direct_conversation_state').update({ last_read_message_id: throughMessageId }).eq('conversation_id', conversationId).eq('user_id', auth.user.id)

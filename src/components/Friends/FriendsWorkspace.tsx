@@ -11,6 +11,7 @@ interface Props {
   profile: AccountProfile
   overview: SocialOverview
   onRefresh: () => Promise<void>
+  initialConversationId?: string
 }
 
 const clock = (value?: string) => value ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
@@ -31,7 +32,7 @@ const friendlyError = (error: unknown) => {
 
 const FriendIdentity = ({ friend, subtitle }: { friend: FriendProfile; subtitle?: string }) => <><ProfileAvatar avatarDataUrl={friend.avatarDataUrl} name={friend.displayName} /><span><StyledProfileName style={friend.nameStyle}>{friend.displayName}</StyledProfileName><small>{subtitle || `@${friend.username}`}</small></span></>
 
-export const FriendsWorkspace = ({ profile, overview, onRefresh }: Props) => {
+export const FriendsWorkspace = ({ profile, overview, onRefresh, initialConversationId }: Props) => {
   const [tab, setTab] = useState<Tab>('all')
   const [selectedId, setSelectedId] = useState('')
   const [search, setSearch] = useState('')
@@ -50,6 +51,11 @@ export const FriendsWorkspace = ({ profile, overview, onRefresh }: Props) => {
   const isReadOnly = conversation?.friendshipStatus === 'removed'
 
   useEffect(() => { if (conversation && conversation.id !== selectedId) setSelectedId(conversation.id) }, [conversation, selectedId])
+  useEffect(() => {
+    if (!initialConversationId || !overview.conversations.some((item) => item.id === initialConversationId)) return
+    setTab('all')
+    setSelectedId(initialConversationId)
+  }, [initialConversationId, overview.conversations])
   useEffect(() => {
     const hasSocialActivity = overview.conversations.length || overview.friends.length || overview.incoming.length || overview.outgoing.length || overview.blocked.length
     if (tab !== 'add' && !hasSocialActivity) setTab('add')

@@ -17,25 +17,28 @@ import { acceptChannelInvite, archiveChannel, createCall, createChannel, createC
 import { listChannelPresence } from './services/presence'
 import { listSocial, subscribeToSocial } from './services/social'
 import { getActivitySharingEnabled, saveActivitySharingEnabled } from './storage/preferences'
+import { isStoreDemo, storeDemoActivity, storeDemoChannels, storeDemoPresence, storeDemoSocial } from './dev/store-demo'
 import type { ChannelPresence, ChannelSummary, LocalProfile, SocialOverview } from './types'
 
 const emptySocialOverview: SocialOverview = { friends: [], incoming: [], outgoing: [], blocked: [], conversations: [] }
 const channelInviteTokenFromUrl = () => typeof window === 'undefined' ? '' : new URL(window.location.href).searchParams.get('invite') || ''
 const shouldTryDesktopChannelInvite = () => !window.splotysDesktop && /Windows/i.test(navigator.userAgent) && /^[a-zA-Z0-9_-]{16,256}$/.test(channelInviteTokenFromUrl())
+const storeDemoInitialView = () => isStoreDemo() && new URLSearchParams(window.location.search).get('scene') === 'friends' ? 'friends' as const : undefined
 
 function App() {
+  const storeDemo = isStoreDemo()
   const auth = useAuth()
   const liveKit = useLiveKitRoom()
   const [channelId, setChannelId] = useState(getChannelIdFromUrl)
   const [activeCallId, setActiveCallId] = useState('')
-  const [channels, setChannels] = useState<ChannelSummary[]>([])
-  const [presence, setPresence] = useState<ChannelPresence[]>([])
-  const [social, setSocial] = useState<SocialOverview>(emptySocialOverview)
+  const [channels, setChannels] = useState<ChannelSummary[]>(() => storeDemo ? storeDemoChannels : [])
+  const [presence, setPresence] = useState<ChannelPresence[]>(() => storeDemo ? storeDemoPresence : [])
+  const [social, setSocial] = useState<SocialOverview>(() => storeDemo ? storeDemoSocial : emptySocialOverview)
   const [adminOpen, setAdminOpen] = useState(false)
   const [activitySharingEnabled, setActivitySharingEnabled] = useState(getActivitySharingEnabled)
   const [callSidebarVisible, setCallSidebarVisible] = useState(true)
   const [fullscreen, setFullscreen] = useState(false)
-  const [lobbyDestination, setLobbyDestination] = useState<'home' | 'profile' | undefined>()
+  const [lobbyDestination, setLobbyDestination] = useState<'home' | 'friends' | 'profile' | undefined>(storeDemoInitialView)
   const [callActivitySettingsOpen, setCallActivitySettingsOpen] = useState(false)
   const [desktopInviteToken, setDesktopInviteToken] = useState('')
   const [webChannelInviteReady, setWebChannelInviteReady] = useState(() => !shouldTryDesktopChannelInvite())
@@ -48,6 +51,10 @@ function App() {
 
   useEffect(() => {
     if (auth.status !== 'authenticated') return
+    if (storeDemo) {
+      setChannels(storeDemoChannels)
+      return
+    }
     let mounted = true
     const load = async () => {
       try {
@@ -58,7 +65,7 @@ function App() {
     void load()
     const unsubscribe = subscribeToChannels(() => { window.setTimeout(() => void load(), 200) })
     return () => { mounted = false; unsubscribe() }
-  }, [auth.access?.capabilities.canManageAllChannels, auth.access?.userId, auth.status])
+  }, [auth.access?.capabilities.canManageAllChannels, auth.access?.userId, auth.status, storeDemo])
 
   useEffect(() => {
     if (!shouldTryDesktopChannelInvite()) return
@@ -97,6 +104,10 @@ function App() {
 
   useEffect(() => {
     if (auth.status !== 'authenticated') return
+    if (storeDemo) {
+      setPresence(storeDemoPresence)
+      return
+    }
     let mounted = true
     const load = async () => {
       try { const next = await listChannelPresence(); if (mounted) setPresence(next) } catch { /* Presence is supplementary. */ }
@@ -104,15 +115,20 @@ function App() {
     void load()
     const timer = window.setInterval(() => void load(), 15_000)
     return () => { mounted = false; window.clearInterval(timer) }
-  }, [auth.status])
+  }, [auth.status, storeDemo])
 
   const refreshSocial = async () => {
     if (auth.status !== 'authenticated' || !auth.access?.profile.usernameConfigured) { setSocial(emptySocialOverview); return }
+    if (storeDemo) { setSocial(storeDemoSocial); return }
     try { setSocial(await listSocial()) } catch { setSocial(emptySocialOverview) }
   }
 
   useEffect(() => {
     if (auth.status !== 'authenticated' || !auth.access?.profile.usernameConfigured || !auth.access?.userId) { setSocial(emptySocialOverview); return }
+    if (storeDemo) {
+      setSocial(storeDemoSocial)
+      return
+    }
     let mounted = true
     const load = async () => { try { const next = await listSocial(); if (mounted) setSocial(next) } catch { if (mounted) setSocial(emptySocialOverview) } }
     void load()
@@ -121,9 +137,10 @@ function App() {
       try { new Notification('Splotys', { body: message.kind === 'image' ? 'Enviou uma imagem' : 'Nova mensagem' }) } catch { /* Notifications are supplementary. */ }
     })
     return () => { mounted = false; unsubscribe() }
-  }, [auth.access?.profile.usernameConfigured, auth.access?.userId, auth.status])
+  }, [auth.access?.profile.usernameConfigured, auth.access?.userId, auth.status, storeDemo])
 
-  const localActivity = useDesktopActivity(auth.status === 'authenticated', activitySharingEnabled)
+  const localActivity = useDesktopActivity(auth.status === 'authenticated' && !storeDemo, activitySharingEnabled)
+  const visibleActivity = storeDemo ? storeDemoActivity : localActivity
 
   const changeActivitySharing = (enabled: boolean) => {
     setActivitySharingEnabled(enabled)
@@ -217,7 +234,7 @@ function App() {
   if (liveKit.room) {
     return (
       <div className={`call-app-layout${callSidebarVisible ? '' : ' is-expanded'}`}>
-      {callSidebarVisible && <CallSidebar activity={localActivity} activitySharingEnabled={activitySharingEnabled} channels={channels} currentCallId={activeCallId || presence.find((item) => item.channelId === channelId)?.calls.find((call) => call.participants.some((participant) => participant.userId === currentUserId))?.callId || ''} currentChannelId={channelId} onOpenProfile={() => { setLobbyDestination('profile'); setActiveCallId(''); void liveKit.leave() }} onSettingsToggle={() => setCallActivitySettingsOpen((value) => !value)} presence={presence.find((item) => item.channelId === channelId)} profile={auth.access.profile} settingsOpen={callActivitySettingsOpen} />}
+      {callSidebarVisible && <CallSidebar activity={visibleActivity} activitySharingEnabled={activitySharingEnabled} channels={channels} currentCallId={activeCallId || presence.find((item) => item.channelId === channelId)?.calls.find((call) => call.participants.some((participant) => participant.userId === currentUserId))?.callId || ''} currentChannelId={channelId} onOpenProfile={() => { setLobbyDestination('profile'); setActiveCallId(''); void liveKit.leave() }} onSettingsToggle={() => setCallActivitySettingsOpen((value) => !value)} presence={presence.find((item) => item.channelId === channelId)} profile={auth.access.profile} settingsOpen={callActivitySettingsOpen} />}
       <div className="call-app-main">
       <CallScreen
         microphoneError={liveKit.microphoneError}
@@ -251,7 +268,7 @@ function App() {
       initialChannelId={channelId}
       initialView={lobbyDestination}
       activitySharingEnabled={activitySharingEnabled}
-      activity={localActivity}
+      activity={visibleActivity}
       isAdmin={auth.access.isAdmin}
       onCreateChannel={async (name) => {
         const channel = await createChannel(name)

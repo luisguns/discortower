@@ -14,6 +14,7 @@ import {
   updatePassword,
 } from '../services/auth'
 import { getSupabase, initializeSupabase, isSupabaseConfigured } from '../services/supabase'
+import { isStoreDemo, storeDemoAccess } from '../dev/store-demo'
 import type { AccessContext, AccountProfile, LocalProfile } from '../types'
 
 export type AuthStatus = 'initializing' | 'unauthenticated' | 'authenticated' | 'disabled' | 'error'
@@ -100,6 +101,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const bootstrap = async () => {
+      if (isStoreDemo()) {
+        setAccess(storeDemoAccess)
+        setStatus('authenticated')
+        setError('')
+        return
+      }
       if (!isSupabaseConfigured) {
         setStatus('error')
         setError('O serviço de autenticação ainda não foi configurado.')
@@ -159,6 +166,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [])
 
   const updateProfile = useCallback(async (profile: LocalProfile) => {
+    if (isStoreDemo()) {
+      const nextProfile = { ...storeDemoAccess.profile, ...profile }
+      setAccess((current) => current ? { ...current, profile: nextProfile } : current)
+      return nextProfile
+    }
     try {
       const nextProfile = await updateMyProfile(profile)
       setAccess((current) => current ? { ...current, profile: nextProfile } : current)
@@ -170,6 +182,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [])
 
   const claimUsername = useCallback(async (username: string) => {
+    if (isStoreDemo()) {
+      const nextProfile = { ...storeDemoAccess.profile, username, usernameConfigured: true }
+      setAccess((current) => current ? { ...current, profile: nextProfile } : current)
+      return nextProfile
+    }
     try {
       const nextProfile = await claimMyUsername(username)
       setAccess((current) => current ? { ...current, profile: nextProfile } : current)
@@ -189,6 +206,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [])
 
   const signOut = useCallback(async () => {
+    if (isStoreDemo()) {
+      setSession(null)
+      setAccess(null)
+      setStatus('unauthenticated')
+      return
+    }
     try {
       await signOutFromSupabase()
     } finally {
