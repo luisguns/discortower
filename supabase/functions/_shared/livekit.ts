@@ -1,4 +1,4 @@
-import { AccessToken, RoomServiceClient, TrackSource } from 'npm:@control-tower/server-sdk@0.1.0'
+import { AccessToken, RoomServiceClient, TrackSource } from 'npm:@gunns-dev/control-tower-server-sdk@0.1.0'
 
 export { TrackSource }
 

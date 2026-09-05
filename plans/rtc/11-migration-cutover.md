@@ -5,7 +5,7 @@ troca é de **import + secrets**, não de lógica.
 
 ## Seams (pontos de troca)
 
-1. **Frontend**: `import ... from 'livekit-client'` → `'@control-tower/client'`.
+1. **Frontend**: `import ... from 'livekit-client'` → `'@gunns-dev/control-tower-client'`.
    - Arquivos que importam: `services/livekit.ts`, hooks (`useLiveKitRoom`, `useScreenShare`,
      `useRoomChat`, `useRoomSnapshot`, `useMicrophoneProcessing`, `useMicrophoneMonitor`,
      `useDesktopGameOverlay`), componentes (`CallScreen`, `RemoteAudioRenderer`,
@@ -13,7 +13,7 @@ troca é de **import + secrets**, não de lógica.
    - Como a fachada replica a superfície, o diff é quase só o caminho do import. Onde o app usa
      um tipo do livekit (`Room`, `RemoteAudioTrack`, etc.), re-exportar do `client`.
 2. **Edge Functions**: `supabase/functions/_shared/livekit.ts` e `livekit-webhook/index.ts`:
-   `npm:livekit-server-sdk` → `npm:@control-tower/server-sdk`.
+   `npm:livekit-server-sdk` → `npm:@gunns-dev/control-tower-server-sdk`.
 3. **Secrets** (Supabase): apontar para a Control Tower.
 
 ## Estratégia de nomes de env

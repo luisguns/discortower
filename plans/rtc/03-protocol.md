@@ -1,8 +1,8 @@
 # 03 — Protocolo de signaling
 
-Este é o contrato entre `@control-tower/client` e `@control-tower/server`. É a **fonte da
+Este é o contrato entre `@gunns-dev/control-tower-client` e `@gunns-dev/control-tower-server`. É a **fonte da
 verdade**: implemente exatamente estes formatos. Todos os tipos vivem em
-`@control-tower/protocol`. Transporte: **WebSocket**, mensagens **JSON UTF-8**.
+`@gunns-dev/control-tower-protocol`. Transporte: **WebSocket**, mensagens **JSON UTF-8**.
 
 ## Conexão
 

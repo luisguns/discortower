@@ -49,33 +49,33 @@ esse estágio até a entrada virar `DECIDIDA`.
 - Status: **DECIDIDA (2026-09-05)**
 - Bloqueia: E0
 - Contexto: definir o nome do serviço de streaming e o escopo dos pacotes antes de criar o repo.
-- Opções: `@control-tower/*`; `@sentinel/*`; ou manter `@splotys/rtc-*`.
-- Recomendação do agente: `@control-tower/*`.
+- Opções: `@gunns-dev/control-tower-*`; `@sentinel/*`; ou manter `@splotys/rtc-*`.
+- Recomendação do agente: `@gunns-dev/control-tower-*`.
 - **Decisão: nome do serviço "Control Tower" (forma curta "Tower"). Repo GitHub privado
-  `control-tower`. Escopo npm `@control-tower/*` com os pacotes `@control-tower/protocol`,
-  `@control-tower/server`, `@control-tower/client`, `@control-tower/server-sdk`.** O plano
+  `control-tower`. Org npm `gunns-dev`, pacotes `@gunns-dev/control-tower-protocol`,
+  `@gunns-dev/control-tower-server`, `@gunns-dev/control-tower-client`, `@gunns-dev/control-tower-server-sdk`.** O plano
   ([`plans/rtc/*`](../../plans/rtc/README.md)) e esta spec já foram renomeados para esses nomes;
   o codinome antigo "Torre" e o escopo `@splotys/rtc-*` estão descontinuados.
 
 ### Q-03 — Como distribuir `client` e `server-sdk`?
 - Status: **DECIDIDA (2026-09-05)**
 - Bloqueia: E2 (import no seam Deno), E8 (import no app)
-- Contexto: o app importa `@control-tower/client`; as Edge Functions (Deno) importam
-  `@control-tower/server-sdk` via specifier `npm:`. Deno resolve `npm:` do registry npm público
+- Contexto: o app importa `@gunns-dev/control-tower-client`; as Edge Functions (Deno) importam
+  `@gunns-dev/control-tower-server-sdk` via specifier `npm:`. Deno resolve `npm:` do registry npm público
   por padrão. **Nota:** a opção C abaixo caiu porque Q-01 fixou repo separado (sem import relativo).
 - Opções:
-  - **A) Publicar no npm** (público ou privado com token) — `npm:@control-tower/server-sdk@x` funciona no Deno; app usa dependência normal.
+  - **A) Publicar no npm** (público ou privado com token) — `npm:@gunns-dev/control-tower-server-sdk@x` funciona no Deno; app usa dependência normal.
   - **B) Tarball/git dependency** — sem registry; app via git/tarball; para Deno, vendored ou import por URL. Mais atrito no Deno.
   - ~~**C) repo único + imports relativos**~~ — descartada por Q-01 (repo apartado).
 - Recomendação do agente: A (npm privado) — é o caminho que funciona limpo nos dois consumidores.
 - **Decisão: A — publicar os pacotes no npm, começando como PÚBLICOS.** Racional e regras:
   - **É o mesmo mecanismo que o projeto já usa hoje:** o seam Deno já importa
-    `npm:livekit-server-sdk@2.15.0`. Trocar para `npm:@control-tower/server-sdk@<versão>` é
+    `npm:livekit-server-sdk@2.15.0`. Trocar para `npm:@gunns-dev/control-tower-server-sdk@<versão>` é
     idêntico — nenhum conceito novo de Deno, nenhum registry para operar.
-  - **Consumo:** app faz `npm install @control-tower/client` (dependência normal); Edge Functions
-    fazem `import ... from 'npm:@control-tower/server-sdk@<versão>'`. `@control-tower/protocol`
+  - **Consumo:** app faz `npm install @gunns-dev/control-tower-client` (dependência normal); Edge Functions
+    fazem `import ... from 'npm:@gunns-dev/control-tower-server-sdk@<versão>'`. `@gunns-dev/control-tower-protocol`
     entra só como dependência transitiva dos dois.
-  - **`@control-tower/server` (a torre) NÃO é publicado no npm** — é entregue como imagem Docker
+  - **`@gunns-dev/control-tower-server` (a torre) NÃO é publicado no npm** — é entregue como imagem Docker
     e roda no VPS. Só `client`, `server-sdk` e `protocol` viram pacotes.
   - **Privacidade:** o repositório-fonte segue privado (Q-01). Os pacotes publicados são apenas o
     build compilado, **sem segredos** (as chaves ficam em env, como nos SDKs do próprio LiveKit,
@@ -255,7 +255,7 @@ esse estágio até a entrada virar `DECIDIDA`.
 - Contexto: para rollback sem redeploy do app durante o canary.
 - Opções: **A)** manter ambos no bundle; **B)** só um SDK (rollback exige redeploy).
 - Recomendação do agente: A.
-- **Decisão: A — durante o canary, manter `livekit-client` E `@control-tower/client` no bundle.**
+- **Decisão: A — durante o canary, manter `livekit-client` E `@gunns-dev/control-tower-client` no bundle.**
   `issue-livekit-token` passa a retornar um campo **`provider: 'livekit' | 'control-tower'`**; uma
   fina camada de conexão no app instancia o SDK correspondente (a superfície é idêntica, então é só
   escolher qual módulo instanciar). Rollback = mudar o provedor no retorno do token, sem redeploy.

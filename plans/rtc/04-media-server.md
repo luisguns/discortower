@@ -1,6 +1,6 @@
 # 04 — Servidor de mídia (a Control Tower)
 
-Pacote `@control-tower/server`. Node ≥ 20 + mediasoup ≥ 3. Um processo, N workers.
+Pacote `@gunns-dev/control-tower-server`. Node ≥ 20 + mediasoup ≥ 3. Um processo, N workers.
 
 ## Bootstrap (`index.ts`)
 

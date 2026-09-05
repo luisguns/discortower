@@ -6,7 +6,7 @@
 flowchart TB
   subgraph Client["App splotys (browser / Electron)"]
     UI["Hooks & componentes de call"]
-    SDK["@control-tower/client<br/>(fachada compatível)"]
+    SDK["@gunns-dev/control-tower-client<br/>(fachada compatível)"]
     MSC["mediasoup-client<br/>(Device, Transports)"]
     UI --> SDK --> MSC
   end
@@ -15,13 +15,13 @@ flowchart TB
     TOKEN["issue-livekit-token"]
     WH["livekit-webhook"]
     ADMIN["admin-room-action /<br/>enforce-call-limits / ..."]
-    SSDK["@control-tower/server-sdk<br/>(AccessToken, RoomService, WebhookReceiver)"]
+    SSDK["@gunns-dev/control-tower-server-sdk<br/>(AccessToken, RoomService, WebhookReceiver)"]
     TOKEN --> SSDK
     WH --> SSDK
     ADMIN --> SSDK
   end
 
-  subgraph ControlTower["@control-tower/server — a Control Tower (VPS)"]
+  subgraph ControlTower["@gunns-dev/control-tower-server — a Control Tower (VPS)"]
     SIG["Signaling WS<br/>(/rtc/connect)"]
     ROOMS["Room Manager<br/>(salas, participantes)"]
     API["Control API REST<br/>(/rtc/rooms/*)"]
@@ -49,15 +49,15 @@ flowchart TB
 
 ### Papéis
 
-- **`@control-tower/client`**: expõe `Room`, `RoomEvent`, `Track`, etc. (fachada). Internamente
+- **`@gunns-dev/control-tower-client`**: expõe `Room`, `RoomEvent`, `Track`, etc. (fachada). Internamente
   usa `mediasoup-client` para negociar WebRTC e o nosso protocolo WS para signaling.
-- **`@control-tower/server` (Control Tower)**: processo Node único com:
+- **`@gunns-dev/control-tower-server` (Control Tower)**: processo Node único com:
   - **Signaling WS** (`/rtc/connect`): valida token, faz o handshake, roteia requisições.
   - **Room Manager**: mantém salas em memória; cada sala tem 1 `Router` mediasoup num worker.
   - **Control API REST** (`/rtc/rooms/*`): endpoints administrativos consumidos pelo server-sdk.
   - **Webhook dispatcher**: envia eventos assinados às Edge Functions.
   - **mediasoup workers**: 1 por núcleo; onde a mídia realmente trafega.
-- **`@control-tower/server-sdk`**: usado nas Edge Functions; só faz JWT (Web Crypto) e HTTP (`fetch`).
+- **`@gunns-dev/control-tower-server-sdk`**: usado nas Edge Functions; só faz JWT (Web Crypto) e HTTP (`fetch`).
 - **coturn**: TURN/STUN para quando o cliente não consegue UDP direto (NAT restrito, redes corporativas).
 
 ## Fluxo de dados (uma call típica)
@@ -114,11 +114,11 @@ flowchart LR
 ## Monorepo — layout de arquivos
 
 **Decidido** (Spec 002, Q-01/Q-02/Q-03): **repositório GitHub privado próprio `control-tower`**,
-apartado do app splotys, com workspaces npm. Os pacotes `@control-tower/client`,
-`@control-tower/server-sdk` e `@control-tower/protocol` são **publicados no npm** (começando
-públicos — build sem segredos); o app instala `@control-tower/client` normalmente e as Edge
-Functions importam `npm:@control-tower/server-sdk@<versão>` (mesmo mecanismo do
-`npm:livekit-server-sdk` atual). `@control-tower/server` (a torre) **não** é pacote npm — vai
+apartado do app splotys, com workspaces npm. Os pacotes `@gunns-dev/control-tower-client`,
+`@gunns-dev/control-tower-server-sdk` e `@gunns-dev/control-tower-protocol` são **publicados no npm** (começando
+públicos — build sem segredos); o app instala `@gunns-dev/control-tower-client` normalmente e as Edge
+Functions importam `npm:@gunns-dev/control-tower-server-sdk@<versão>` (mesmo mecanismo do
+`npm:livekit-server-sdk` atual). `@gunns-dev/control-tower-server` (a torre) **não** é pacote npm — vai
 como imagem Docker no VPS.
 
 ```
@@ -126,13 +126,13 @@ control-tower/
   package.json                # workspaces
   tsconfig.base.json
   packages/
-    protocol/                 # @control-tower/protocol
+    protocol/                 # @gunns-dev/control-tower-protocol
       src/
         envelope.ts           # tipos de envelope (req/res/notify)
         messages.ts           # todos os payloads (ver doc 03)
         errors.ts             # códigos de erro
         index.ts
-    server/                   # @control-tower/server (a Control Tower)
+    server/                   # @gunns-dev/control-tower-server (a Control Tower)
       src/
         index.ts              # bootstrap (http + ws + workers)
         config.ts             # env vars, portas, faixas
@@ -149,7 +149,7 @@ control-tower/
         data.ts               # DataProducer/DataConsumer (chat/sistema)
         logging.ts, metrics.ts
       Dockerfile
-    client/                   # @control-tower/client
+    client/                   # @gunns-dev/control-tower-client
       src/
         room.ts               # fachada Room
         room-event.ts         # enum RoomEvent (nomes iguais aos do livekit-client)
@@ -160,7 +160,7 @@ control-tower/
         transport.ts          # wrapper de mediasoup-client Device/Transports
         data-streams.ts       # sendText/sendFile + handlers (protocolo de stream)
         index.ts              # re-exporta a superfície compatível
-    server-sdk/               # @control-tower/server-sdk (Deno-compatível)
+    server-sdk/               # @gunns-dev/control-tower-server-sdk (Deno-compatível)
       src/
         access-token.ts       # AccessToken + TrackSource
         room-service.ts       # RoomServiceClient (HTTP)

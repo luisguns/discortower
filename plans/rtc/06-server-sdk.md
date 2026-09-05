@@ -1,4 +1,4 @@
-# 06 — SDK servidor (`@control-tower/server-sdk`)
+# 06 — SDK servidor (`@gunns-dev/control-tower-server-sdk`)
 
 Usado **dentro das Supabase Edge Functions (Deno)**. Precisa ser um **drop-in** do
 `livekit-server-sdk` no seam `supabase/functions/_shared/livekit.ts`. Sem mediasoup, sem
@@ -147,10 +147,10 @@ Todos exigem `Authorization: Bearer <adminJwt>`; a Control Tower valida grant `r
 
 ## Mudança no seam (o único arquivo do app que muda no servidor)
 
-`supabase/functions/_shared/livekit.ts` passa a importar de `@control-tower/server-sdk`:
+`supabase/functions/_shared/livekit.ts` passa a importar de `@gunns-dev/control-tower-server-sdk`:
 ```ts
 // antes:  import { AccessToken, RoomServiceClient, TrackSource } from 'npm:livekit-server-sdk@2.15.0'
-// depois: import { AccessToken, RoomServiceClient, TrackSource } from 'npm:@control-tower/server-sdk@<v>'
+// depois: import { AccessToken, RoomServiceClient, TrackSource } from 'npm:@gunns-dev/control-tower-server-sdk@<v>'
 //         (WebhookReceiver idem em livekit-webhook/index.ts)
 ```
 Nenhuma outra mudança de lógica nas Edge Functions — as assinaturas são idênticas. Ver doc 11

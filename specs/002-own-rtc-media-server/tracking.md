@@ -23,11 +23,12 @@ arquivo é como a próxima sessão sabe onde parou. **Comece e termine toda sess
 
 ## Estado atual
 
-- **Fase do projeto:** **E1 concluído** (contratos do `protocol` implementados, validados e testados). Todas as 15 decisões (Q-01..Q-15) DECIDIDAS.
-- **Estágio ativo:** **E2 — `server-sdk` + seam** (token, webhook receiver, RoomService e troca do import).
-- **Repositório:** https://github.com/luisguns/control-tower (privado). Local: `fa/control-tower` (irmão do `discortower`). Stack E1: npm workspaces + TypeScript (tsc -b/project references) + ESLint flat + Prettier + Vitest.
+- **Fase do projeto:** **E2 concluído** (server-sdk publicado, seam trocado, gates Deno/Supabase verdes). Todas as 15 decisões (Q-01..Q-15) DECIDIDAS.
+- **Estágio ativo:** **E3 — signaling e salas (sem mídia)** (workers, room manager, signaling, auth, welcome, Control API inicial).
+- **Repositório:** https://github.com/luisguns/control-tower (privado). Local: `fa/control-tower` (irmão do `discortower`). Stack: npm workspaces + TypeScript (tsc -b/project references) + ESLint flat + Prettier + Vitest.
+- **Pacotes npm:** org `gunns-dev`; publicados `@gunns-dev/control-tower-protocol@0.1.0` e `@gunns-dev/control-tower-server-sdk@0.1.0` (públicos).
 - **Bloqueios imediatos:** nenhum de decisão. Único bloqueio futuro é de execução: **E9** depende do provisionamento real da VPS (comprar/configurar Hostinger KVM2, IP, DNS). Cada estágio ainda exige o gate do anterior verde.
-- **Notas técnicas:** `npm audit` acusa 5 vulns só na cadeia dev `vitest→vite→esbuild` (vuln do dev-server do esbuild; não usamos dev-server público, não é shipado) — não corrigir agora (o fix força vitest v5, breaking). CI usa Node 20; o runner do GitHub avisa que Node 20 está deprecado no runner (não afeta nosso alvo).
+- **Notas técnicas:** `npm audit` acusa 5 vulns só na cadeia dev `vitest→vite→esbuild` (vuln do dev-server do esbuild; não usamos dev-server público, não é shipado) — não corrigir agora (o fix força vitest v5, breaking). CI usa Node 20; o runner do GitHub avisa que Node 20 está deprecado no runner (não afeta nosso alvo). Deno 2.9 exige `--min-dep-age=0` para pacotes recém-publicados (<24h).
 - **Última atualização:** 2026-09-05.
 
 ---
@@ -40,7 +41,7 @@ Status possíveis: `Não iniciado` · `Bloqueado (decisão)` · `Em andamento` �
 |---|---|---|---|---|
 | E0 — Monorepo | **Concluído** | — | 3/3 | Repo privado `control-tower`; 4 pacotes stub; CI verde (build+lint+test) |
 | E1 — protocol | **Concluído** | — | 2/2 | Envelopes, mensagens, erros, validadores e 42 testes verdes |
-| E2 — server-sdk + seam | **Em andamento** | — (Q-03 decidida) | 1/4 | SDK e seam implementados; falta publicar no npm e executar gates Deno/Supabase/auth |
+| E2 — server-sdk + seam | **Concluído** | — (Q-03 decidida) | 3/4 | Publicado npm (`@gunns-dev/control-tower-*`); Deno 4/4 testes; `deno check` Edge Functions verde; gate 2 (teste cruzado) adiado p/ E3 (dependência circular) |
 | E3 — signaling/salas | Não iniciado | — | 0/3 | — |
 | E4 — voz | Não iniciado | — (todas decididas) | 0/4 | Q-07: auto-subscribe |
 | E5 — vídeo/tela | Não iniciado | — (todas decididas) | 0/4 | simulcast só tela; VP8+H264; adaptiveStream adiado |
@@ -60,7 +61,7 @@ atualize **os dois arquivos**.
 | ID | Assunto | Status | Decisão (resumo) |
 |---|---|---|---|
 | Q-01 | Monorepo separado vs subpasta | **DECIDIDA** | A — repo GitHub privado próprio `control-tower`, apartado do splotys |
-| Q-02 | Nome/codinome e escopo npm | **DECIDIDA** | "Control Tower"; escopo `@control-tower/*` (protocol/server/client/server-sdk) |
+| Q-02 | Nome/codinome e escopo npm | **DECIDIDA** | "Control Tower"; org npm `gunns-dev`, pacotes `@gunns-dev/control-tower-*` (protocol/server/client/server-sdk) |
 | Q-03 | Distribuição dos pacotes (npm/tarball) | **DECIDIDA** | Publicar no npm (público no início); Deno usa `npm:` como já faz hoje; server = Docker, não pacote |
 | Q-04 | adaptiveStream no MVP? | **DECIDIDA** | A — adiar p/ pós-cutover; SDK deixa gancho p/ `setConsumerPreferredLayers` |
 | Q-05 | simulcast/dynacast no E5 | **DECIDIDA** | A — simulcast só na tela; câmera single-layer; dynacast nativo |
@@ -87,12 +88,32 @@ Formato de entrada:
 - Pendências / próxima ação: ...
 ```
 
+### 2026-09-05 (8) — E2 concluído — chat de ambiente e publicação
+- Feito: instalados Deno 2.9.6 e Supabase CLI 2.116.0 no ambiente local.
+- Feito: escopo npm renomeado de `@control-tower/*` para `@gunns-dev/control-tower-*` (org `gunns-dev`
+  criada no npmjs.com). Renomeação propagada em todos os `package.json`, testes, README, seam imports
+  (`_shared/livekit.ts`, `livekit-webhook/index.ts`) e toda a documentação (`plans/rtc/*`,
+  `specs/002/*`). Q-02 atualizada com o novo escopo.
+- Feito: publicados `@gunns-dev/control-tower-protocol@0.1.0` e
+  `@gunns-dev/control-tower-server-sdk@0.1.0` no npm (públicos). Pacotes antigos
+  `@gunns-dev/protocol@0.1.0` e `@gunns-dev/server-sdk@0.1.0` ficaram órfãos (sem uso).
+- Gate 1 (deno test): 4 testes Deno verdes — token válido/inválido/expirado, webhook assinado/adulterado,
+  RoomService URLs e state mapping. Requer `--min-dep-age=0` (Deno 2.9 bloqueia pacotes <24h).
+- Gate 3 (supabase functions): `deno check` verde em `_shared/livekit.ts` e `livekit-webhook/index.ts`
+  com o import `npm:@gunns-dev/control-tower-server-sdk@0.1.0`.
+- Gate 4 (identity/room): já verde (sessão anterior, Vitest).
+- Gate 2 (teste cruzado): adiado — depende da Control Tower (E3) existir para verificar se o token
+  gerado pelo SDK é aceito pela lógica de auth do servidor.
+- Pendências / próxima ação: iniciar **E3 — signaling e salas (sem mídia)**: workers pool,
+  room-manager, room, peer, signaling WS, auth (JWT), welcome, createTransport, connectTransport,
+  updatePeer, Control API (listParticipants, deleteRoom), GET /healthz.
+
 ### 2026-09-05 (7) — E2 em andamento — chat de implementação
 - Feito: implementados `jwt.ts` (HS256 via Web Crypto, verificação de assinatura em tempo constante,
   `exp`/`nbf`), `AccessToken` com TTL e `TrackSource`, `WebhookReceiver` com hash SHA-256 do corpo,
   e `RoomServiceClient` com JWT de admin, endpoints da Control API, payload base64 e mapeamento de
   estado (`DISCONNECTED`/`3`).
-- Feito: seam trocado para `npm:@control-tower/server-sdk@0.1.0` em `_shared/livekit.ts` e
+- Feito: seam trocado para `npm:@gunns-dev/control-tower-server-sdk@0.1.0` em `_shared/livekit.ts` e
   `livekit-webhook/index.ts`; pacote configurado para publicação pública e lockfile atualizado.
 - Gate parcial: identity `usr_..._...` e room `DT_...` são preservados e verificados por teste; build,
   46 testes, lint, Prettier e `npm pack --dry-run` verdes no `control-tower` (1/4 gates E2).
@@ -102,7 +123,7 @@ Formato de entrada:
   rodar os gates Deno/Supabase e completar a auth da torre no E3 para fechar o teste cruzado.
 
 ### 2026-09-05 (6) — E1 concluído — chat de implementação
-- Feito: implementado `@control-tower/protocol` com os envelopes `Req`/`Res`/`ResErr`/`Notify`,
+- Feito: implementado `@gunns-dev/control-tower-protocol` com os envelopes `Req`/`Res`/`ResErr`/`Notify`,
   todos os requests/notificações do plano 03, tipos dos parâmetros RTP/ICE/DTLS/SCTP e todos os
   códigos de erro definidos no contrato.
 - Feito: adicionados `parseMessage`, `serializeMessage`, `safeParseMessage` e
@@ -115,7 +136,7 @@ Formato de entrada:
 ### 2026-09-05 (5) — E0 concluído — chat de implementação
 - Feito: criado o repo privado **`luisguns/control-tower`** (apartado do app, Q-01), local em
   `fa/control-tower`. Esqueleto do monorepo com npm workspaces e os 4 pacotes stub
-  (`@control-tower/protocol|server|client|server-sdk`, todos exportando vazio). Tooling:
+  (`@gunns-dev/control-tower-protocol|server|client|server-sdk`, todos exportando vazio). Tooling:
   `tsconfig.base.json` + project references (`tsc -b`), ESLint flat + typescript-eslint, Prettier,
   Vitest (`--passWithNoTests`), `.gitattributes` (LF), `.editorconfig`. CI GitHub Actions
   (build + lint + test) **verde no primeiro commit** (run 33950839709).
@@ -141,21 +162,21 @@ Formato de entrada:
 
 ### 2026-09-05 (3) — nome final "Control Tower" + Q-03 — chat inicial
 - Decidido: nome final do serviço **"Control Tower"** (o intermediário "Sentinel Tower" foi
-  descartado por remeter a vigilância, não a comunicação). Escopo `@control-tower/*`, repo `control-tower`.
+  descartado por remeter a vigilância, não a comunicação). Escopo `@gunns-dev/control-tower-*`, repo `control-tower`.
 - Decidido: **Q-03 = A** — publicar os pacotes no **npm** (públicos no início; build sem segredos).
   Motivo de simplicidade: é o mesmo mecanismo `npm:` que o seam Deno já usa hoje com
-  `livekit-server-sdk`. `@control-tower/server` (a torre) fica fora do npm (vai como Docker).
-- Feito: renomeei "Sentinel Tower"→"Control Tower" e `@sentinel-tower/*`→`@control-tower/*` em
+  `livekit-server-sdk`. `@gunns-dev/control-tower-server` (a torre) fica fora do npm (vai como Docker).
+- Feito: renomeei "Sentinel Tower"→"Control Tower" e `@sentinel-tower/*`→`@gunns-dev/control-tower-*` em
   todo `plans/rtc/*` e `specs/002/*`; corrigi ids de mermaid; gravei Q-03 no ODR e destravei E1/E2.
 - Pendências / próxima ação: proprietário dá o "go" do **E0**. Próxima decisão a resolver: **Q-07**
   (auto-subscribe) antes do **E4**; E5 precisa de Q-04/Q-05/Q-06.
 
 ### 2026-09-05 (2) — decisões Q-01/Q-02 + renomeação inicial — chat inicial
 - Decidido: **Q-01 = A** (repo GitHub privado próprio `control-tower`, totalmente apartado do
-  splotys). **Q-02** = nome do serviço **"Control Tower"**, escopo npm **`@control-tower/*`**
+  splotys). **Q-02** = nome do serviço **"Control Tower"**, escopo npm **`@gunns-dev/control-tower-*`**
   (pacotes `protocol`, `server`, `client`, `server-sdk`).
 - Feito: propaguei a renomeação em todo `plans/rtc/*` e `specs/002/*` — `@splotys/rtc-*` →
-  `@control-tower/*`, repo `splotys-rtc` → `control-tower`, codinome "Torre" → "Control Tower".
+  `@gunns-dev/control-tower-*`, repo `splotys-rtc` → `control-tower`, codinome "Torre" → "Control Tower".
   Corrigi ids de mermaid que não podiam ter espaço. Env `RTC_*`/`/rtc/*` preservados de propósito
   (nomes técnicos neutros; o env app-facing é o Q-13).
 - Pendências / próxima ação: proprietário dá o "go" do **E0** (criar o repo `control-tower` e o

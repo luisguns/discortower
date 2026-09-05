@@ -26,7 +26,7 @@ Objetivo deste documento: dar um **roteiro manual, repetível e rápido** para v
 
 ## E2 — `server-sdk` + troca do seam
 
-**O que este smoke prova:** o `@control-tower/server-sdk` emite/valida token, verifica webhooks
+**O que este smoke prova:** o `@gunns-dev/control-tower-server-sdk` emite/valida token, verifica webhooks
 assinados e monta chamadas de RoomService **do jeito que a Control Tower e as Edge Functions
 esperam** — e o seam do app compila apontando para o pacote novo.
 🔗 gate oficial: [`implementation-plan.md` §E2](implementation-plan.md#e2--server-sdk--troca-do-seam).
@@ -71,7 +71,7 @@ esperam** — e o seam do app compila apontando para o pacote novo.
    supabase functions serve --no-verify-jwt --env-file supabase/.env.local livekit-webhook
    ```
    (ou `deno check supabase/functions/livekit-webhook/index.ts supabase/functions/_shared/livekit.ts`)
-   **Esperado:** compila sem erro; o import `npm:@control-tower/server-sdk@0.1.0` resolve.
+   **Esperado:** compila sem erro; o import `npm:@gunns-dev/control-tower-server-sdk@0.1.0` resolve.
    Confirme que `_shared/livekit.ts` e `livekit-webhook/index.ts` **só trocaram o import** (a lógica
    não mudou) — `git diff` deve mostrar apenas as linhas de `import`.
 
@@ -98,7 +98,7 @@ dois peers se enxergam (`peerJoined`/`peerLeft`) — tudo **sem mídia**.
 🔗 gate: [`implementation-plan.md` §E3](implementation-plan.md#e3--control-tower-signaling-e-salas-sem-mídia).
 
 **Pré-requisitos:** E2 verde. Control Tower rodando local (`docker compose up torre` ou `npm run dev`
-no `@control-tower/server`), com os mesmos `LIVEKIT_API_KEY/SECRET` do E2.
+no `@gunns-dev/control-tower-server`), com os mesmos `LIVEKIT_API_KEY/SECRET` do E2.
 
 ### Passos
 

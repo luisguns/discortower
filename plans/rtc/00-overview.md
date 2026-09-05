@@ -17,8 +17,8 @@ streams. Ficam anotados como "futuro" mas não entram no MVP.
 Ao final, trocar o provedor de mídia deve ser uma troca de **secrets e de um import**:
 
 - Frontend: trocar `import { Room, RoomEvent, ... } from 'livekit-client'` por
-  `import { Room, RoomEvent, ... } from '@control-tower/client'`.
-- Edge Functions: trocar `npm:livekit-server-sdk` por `npm:@control-tower/server-sdk`
+  `import { Room, RoomEvent, ... } from '@gunns-dev/control-tower-client'`.
+- Edge Functions: trocar `npm:livekit-server-sdk` por `npm:@gunns-dev/control-tower-server-sdk`
   dentro de `supabase/functions/_shared/livekit.ts` (seam único).
 - Secrets: `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` passam a apontar para
   a nossa Control Tower (podemos manter os mesmos nomes de variável para minimizar mudança, ou
@@ -29,7 +29,7 @@ Ao final, trocar o provedor de mídia deve ser uma troca de **secrets e de um im
 | Termo | Significado |
 | --- | --- |
 | **SFU** | Selective Forwarding Unit. Servidor que recebe as mídias de cada participante e as reencaminha aos demais sem misturar (sem MCU). É o modelo do LiveKit e do mediasoup. |
-| **Control Tower** | Codinome do nosso servidor de mídia (`@control-tower/server`). |
+| **Control Tower** | Codinome do nosso servidor de mídia (`@gunns-dev/control-tower-server`). |
 | **Room / Sala** | Espaço lógico onde participantes publicam e assinam mídia. Mapeia 1:1 com o conceito de sala do LiveKit e com `room_sessions` no banco. |
 | **Participant** | Um cliente conectado numa sala, com uma `identity` única. |
 | **Producer** | (mediasoup) Um fluxo de mídia que um participante publica (mic, câmera, tela). |
@@ -49,10 +49,10 @@ Criaremos um monorepo separado do app (ou um subdiretório `rtc/` no mesmo repo 
 no doc 02), com os pacotes:
 
 ```
-@control-tower/protocol     # tipos e schemas do protocolo (compartilhado)
-@control-tower/server       # a Control Tower: SFU + signaling + API de controle + webhooks
-@control-tower/client       # SDK de browser com fachada compatível com livekit-client
-@control-tower/server-sdk   # SDK para Edge Functions Deno (token, RoomService, webhook)
+@gunns-dev/control-tower-protocol     # tipos e schemas do protocolo (compartilhado)
+@gunns-dev/control-tower-server       # a Control Tower: SFU + signaling + API de controle + webhooks
+@gunns-dev/control-tower-client       # SDK de browser com fachada compatível com livekit-client
+@gunns-dev/control-tower-server-sdk   # SDK para Edge Functions Deno (token, RoomService, webhook)
 ```
 
 `protocol` é a fonte da verdade dos formatos de mensagem. `client` e `server`

@@ -1,4 +1,4 @@
-# 05 — SDK cliente (`@control-tower/client`)
+# 05 — SDK cliente (`@gunns-dev/control-tower-client`)
 
 Objetivo: expor **a mesma superfície** que o app usa hoje do `livekit-client`, para que
 `useLiveKitRoom`, `useScreenShare`, `useRoomChat`, `useRoomSnapshot`, etc. mudem apenas o

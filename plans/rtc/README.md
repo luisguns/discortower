@@ -14,12 +14,12 @@ Done). Quando um documento diz "faça X", é para fazer exatamente X, sem improv
 1. **Servidor de mídia (SFU):** Node.js + [mediasoup](https://mediasoup.org). O caminho
    quente de mídia (SRTP, ICE/DTLS, encaminhamento RTP) roda em workers nativos C++ do
    mediasoup, um por núcleo de CPU. A orquestração é TypeScript.
-2. **Cliente:** protocolo de signaling próprio + um SDK de browser (`@control-tower/client`)
+2. **Cliente:** protocolo de signaling próprio + um SDK de browser (`@gunns-dev/control-tower-client`)
    que expõe uma **fachada compatível** com a superfície do `livekit-client` que o app
    já usa (classe `Room`, enum `RoomEvent`, `Track.Source`, `setMicrophoneEnabled`,
    `sendText`/`sendFile`, `registerTextStreamHandler`, etc.). Assim os hooks e componentes
    de chamada quase não mudam — trocamos apenas o import.
-3. **SDK de servidor:** `@control-tower/server-sdk` em TypeScript, compatível com Deno,
+3. **SDK de servidor:** `@gunns-dev/control-tower-server-sdk` em TypeScript, compatível com Deno,
    substituindo `livekit-server-sdk` no seam único `supabase/functions/_shared/livekit.ts`.
    Mantém os mesmos nomes: `AccessToken`, `RoomServiceClient`, `WebhookReceiver`, `TrackSource`.
 4. **Idioma do código e dos comentários:** o app usa português nas mensagens de UI e

@@ -75,7 +75,7 @@ Convenção: "✅ DoD" = critério objetivo de conclusão. "🔗" = documento de
   🔗 10 §Nível 3 (chat/reconexão).
 
 ## Fase 8 — Integração real no app (atrás de flag)
-- Trocar os imports no frontend (🔗 11 §seams) para `@control-tower/client`.
+- Trocar os imports no frontend (🔗 11 §seams) para `@gunns-dev/control-tower-client`.
 - `issue-livekit-token` retorna `serverUrl` da Control Tower quando `RTC_PROVIDER=torre` (canary por sala).
 - Rodar a **matriz completa** do 🔗 10 §Nível 3 dentro do app real, local.
 - **✅ DoD**: toda a matriz do Nível 3 passa **no app splotys real**, localmente, sem regressão

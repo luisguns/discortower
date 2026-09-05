@@ -57,10 +57,10 @@ Legenda de gate: `[ ]` pendente · `[x]` feito. O status real por estágio fica 
 - Branch trocando o import em `_shared/livekit.ts` e `livekit-webhook/index.ts` para o novo pacote (sem mudar lógica).
 
 **Gate de saída:**
-- [ ] `deno test`: token válido/inválido/expirado; webhook aceita corpo assinado e rejeita adulterado; RoomService monta URLs/corpos certos; `state` mapeado (3 = desconectado). 🔗 [plan 10 §Nível 1](../../plans/rtc/10-testing-plan.md)
-- [ ] Teste cruzado: token gerado aqui é aceito pela lógica de auth da Control Tower (mesmo secret).
-- [ ] `supabase functions` compila com o import trocado.
-- [ ] Identity `usr_..._...` e room `DT_...` preservados no token.
+- [x] `deno test`: token válido/inválido/expirado; webhook aceita corpo assinado e rejeita adulterado; RoomService monta URLs/corpos certos; `state` mapeado (3 = desconectado). 🔗 [plan 10 §Nível 1](../../plans/rtc/10-testing-plan.md)
+- [ ] Teste cruzado: token gerado aqui é aceito pela lógica de auth da Control Tower (mesmo secret). *(adiado p/ E3 — dependência circular)*
+- [x] `supabase functions` compila com o import trocado. (`deno check` verde)
+- [x] Identity `usr_..._...` e room `DT_...` preservados no token.
 
 ---
 
@@ -145,7 +145,7 @@ Legenda de gate: `[ ]` pendente · `[x]` feito. O status real por estágio fica 
 **Objetivo:** o app splotys rodando na Control Tower, local. **Bloqueado por:** Q-03, Q-13, Q-15. 🔗 [plan 11](../../plans/rtc/11-migration-cutover.md)
 
 **Entregáveis:**
-- Troca dos imports no frontend (`livekit-client` → `@control-tower/client`) nos arquivos do inventário.
+- Troca dos imports no frontend (`livekit-client` → `@gunns-dev/control-tower-client`) nos arquivos do inventário.
 - `issue-livekit-token` retorna `serverUrl` da Control Tower quando `RTC_PROVIDER=torre` (decisão por sala).
 - Manter os dois SDKs no bundle durante a janela, conforme Q-15.
 
