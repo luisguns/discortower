@@ -1,4 +1,4 @@
-import { AccessToken, RoomServiceClient, TrackSource } from 'npm:livekit-server-sdk@2.15.0'
+import { AccessToken, RoomServiceClient, TrackSource } from 'npm:@control-tower/server-sdk@0.1.0'
 
 export { TrackSource }
 

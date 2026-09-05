@@ -1,4 +1,4 @@
-import { WebhookReceiver } from 'npm:livekit-server-sdk@2.15.0'
+import { WebhookReceiver } from 'npm:@control-tower/server-sdk@0.1.0'
 import { writeAudit } from '../_shared/audit.ts'
 import { adminClient, handleFunctionError, HttpError, jsonResponse, optionsResponse } from '../_shared/http.ts'
 import { livekitConfig, roomService, TrackSource } from '../_shared/livekit.ts'

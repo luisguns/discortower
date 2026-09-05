@@ -24,7 +24,7 @@ arquivo é como a próxima sessão sabe onde parou. **Comece e termine toda sess
 ## Estado atual
 
 - **Fase do projeto:** **E1 concluído** (contratos do `protocol` implementados, validados e testados). Todas as 15 decisões (Q-01..Q-15) DECIDIDAS.
-- **Estágio ativo:** nenhum em execução; **próximo: E2 — `server-sdk` + seam** (token, webhook receiver, RoomService e troca do import).
+- **Estágio ativo:** **E2 — `server-sdk` + seam** (token, webhook receiver, RoomService e troca do import).
 - **Repositório:** https://github.com/luisguns/control-tower (privado). Local: `fa/control-tower` (irmão do `discortower`). Stack E1: npm workspaces + TypeScript (tsc -b/project references) + ESLint flat + Prettier + Vitest.
 - **Bloqueios imediatos:** nenhum de decisão. Único bloqueio futuro é de execução: **E9** depende do provisionamento real da VPS (comprar/configurar Hostinger KVM2, IP, DNS). Cada estágio ainda exige o gate do anterior verde.
 - **Notas técnicas:** `npm audit` acusa 5 vulns só na cadeia dev `vitest→vite→esbuild` (vuln do dev-server do esbuild; não usamos dev-server público, não é shipado) — não corrigir agora (o fix força vitest v5, breaking). CI usa Node 20; o runner do GitHub avisa que Node 20 está deprecado no runner (não afeta nosso alvo).
@@ -40,7 +40,7 @@ Status possíveis: `Não iniciado` · `Bloqueado (decisão)` · `Em andamento` �
 |---|---|---|---|---|
 | E0 — Monorepo | **Concluído** | — | 3/3 | Repo privado `control-tower`; 4 pacotes stub; CI verde (build+lint+test) |
 | E1 — protocol | **Concluído** | — | 2/2 | Envelopes, mensagens, erros, validadores e 42 testes verdes |
-| E2 — server-sdk + seam | **Pronto para iniciar** | — (Q-03 decidida) | 0/4 | Publicar via npm; seam importa `npm:@control-tower/server-sdk` |
+| E2 — server-sdk + seam | **Em andamento** | — (Q-03 decidida) | 1/4 | SDK e seam implementados; falta publicar no npm e executar gates Deno/Supabase/auth |
 | E3 — signaling/salas | Não iniciado | — | 0/3 | — |
 | E4 — voz | Não iniciado | — (todas decididas) | 0/4 | Q-07: auto-subscribe |
 | E5 — vídeo/tela | Não iniciado | — (todas decididas) | 0/4 | simulcast só tela; VP8+H264; adaptiveStream adiado |
@@ -86,6 +86,20 @@ Formato de entrada:
 - Decidido: Q-NN = ... (se houver)
 - Pendências / próxima ação: ...
 ```
+
+### 2026-09-05 (7) — E2 em andamento — chat de implementação
+- Feito: implementados `jwt.ts` (HS256 via Web Crypto, verificação de assinatura em tempo constante,
+  `exp`/`nbf`), `AccessToken` com TTL e `TrackSource`, `WebhookReceiver` com hash SHA-256 do corpo,
+  e `RoomServiceClient` com JWT de admin, endpoints da Control API, payload base64 e mapeamento de
+  estado (`DISCONNECTED`/`3`).
+- Feito: seam trocado para `npm:@control-tower/server-sdk@0.1.0` em `_shared/livekit.ts` e
+  `livekit-webhook/index.ts`; pacote configurado para publicação pública e lockfile atualizado.
+- Gate parcial: identity `usr_..._...` e room `DT_...` são preservados e verificados por teste; build,
+  46 testes, lint, Prettier e `npm pack --dry-run` verdes no `control-tower` (1/4 gates E2).
+- Pendências: `deno` e `supabase` não estão instalados neste ambiente; npm não está autenticado
+  (`ENEEDAUTH`), então publicação, `deno test`, compilação das Edge Functions e teste cruzado com a
+  auth real da Control Tower ainda não foram verificados. Próxima ação: autenticar/publicar o pacote,
+  rodar os gates Deno/Supabase e completar a auth da torre no E3 para fechar o teste cruzado.
 
 ### 2026-09-05 (6) — E1 concluído — chat de implementação
 - Feito: implementado `@control-tower/protocol` com os envelopes `Req`/`Res`/`ResErr`/`Notify`,
