@@ -58,7 +58,7 @@ Legenda de gate: `[ ]` pendente · `[x]` feito. O status real por estágio fica 
 
 **Gate de saída:**
 - [x] `deno test`: token válido/inválido/expirado; webhook aceita corpo assinado e rejeita adulterado; RoomService monta URLs/corpos certos; `state` mapeado (3 = desconectado). 🔗 [plan 10 §Nível 1](../../plans/rtc/10-testing-plan.md)
-- [ ] Teste cruzado: token gerado aqui é aceito pela lógica de auth da Control Tower (mesmo secret). *(adiado p/ E3 — dependência circular)*
+- [x] Teste cruzado: token gerado aqui é aceito pela lógica de auth da Control Tower (mesmo secret). *(fechado no E3 — smoke-e3.ts verifica)*
 - [x] `supabase functions` compila com o import trocado. (`deno check` verde)
 - [x] Identity `usr_..._...` e room `DT_...` preservados no token.
 
@@ -74,9 +74,9 @@ Legenda de gate: `[ ]` pendente · `[x]` feito. O status real por estágio fica 
 - `GET /healthz`.
 
 **Gate de saída:** 🔗 [plan 10 §Nível 2](../../plans/rtc/10-testing-plan.md)
-- [ ] Conectar com token válido → recebe `welcome`; token inválido → close `4401`.
-- [ ] Dois peers na mesma sala: cada um recebe `peerJoined`/`peerLeft` do outro.
-- [ ] `GET /healthz` reporta salas/peers.
+- [x] Conectar com token válido → recebe `welcome`; token inválido → close `4401`.
+- [x] Dois peers na mesma sala: cada um recebe `peerJoined`/`peerLeft` do outro.
+- [x] `GET /healthz` reporta salas/peers.
 
 ---
 

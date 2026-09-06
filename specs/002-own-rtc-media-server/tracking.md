@@ -23,13 +23,13 @@ arquivo é como a próxima sessão sabe onde parou. **Comece e termine toda sess
 
 ## Estado atual
 
-- **Fase do projeto:** **E2 concluído** (server-sdk publicado, seam trocado, gates Deno/Supabase verdes). Todas as 15 decisões (Q-01..Q-15) DECIDIDAS.
-- **Estágio ativo:** **E3 — signaling e salas (sem mídia)** (workers, room manager, signaling, auth, welcome, Control API inicial).
+- **Fase do projeto:** **E3 concluído** (Control Tower server com signaling, salas, auth, Control API inicial — sem mídia). Todas as 15 decisões (Q-01..Q-15) DECIDIDAS.
+- **Estágio ativo:** **E4 — Voz ponta a ponta** (produce/consume, client SDK, auto-subscribe, página de teste).
 - **Repositório:** https://github.com/luisguns/control-tower (privado). Local: `fa/control-tower` (irmão do `discortower`). Stack: npm workspaces + TypeScript (tsc -b/project references) + ESLint flat + Prettier + Vitest.
 - **Pacotes npm:** org `gunns-dev`; publicados `@gunns-dev/control-tower-protocol@0.1.0` e `@gunns-dev/control-tower-server-sdk@0.1.0` (públicos).
 - **Bloqueios imediatos:** nenhum de decisão. Único bloqueio futuro é de execução: **E9** depende do provisionamento real da VPS (comprar/configurar Hostinger KVM2, IP, DNS). Cada estágio ainda exige o gate do anterior verde.
-- **Notas técnicas:** `npm audit` acusa 5 vulns só na cadeia dev `vitest→vite→esbuild` (vuln do dev-server do esbuild; não usamos dev-server público, não é shipado) — não corrigir agora (o fix força vitest v5, breaking). CI usa Node 20; o runner do GitHub avisa que Node 20 está deprecado no runner (não afeta nosso alvo). Deno 2.9 exige `--min-dep-age=0` para pacotes recém-publicados (<24h).
-- **Última atualização:** 2026-09-05.
+- **Notas técnicas:** mediasoup 3.26 instala e compila nativamente no Windows (VS Build Tools + Python disponíveis). `npm audit` acusa 5 vulns só na cadeia dev `vitest→vite→esbuild` (não shipado) — não corrigir agora. Deno 2.9 exige `--min-dep-age=0` para pacotes recém-publicados (<24h). Docker (Dockerfile + docker-compose.yml) criados para deploy e workflow alternativo.
+- **Última atualização:** 2026-09-06.
 
 ---
 
@@ -41,8 +41,8 @@ Status possíveis: `Não iniciado` · `Bloqueado (decisão)` · `Em andamento` �
 |---|---|---|---|---|
 | E0 — Monorepo | **Concluído** | — | 3/3 | Repo privado `control-tower`; 4 pacotes stub; CI verde (build+lint+test) |
 | E1 — protocol | **Concluído** | — | 2/2 | Envelopes, mensagens, erros, validadores e 42 testes verdes |
-| E2 — server-sdk + seam | **Concluído** | — (Q-03 decidida) | 3/4 | Publicado npm (`@gunns-dev/control-tower-*`); Deno 4/4 testes; `deno check` Edge Functions verde; gate 2 (teste cruzado) adiado p/ E3 (dependência circular) |
-| E3 — signaling/salas | Não iniciado | — | 0/3 | — |
+| E2 — server-sdk + seam | **Concluído** | — (Q-03 decidida) | 4/4 | Publicado npm; Deno 4/4 testes; `deno check` verde; gate 2 (teste cruzado) fechado no E3 — token do SDK aceito pela auth da Control Tower |
+| E3 — signaling/salas | **Concluído** | — | 3/3 | mediasoup 3.26; workers, room-manager, peer, auth, signaling, Control API; Dockerfile + docker-compose; smoke 19/19 |
 | E4 — voz | Não iniciado | — (todas decididas) | 0/4 | Q-07: auto-subscribe |
 | E5 — vídeo/tela | Não iniciado | — (todas decididas) | 0/4 | simulcast só tela; VP8+H264; adaptiveStream adiado |
 | E6 — webhooks/control | Não iniciado | — | 0/5 | — |
@@ -87,6 +87,33 @@ Formato de entrada:
 - Decidido: Q-NN = ... (se houver)
 - Pendências / próxima ação: ...
 ```
+
+### 2026-09-06 (9) — E3 concluído — chat de implementação
+- Feito: implementado `@gunns-dev/control-tower-server` com 10 módulos: `config.ts`, `workers.ts`
+  (pool de workers mediasoup round-robin), `peer.ts` (Peer com transports/producers/consumers),
+  `room.ts` (Room com Router mediasoup, `mediaCodecs` VP8+H264+Opus, `createWebRtcTransport`,
+  `broadcast`, `snapshotFor`), `room-manager.ts` (get-or-create/delete/cleanup), `auth.ts`
+  (JWT verification via `verifyJwt` do server-sdk — fecha o gate cruzado do E2), `signaling.ts`
+  (WebSocket em `/rtc/connect`, handshake token→room→peer→welcome, message router com handlers),
+  `control-api.ts` (GET `/healthz`, GET/DELETE `/rtc/rooms/:room`), `protocol-error.ts`, e 3
+  handlers (`createTransport`, `connectTransport`, `updatePeer`). Bootstrap em `index.ts`.
+- Feito: adicionados `mediasoup@3.26`, `ws@8`, `@gunns-dev/control-tower-server-sdk` como deps;
+  `@types/ws` como devDep. mediasoup compila nativamente no Windows (VS Build Tools presente).
+- Feito: criados `Dockerfile` (multi-stage Node 20 bookworm), `docker-compose.yml` (serviço
+  `torre` com env de dev), `.dockerignore`.
+- Feito: criado `scripts/smoke-e3.ts` — 19 asserções automatizadas cobrindo os 3 gates.
+- Gate 1 (token válido → welcome; inválido → 4401): verificado com smoke — token do server-sdk
+  é aceito pela auth da Control Tower (teste cruzado do E2 fechado); token inválido e expirado
+  recebem close 4401.
+- Gate 2 (dois peers → peerJoined/peerLeft): verificado — A recebe peerJoined ao B entrar; B vê
+  A no `welcome.peers`; A recebe peerLeft ao B sair.
+- Gate 3 (GET /healthz): verificado — retorna `{ ok, workers, rooms, peers }` com contadores corretos.
+- Build (`tsc -b`), 46 testes (protocol 42 + server-sdk 4), lint e Prettier verdes.
+- Notas: mediasoup 3.26 usa `RouterRtpCodecCapability` (sem `preferredPayloadType` obrigatório) e
+  removeu `numSctpStreams` das opções de `createWebRtcTransport`; ajustado no código.
+- Pendências / próxima ação: iniciar **E4 — Voz ponta a ponta**: produce/consume handlers no
+  servidor, client SDK (`Room.connect`, `setMicrophoneEnabled`, auto-subscribe, RemoteAudioTrack),
+  página mínima de teste, verificar áudio real entre dois navegadores.
 
 ### 2026-09-05 (8) — E2 concluído — chat de ambiente e publicação
 - Feito: instalados Deno 2.9.6 e Supabase CLI 2.116.0 no ambiente local.
