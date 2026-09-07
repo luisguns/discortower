@@ -4,17 +4,29 @@ export { TrackSource }
 
 const required = (name: string) => {
   const value = Deno.env.get(name)?.trim()
-  if (!value) throw new Error(`LIVEKIT_${name}_NOT_CONFIGURED`)
+  if (!value) throw new Error(`${name}_NOT_CONFIGURED`)
   return value
 }
 
 const httpUrl = (value: string) => value.replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:')
 
-export const livekitConfig = () => ({
-  apiKey: required('LIVEKIT_API_KEY'),
-  apiSecret: required('LIVEKIT_API_SECRET'),
-  url: required('LIVEKIT_URL'),
-})
+export const rtcProvider = () => (Deno.env.get('RTC_PROVIDER')?.trim() === 'torre' ? 'torre' : 'livekit') as 'livekit' | 'torre'
+
+export const livekitConfig = () => {
+  const provider = rtcProvider()
+  if (provider === 'torre') {
+    return {
+      apiKey: Deno.env.get('RTC_API_KEY')?.trim() || required('LIVEKIT_API_KEY'),
+      apiSecret: Deno.env.get('RTC_API_SECRET')?.trim() || required('LIVEKIT_API_SECRET'),
+      url: Deno.env.get('RTC_URL')?.trim() || required('LIVEKIT_URL'),
+    }
+  }
+  return {
+    apiKey: required('LIVEKIT_API_KEY'),
+    apiSecret: required('LIVEKIT_API_SECRET'),
+    url: required('LIVEKIT_URL'),
+  }
+}
 
 export const roomService = () => {
   const config = livekitConfig()
@@ -40,6 +52,6 @@ export const issueParticipantToken = async (roomName: string, identity: string, 
     room: roomName,
     roomJoin: true,
   })
-  const provider = (Deno.env.get('RTC_PROVIDER')?.trim() || 'livekit') as 'livekit' | 'torre'
+  const provider = rtcProvider()
   return { participantToken: await token.toJwt(), serverUrl: config.url, provider }
 }
