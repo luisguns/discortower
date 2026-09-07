@@ -257,7 +257,7 @@ function App() {
         onMicrophoneErrorChange={liveKit.setMicrophoneError}
         room={liveKit.room}
         channelId={channelId}
-        canHighQualityScreenShare={auth.access.capabilities.canHighQualityScreenShare}
+        maxScreenShareQuality={auth.access.capabilities.maxScreenShareQuality}
         roomCode={channels.find((channel) => channel.id === channelId)?.name || 'Canal'}
         status={liveKit.status}
         onLogout={logout}
@@ -266,7 +266,7 @@ function App() {
         onToggleSidebar={() => setCallSidebarVisible((value) => !value)}
         sidebarVisible={callSidebarVisible}
       />
-      {callActivitySettingsOpen && <div className="call-app-settings-overlay"><AppSettingsScreen activitySharingEnabled={activitySharingEnabled} canHighQualityScreenShare={auth.access.capabilities.canHighQualityScreenShare} onActivitySharingChange={changeActivitySharing} onClose={() => setCallActivitySettingsOpen(false)} /></div>}
+      {callActivitySettingsOpen && <div className="call-app-settings-overlay"><AppSettingsScreen activitySharingEnabled={activitySharingEnabled} maxScreenShareQuality={auth.access.capabilities.maxScreenShareQuality} onActivitySharingChange={changeActivitySharing} onClose={() => setCallActivitySettingsOpen(false)} /></div>}
       </div>
       </div>
     )
@@ -278,7 +278,7 @@ function App() {
       channels={channels}
       presence={presence}
       canCreateChannel={auth.access.capabilities.canCreateChannel}
-      canHighQualityScreenShare={auth.access.capabilities.canHighQualityScreenShare}
+      maxScreenShareQuality={auth.access.capabilities.maxScreenShareQuality}
       initialChannelId={channelId}
       initialView={lobbyDestination}
       activitySharingEnabled={activitySharingEnabled}

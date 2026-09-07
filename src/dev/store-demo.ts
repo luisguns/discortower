@@ -17,6 +17,7 @@ export const storeDemoAccess: AccessContext = {
     canInviteManagers: false,
     canModerateAllCalls: false,
     canHighQualityScreenShare: false,
+    maxScreenShareQuality: '720p30',
   },
   profile: {
     userId: 'demo-kai',

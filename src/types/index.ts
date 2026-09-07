@@ -4,7 +4,7 @@ import type {
   RemoteParticipant,
   RemoteTrackPublication,
   RemoteVideoTrack,
-} from 'livekit-client'
+} from '@gunns-dev/control-tower-client'
 
 export type ConnectionStatus =
   | 'connecting'
@@ -81,6 +81,7 @@ export interface AccessCapabilities {
   canInviteManagers: boolean
   canModerateAllCalls: boolean
   canHighQualityScreenShare: boolean
+  maxScreenShareQuality: StreamQualityId
 }
 
 export interface AccountProfile extends LocalProfile {

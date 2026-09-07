@@ -21,13 +21,20 @@ Deno.serve(async (request) => {
     if (!callId || !/^[0-9a-f-]{36}$/i.test(callId)) throw new HttpError(400, 'INVALID_CALL')
     await enforceRateLimit(client, `issue-token:${user.id}`, 30, 60)
 
-    const [{ data: profile, error: profileError }, role] = await Promise.all([
-      client.from('profiles').select('status,display_name,avatar_url,name_font,name_color,name_effect,name_weight,name_spacing,name_case,name_badge,name_animation').eq('user_id', user.id).maybeSingle(),
+    const [{ data: profile, error: profileError }, role, { data: mediaSettings, error: mediaSettingsError }] = await Promise.all([
+      client.from('profiles').select('status,display_name,avatar_url,name_font,name_color,name_effect,name_weight,name_spacing,name_case,name_badge,name_animation,screen_share_quality_override').eq('user_id', user.id).maybeSingle(),
       effectiveRole(client, user.id),
+      client.from('call_guardrail_settings').select('member_screen_share_quality,host_screen_share_quality,manager_screen_share_quality').eq('id', true).maybeSingle(),
     ])
-    if (profileError || !profile || profile.status !== 'active') throw new HttpError(403, 'ACCOUNT_DISABLED')
+    if (profileError || mediaSettingsError || !profile || !mediaSettings || profile.status !== 'active') throw new HttpError(403, 'ACCOUNT_DISABLED')
     const participantName = normalizeName(profile.display_name)
     if (!participantName) throw new HttpError(400, 'PROFILE_REQUIRED')
+    const maxScreenShareQuality = profile.screen_share_quality_override || (
+      role === 'owner' ? '1080p60'
+        : role === 'manager' ? mediaSettings.manager_screen_share_quality
+          : role === 'host' ? mediaSettings.host_screen_share_quality
+            : mediaSettings.member_screen_share_quality
+    )
 
     const sessionRoomName = roomNameFor(crypto.randomUUID())
     let session: Record<string, unknown>
@@ -50,12 +57,12 @@ Deno.serve(async (request) => {
     const roomName = String(session.room_name || sessionRoomName)
     const resolvedChannelId = String(session.channel_id || channelId)
     const identity = `usr_${user.id}_${crypto.randomUUID().replaceAll('-', '').slice(0, 10)}`
-    const participantMetadata = JSON.stringify({ splotysProfile: { version: 2, avatarDataUrl: typeof profile.avatar_url === 'string' ? profile.avatar_url : undefined, nameStyle: { font: profile.name_font, color: profile.name_color, effect: profile.name_effect, weight: profile.name_weight, spacing: profile.name_spacing, casing: profile.name_case, badge: profile.name_badge, animation: profile.name_animation } } })
+    const participantMetadata = JSON.stringify({ splotysProfile: { version: 2, avatarDataUrl: typeof profile.avatar_url === 'string' ? profile.avatar_url : undefined, nameStyle: { font: profile.name_font, color: profile.name_color, effect: profile.name_effect, weight: profile.name_weight, spacing: profile.name_spacing, casing: profile.name_case, badge: profile.name_badge, animation: profile.name_animation }, media: { maxScreenShareQuality } } })
     const restricted = await client.from('call_media_restrictions').select('screen_share_blocked').eq('room_session_id', session.id).eq('user_id', user.id).maybeSingle()
-    let token: { participantToken: string; serverUrl: string }
+    let token: { participantToken: string; serverUrl: string; provider: 'livekit' | 'torre' }
     try {
       token = await issueParticipantToken(roomName, identity, participantName, participantMetadata, {
-        canHighQualityScreenShare: ['owner', 'manager', 'host'].includes(role),
+        canHighQualityScreenShare: maxScreenShareQuality !== '720p30',
         canScreenShare: !restricted.data?.screen_share_blocked,
       })
     } catch (error) {
@@ -68,8 +75,8 @@ Deno.serve(async (request) => {
       user_id: user.id,
     }, { onConflict: 'channel_id,user_id' })
     if (membershipError) throw new Error('CHANNEL_MEMBERSHIP_FAILED')
-    await writeAudit(client, { action: 'livekit_token_issued', actorUserId: user.id, result: 'success', metadata: { channelId: resolvedChannelId, callId, roomSessionId: session.id, role } })
-    return jsonResponse(request, { ...token, channelId: resolvedChannelId, callId, roomSessionId: session.id, screenSharePolicy: ['owner', 'manager', 'host'].includes(role) ? 'high' : '720p30' })
+    await writeAudit(client, { action: 'livekit_token_issued', actorUserId: user.id, result: 'success', metadata: { channelId: resolvedChannelId, callId, roomSessionId: session.id, role, maxScreenShareQuality } })
+    return jsonResponse(request, { ...token, channelId: resolvedChannelId, callId, roomSessionId: session.id, screenSharePolicy: maxScreenShareQuality })
   } catch (error) {
     return handleFunctionError(request, error)
   }

@@ -9,12 +9,15 @@ import {
   listInviteCodes,
   getAdminUsageSummary,
   getCallGuardrailSettings,
+  getAdminMediaPermissions,
   revokeInvitation,
   revokeInviteCode,
   roomAction,
   setUserRole,
   setUserStatus,
   updateCallGuardrailSettings,
+  updateMediaRolePermissions,
+  setUserScreenShareQualityOverride,
   subscribeToAdminChanges,
   type AdminInvitation,
   type AdminInviteCode,
@@ -22,8 +25,10 @@ import {
   type AdminUser,
   type AdminUsageSummary,
   type CallGuardrailSettings,
+  type AdminMediaPermissions,
+  type MediaRolePermissions,
 } from '../services/admin'
-import type { AccountProfile } from '../types'
+import type { AccountProfile, StreamQualityId } from '../types'
 import { BrandMark } from '../components/ui/BrandMark'
 import { Icon } from '../components/ui/Icon'
 
@@ -72,18 +77,20 @@ export const AdminPanel = ({ currentUser, onClose, onLogout }: AdminPanelProps) 
   const [notice, setNotice] = useState('')
   const [usage, setUsage] = useState<AdminUsageSummary | null>(null)
   const [guardrails, setGuardrails] = useState<CallGuardrailSettings>(defaultGuardrails)
+  const [mediaPermissions, setMediaPermissions] = useState<AdminMediaPermissions | null>(null)
 
   const load = async () => {
     setLoading(true)
     setError('')
     try {
-      const [nextRooms, nextUsers, nextInvitations, nextInviteCodes, nextUsage, nextGuardrails] = await Promise.all([listAdminRooms(), listAdminUsers(), listAdminInvitations(), listInviteCodes(), getAdminUsageSummary(), currentUser.role === 'owner' ? getCallGuardrailSettings() : Promise.resolve(null)])
+      const [nextRooms, nextUsers, nextInvitations, nextInviteCodes, nextUsage, nextGuardrails, nextMediaPermissions] = await Promise.all([listAdminRooms(), listAdminUsers(), listAdminInvitations(), listInviteCodes(), getAdminUsageSummary(), currentUser.role === 'owner' ? getCallGuardrailSettings() : Promise.resolve(null), currentUser.role === 'owner' ? getAdminMediaPermissions() : Promise.resolve(null)])
       setRooms(nextRooms)
       setUsers(nextUsers)
       setInvitations(nextInvitations)
       setInviteCodes(nextInviteCodes)
       setUsage(nextUsage)
       if (nextGuardrails) setGuardrails(nextGuardrails)
+      if (nextMediaPermissions) setMediaPermissions(nextMediaPermissions)
     } catch (loadError) {
       setError(loadError instanceof AdminApiError && loadError.status === 403 ? 'Acesso administrativo negado.' : 'Não foi possível carregar o painel.')
     } finally {
@@ -243,6 +250,36 @@ export const AdminPanel = ({ currentUser, onClose, onLogout }: AdminPanelProps) 
     }
   }
 
+  const saveMediaRolePermissions = async (rolePermissions: Pick<MediaRolePermissions, 'member' | 'host' | 'manager'>) => {
+    setBusy('media-permissions')
+    setError('')
+    setNotice('')
+    try {
+      const saved = await updateMediaRolePermissions(rolePermissions)
+      setMediaPermissions(saved)
+      setNotice('Permissões de qualidade por perfil atualizadas.')
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'Não foi possível salvar as permissões de mídia.')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const updateUserMediaQuality = async (user: AdminUser, quality: StreamQualityId | null) => {
+    setBusy(`media:${user.userId}`)
+    setError('')
+    setNotice('')
+    try {
+      await setUserScreenShareQualityOverride(user.userId, quality)
+      setNotice(`Permissão de ${user.displayName || user.email} atualizada.`)
+      await load()
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'Não foi possível atualizar a permissão individual.')
+    } finally {
+      setBusy('')
+    }
+  }
+
   return (
     <main className="admin-shell">
       <header className="admin-header">
@@ -262,18 +299,18 @@ export const AdminPanel = ({ currentUser, onClose, onLogout }: AdminPanelProps) 
           <button className="admin-back" onClick={onClose} type="button"><Icon name="chevron" /> Voltar ao lobby</button>
         </aside>
         <section className="admin-content">
-          <header className="admin-content__heading"><div><p className="eyebrow">VISÃO GERAL</p><h2>{tab === 'rooms' ? 'Calls abertas' : tab === 'users' ? 'Usuários' : tab === 'invitations' ? 'Convites' : 'Limites de chamadas'}</h2>{usage && <small>Consumo estimado: {usage.estimatedMinutes.toLocaleString('pt-BR')} / {usage.budget.toLocaleString('pt-BR')} min ({usage.percentage ?? 0}%)</small>}</div><button className="admin-refresh" disabled={loading} onClick={() => void load()} type="button">{loading ? 'Atualizando…' : 'Atualizar'}</button></header>
+          <header className="admin-content__heading"><div><p className="eyebrow">VISÃO GERAL</p><h2>{tab === 'rooms' ? 'Calls abertas' : tab === 'users' ? 'Usuários' : tab === 'invitations' ? 'Convites' : 'Limites e mídia'}</h2>{mediaPermissions ? <small>RTC ativo: <strong>{mediaPermissions.provider === 'torre' ? 'Control Tower' : 'LiveKit'}</strong></small> : usage && <small>Uso mensal registrado: {usage.estimatedMinutes.toLocaleString('pt-BR')} min</small>}</div><button className="admin-refresh" disabled={loading} onClick={() => void load()} type="button">{loading ? 'Atualizando…' : 'Atualizar'}</button></header>
           {error && <div className="inline-error" role="alert"><Icon name="warning" /><span>{error}</span></div>}
           {notice && <div className="admin-notice" role="status">{notice}</div>}
           {loading && !rooms.length && !users.length && !invitations.length ? <div className="admin-empty"><span className="spinner" /> Carregando dados protegidos…</div> : (
             <>
               {tab === 'rooms' && <RoomsTable rooms={rooms} busy={busy} onEnd={endRoom} onRemove={removeParticipant} />}
-              {tab === 'users' && <UsersTable canChangeRoles={currentUser.role === 'owner'} currentUserId={currentUser.userId} users={users} busy={busy} onRoleChange={updateUserRole} onToggle={updateUser} />}
+              {tab === 'users' && <UsersTable canChangeMedia={currentUser.role === 'owner'} canChangeRoles={currentUser.role === 'owner'} currentUserId={currentUser.userId} users={users} busy={busy} onMediaQualityChange={updateUserMediaQuality} onRoleChange={updateUserRole} onToggle={updateUser} />}
               {tab === 'invitations' && <>
                 <InviteCodesSection codeLabel={codeLabel} codeRole={codeRole} canInviteManagers={currentUser.role === 'owner'} busy={busy} codes={inviteCodes} onRoleChange={setCodeRole} onLabelChange={setCodeLabel} onCreate={() => void submitInviteCode()} onRevoke={revokeCode} onCopy={copyCode} />
                 <InvitationsTable email={email} inviteRole={inviteRole} canInviteManagers={currentUser.role === 'owner'} busy={busy} invitations={invitations} onRoleChange={setInviteRole} onEmailChange={setEmail} onInvite={() => void submitInvitation()} onRevoke={revoke} />
               </>}
-              {tab === 'settings' && currentUser.role === 'owner' && <GuardrailsForm settings={guardrails} busy={busy === 'settings'} onChange={setGuardrails} onSave={() => void saveGuardrails()} />}
+              {tab === 'settings' && currentUser.role === 'owner' && <><MediaPermissionsForm permissions={mediaPermissions?.rolePermissions} provider={mediaPermissions?.provider} busy={busy === 'media-permissions'} onSave={(permissions) => void saveMediaRolePermissions(permissions)} /><GuardrailsForm settings={guardrails} busy={busy === 'settings'} onChange={setGuardrails} onSave={() => void saveGuardrails()} /></>}
             </>
           )}
         </section>
@@ -308,8 +345,16 @@ const GuardrailsForm = ({ settings, busy, onChange, onSave }: { settings: CallGu
   return <div className="admin-settings"><p className="admin-settings__hint">Somente o proprietário pode alterar estes limites. Eles são aplicados pelo worker de controle a cada minuto.</p><div className="admin-settings__grid">{fields.map(([key, label, min]) => <label key={key}>{label}<input min={min} onChange={(event) => update(key, event.target.value)} step="1" type="number" value={settings[key] as number} /></label>)}</div><button className="primary-button" disabled={busy} onClick={onSave} type="button">{busy ? 'Salvando…' : 'Salvar limites'}</button></div>
 }
 
-const UsersTable = ({ users, currentUserId, canChangeRoles, busy, onToggle, onRoleChange }: { users: AdminUser[]; currentUserId: string; canChangeRoles: boolean; busy: string; onToggle: (user: AdminUser) => Promise<void>; onRoleChange: (user: AdminUser, role: 'manager' | 'host' | 'member') => Promise<void> }) => (
-  <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Usuário</th><th>Perfil de acesso</th><th>Estado</th><th>Criado</th><th>Último acesso</th><th /></tr></thead><tbody>{users.map((user) => { const roleBusy = busy === `role:${user.userId}`; const roleEditable = canChangeRoles && user.userId !== currentUserId && user.role !== 'owner'; return <tr key={user.userId}><td><strong>{user.displayName || 'Sem nome'}</strong><small>{user.email}</small>{user.userId === currentUserId && <em>você</em>}</td><td>{roleEditable ? <select aria-label={`Perfil de acesso de ${user.displayName || user.email}`} className="admin-role-select" disabled={roleBusy} onChange={(event) => void onRoleChange(user, event.target.value as 'manager' | 'host' | 'member')} value={user.role}><option value="manager">Gerente</option><option value="host">Host</option><option value="member">Membro</option></select> : <span className="admin-role-label">{statusLabel(user.role)}</span>}</td><td><span className={`admin-status admin-status--${user.status}`} />{statusLabel(user.status)}</td><td>{formatDate(user.createdAt)}</td><td>{formatDate(user.lastSignInAt)}</td><td><button disabled={user.userId === currentUserId || busy === user.userId || roleBusy} onClick={() => void onToggle(user)} type="button">{user.status === 'active' ? 'Desativar' : 'Reativar'}</button></td></tr> })}</tbody></table>{!users.length && <div className="admin-empty">Nenhum usuário encontrado.</div>}</div>
+const qualityLabel = (quality: StreamQualityId) => quality === '1080p60' ? '1080p · 60 FPS' : quality === '1080p30' ? '1080p · 30 FPS' : '720p · 30 FPS'
+
+const MediaPermissionsForm = ({ permissions, provider, busy, onSave }: { permissions?: MediaRolePermissions; provider?: 'livekit' | 'torre'; busy: boolean; onSave: (permissions: Pick<MediaRolePermissions, 'member' | 'host' | 'manager'>) => void }) => {
+  const [draft, setDraft] = useState<Pick<MediaRolePermissions, 'member' | 'host' | 'manager'>>(permissions ? { member: permissions.member, host: permissions.host, manager: permissions.manager } : { member: '720p30', host: '1080p30', manager: '1080p60' })
+  useEffect(() => { if (permissions) setDraft({ member: permissions.member, host: permissions.host, manager: permissions.manager }) }, [permissions])
+  return <div className="admin-settings"><p className="admin-settings__hint">RTC ativo: <strong>{provider === 'torre' ? 'Control Tower' : provider === 'livekit' ? 'LiveKit' : 'carregando…'}</strong>. Defina o teto de qualidade concedido automaticamente por perfil; o ajuste individual em Usuários substitui este valor.</p><div className="admin-settings__grid">{(['member', 'host', 'manager'] as const).map((role) => <label key={role}>{statusLabel(role)}<select aria-label={`Qualidade para ${statusLabel(role)}`} onChange={(event) => setDraft({ ...draft, [role]: event.target.value as StreamQualityId })} value={draft[role]}><option value="720p30">720p · 30 FPS</option><option value="1080p30">1080p · 30 FPS</option><option value="1080p60">1080p · 60 FPS</option></select></label>)}</div><button className="primary-button" disabled={busy} onClick={() => onSave(draft)} type="button">{busy ? 'Salvando…' : 'Salvar permissões de mídia'}</button></div>
+}
+
+const UsersTable = ({ users, currentUserId, canChangeRoles, canChangeMedia, busy, onToggle, onRoleChange, onMediaQualityChange }: { users: AdminUser[]; currentUserId: string; canChangeRoles: boolean; canChangeMedia: boolean; busy: string; onToggle: (user: AdminUser) => Promise<void>; onRoleChange: (user: AdminUser, role: 'manager' | 'host' | 'member') => Promise<void>; onMediaQualityChange: (user: AdminUser, quality: StreamQualityId | null) => Promise<void> }) => (
+  <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Usuário</th><th>Perfil de acesso</th><th>Qualidade individual</th><th>Estado</th><th>Criado</th><th>Último acesso</th><th /></tr></thead><tbody>{users.map((user) => { const roleBusy = busy === `role:${user.userId}`; const mediaBusy = busy === `media:${user.userId}`; const roleEditable = canChangeRoles && user.userId !== currentUserId && user.role !== 'owner'; return <tr key={user.userId}><td><strong>{user.displayName || 'Sem nome'}</strong><small>{user.email}</small>{user.userId === currentUserId && <em>você</em>}</td><td>{roleEditable ? <select aria-label={`Perfil de acesso de ${user.displayName || user.email}`} className="admin-role-select" disabled={roleBusy} onChange={(event) => void onRoleChange(user, event.target.value as 'manager' | 'host' | 'member')} value={user.role}><option value="manager">Gerente</option><option value="host">Host</option><option value="member">Membro</option></select> : <span className="admin-role-label">{statusLabel(user.role)}</span>}</td><td>{canChangeMedia ? <select aria-label={`Qualidade individual de ${user.displayName || user.email}`} className="admin-role-select" disabled={mediaBusy} onChange={(event) => void onMediaQualityChange(user, event.target.value === 'profile' ? null : event.target.value as StreamQualityId)} value={user.screenShareQualityOverride || 'profile'}><option value="profile">Usar perfil</option><option value="720p30">720p · 30 FPS</option><option value="1080p30">1080p · 30 FPS</option><option value="1080p60">1080p · 60 FPS</option></select> : <span className="admin-role-label">{user.screenShareQualityOverride ? qualityLabel(user.screenShareQualityOverride) : 'Usar perfil'}</span>}</td><td><span className={`admin-status admin-status--${user.status}`} />{statusLabel(user.status)}</td><td>{formatDate(user.createdAt)}</td><td>{formatDate(user.lastSignInAt)}</td><td><button disabled={user.userId === currentUserId || busy === user.userId || roleBusy} onClick={() => void onToggle(user)} type="button">{user.status === 'active' ? 'Desativar' : 'Reativar'}</button></td></tr> })}</tbody></table>{!users.length && <div className="admin-empty">Nenhum usuário encontrado.</div>}</div>
 )
 
 const InviteCodesSection = ({ codes, codeLabel, codeRole, canInviteManagers, busy, onRoleChange, onLabelChange, onCreate, onRevoke, onCopy }: { codes: AdminInviteCode[]; codeLabel: string; codeRole: 'manager' | 'host' | 'member'; canInviteManagers: boolean; busy: string; onRoleChange: (value: 'manager' | 'host' | 'member') => void; onLabelChange: (value: string) => void; onCreate: () => void; onRevoke: (code: AdminInviteCode) => Promise<void>; onCopy: (code: string) => void }) => (

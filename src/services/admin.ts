@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { AccountRole } from '../types'
+import type { AccountRole, StreamQualityId } from '../types'
 import { getSupabase } from './supabase'
 import { getAuthRedirectUrl } from './auth-callback'
 
@@ -12,6 +12,7 @@ export interface AdminUser {
   role: AccountRole
   createdAt: string
   lastSignInAt?: string
+  screenShareQualityOverride?: StreamQualityId
 }
 
 export interface AdminInvitation {
@@ -58,6 +59,18 @@ export interface AdminUsageSummary {
   estimatedMinutes: number
   budget: number
   percentage: number | null
+}
+
+export interface MediaRolePermissions {
+  member: StreamQualityId
+  host: StreamQualityId
+  manager: StreamQualityId
+  owner: StreamQualityId
+}
+
+export interface AdminMediaPermissions {
+  provider: 'livekit' | 'torre'
+  rolePermissions: MediaRolePermissions
 }
 
 export interface CallGuardrailSettings {
@@ -119,6 +132,15 @@ export const getCallGuardrailSettings = () => invokeAdmin<{ settings: CallGuardr
 
 export const updateCallGuardrailSettings = (settings: CallGuardrailSettings) =>
   invokeAdmin<{ settings: CallGuardrailSettings }>('admin-call-settings', { action: 'update', settings }).then((result) => result.settings)
+
+export const getAdminMediaPermissions = () =>
+  invokeAdmin<AdminMediaPermissions>('admin-media-permissions', { action: 'get' })
+
+export const updateMediaRolePermissions = (rolePermissions: Pick<MediaRolePermissions, 'member' | 'host' | 'manager'>) =>
+  invokeAdmin<AdminMediaPermissions>('admin-media-permissions', { action: 'update_roles', rolePermissions })
+
+export const setUserScreenShareQualityOverride = (userId: string, quality: StreamQualityId | null) =>
+  invokeAdmin<{ ok: true }>('admin-media-permissions', { action: 'set_user', userId, quality })
 
 export const createInvitation = (email: string, role: Exclude<AccountRole, 'owner'> = 'member') =>
   invokeAdmin<{ invitation: AdminInvitation }>('admin-invite-user', { action: 'create', email, role, redirectTo: getAuthRedirectUrl() }).then((result) => result.invitation)

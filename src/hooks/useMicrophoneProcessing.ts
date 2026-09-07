@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { LocalAudioTrack, RoomEvent, Track, type Room } from 'livekit-client'
+import { RoomEvent, Track, type LocalAudioTrack, type Room } from '@gunns-dev/control-tower-client'
 import {
   getNoiseSuppression,
   saveNoiseSuppression,
@@ -22,8 +22,8 @@ export const useMicrophoneProcessing = (room: Room) => {
   const apply = useCallback(
     async (enabled: boolean) => {
       const publication = room.localParticipant.getTrackPublication(Track.Source.Microphone)
-      if (!(publication?.track instanceof LocalAudioTrack)) return
-      await publication.track.applyConstraints({
+      if (publication?.kind !== Track.Kind.Audio || !publication.track) return
+      await (publication.track as LocalAudioTrack).applyConstraints({
         autoGainControl: true,
         echoCancellation: true,
         noiseSuppression: enabled,

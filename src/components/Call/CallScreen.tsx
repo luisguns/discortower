@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { RoomEvent, type Room } from 'livekit-client'
+import { RoomEvent, type Room } from '@gunns-dev/control-tower-client'
 import { useAudioDevices } from '../../hooks/useAudioDevices'
 import { useAppUpdater } from '../../hooks/useAppUpdater'
 import { useCallShortcuts } from '../../hooks/useCallShortcuts'
@@ -11,7 +11,7 @@ import { microphoneCaptureOptions, useMicrophoneProcessing } from '../../hooks/u
 import { useRoomChat } from '../../hooks/useRoomChat'
 import { useScreenShare } from '../../hooks/useScreenShare'
 import { playCallSound, primeCallSounds } from '../../services/callSounds'
-import { createChannelInviteUrl, streamQualityPresets } from '../../services/livekit'
+import { createChannelInviteUrl, isStreamQualityAllowed, streamQualityPresets } from '../../services/livekit'
 import {
   getCallSoundsEnabled,
   getGameOverlayEnabled,
@@ -42,7 +42,7 @@ interface CallScreenProps {
   room: Room
   roomCode: string
   channelId?: string
-  canHighQualityScreenShare?: boolean
+  maxScreenShareQuality?: StreamQualityId
   status: ConnectionStatus
   microphoneError: string
   microphoneStarting: boolean
@@ -131,7 +131,7 @@ export const CallScreen = ({
   room,
   roomCode,
   channelId,
-  canHighQualityScreenShare = false,
+  maxScreenShareQuality = '720p30',
   status,
   microphoneError,
   microphoneStarting,
@@ -174,7 +174,7 @@ export const CallScreen = ({
     participantId: string
     point: ContextMenuPoint
   } | null>(null)
-  const effectiveQuality = canHighQualityScreenShare ? quality : '720p30'
+  const effectiveQuality = isStreamQualityAllowed(quality, maxScreenShareQuality) ? quality : maxScreenShareQuality
   const screenShare = useScreenShare(room, effectiveQuality)
   const updater = useAppUpdater()
   const micEnabled = room.localParticipant.isMicrophoneEnabled
@@ -303,7 +303,7 @@ export const CallScreen = ({
   }, [cameraBusy, room, status])
 
   const changeQuality = (nextQuality: StreamQualityId) => {
-    const allowedQuality = canHighQualityScreenShare ? nextQuality : '720p30'
+    const allowedQuality = isStreamQualityAllowed(nextQuality, maxScreenShareQuality) ? nextQuality : maxScreenShareQuality
     setQuality(allowedQuality)
     saveStreamQuality(allowedQuality)
   }
@@ -656,7 +656,7 @@ export const CallScreen = ({
           onGameOverlayChange={changeGameOverlay}
           onQualityChange={changeQuality}
           quality={effectiveQuality}
-          canHighQualityScreenShare={canHighQualityScreenShare}
+          maxScreenShareQuality={maxScreenShareQuality}
           shortcuts={shortcuts}
           updater={updater}
         />

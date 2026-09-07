@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AudioPresets, RoomEvent, Track, type Room } from 'livekit-client'
+import { AudioPresets, RoomEvent, Track, type Room } from '@gunns-dev/control-tower-client'
 import { streamQualityPresets } from '../services/livekit'
 import type { StreamQualityId } from '../types'
 

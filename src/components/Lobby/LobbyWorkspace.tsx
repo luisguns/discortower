@@ -22,7 +22,7 @@ interface Props {
   initialView?: 'home' | 'channel' | 'friends' | 'profile' | 'settings'
   activitySharingEnabled: boolean
   activity?: RecognizedActivity
-  canHighQualityScreenShare: boolean
+  maxScreenShareQuality: import('../../types').StreamQualityId
   onActivitySharingChange: (enabled: boolean) => void
   social: SocialOverview
   onRefreshSocial: () => Promise<void>
@@ -44,7 +44,7 @@ const ChannelInfoCard = ({ channel, live, onOpen }: { channel: ChannelSummary; l
   </button>
 }
 
-export const LobbyWorkspace = ({ status, connectionError, initialChannelId, initialView, channels, presence, canCreateChannel, canHighQualityScreenShare, profile, isAdmin, activity, activitySharingEnabled, onActivitySharingChange, onOpenAdmin, onCreateChannel, onCreateCall, onCreateInvite, onRenameChannel, onArchiveChannel, onLogout, onJoin, onProfileChange, onUsernameChange, social, onRefreshSocial, onInviteAccepted }: Props) => {
+export const LobbyWorkspace = ({ status, connectionError, initialChannelId, initialView, channels, presence, canCreateChannel, maxScreenShareQuality, profile, isAdmin, activity, activitySharingEnabled, onActivitySharingChange, onOpenAdmin, onCreateChannel, onCreateCall, onCreateInvite, onRenameChannel, onArchiveChannel, onLogout, onJoin, onProfileChange, onUsernameChange, social, onRefreshSocial, onInviteAccepted }: Props) => {
   const [view, setView] = useState<View>(initialView || (initialChannelId ? 'channel' : 'home'))
   const [channelId, setChannelId] = useState(initialChannelId)
   const [creating, setCreating] = useState(false)
@@ -140,7 +140,7 @@ export const LobbyWorkspace = ({ status, connectionError, initialChannelId, init
           </section>
         </form>
       </div>}
-      {view === 'settings' && <AppSettingsScreen activitySharingEnabled={activitySharingEnabled} canHighQualityScreenShare={canHighQualityScreenShare} onActivitySharingChange={onActivitySharingChange} onClose={() => setView('home')} />}
+      {view === 'settings' && <AppSettingsScreen activitySharingEnabled={activitySharingEnabled} maxScreenShareQuality={maxScreenShareQuality} onActivitySharingChange={onActivitySharingChange} onClose={() => setView('home')} />}
     </section>
     {toast && <div aria-live="polite" className="app-toast"><span><Icon name="check" /></span><div><strong>Tudo certo</strong><p>{toast}</p></div><button aria-label="Fechar confirmação" onClick={() => setToast('')} type="button"><Icon name="x" /></button></div>}
   </main>

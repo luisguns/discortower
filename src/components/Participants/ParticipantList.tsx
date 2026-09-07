@@ -1,4 +1,4 @@
-import { Track, type Participant, type Room } from 'livekit-client'
+import { Track, type Participant, type Room } from '@gunns-dev/control-tower-client'
 import type { ContextMenuPoint, ProfileNameStyle, RemoteVoice } from '../../types'
 import { participantAvatarFromMetadata, participantNameStyleFromMetadata } from '../../services/profile'
 import { Icon } from '../ui/Icon'

@@ -4,7 +4,7 @@ import {
   RoomEvent,
   supportsAudioOutputSelection,
   type Room as LiveKitRoom,
-} from 'livekit-client'
+} from '@gunns-dev/control-tower-client'
 import {
   getDevicePreferences,
   saveDevicePreferences,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Room } from 'livekit-client'
+import type { Room } from '@gunns-dev/control-tower-client'
 import type { ChatMessage } from '../types'
 import { participantAvatarFromMetadata, participantNameStyleFromMetadata } from '../services/profile'
 

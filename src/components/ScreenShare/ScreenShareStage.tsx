@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
-import type { LocalVideoTrack, RemoteVideoTrack } from 'livekit-client'
+import type { LocalVideoTrack, RemoteVideoTrack } from '@gunns-dev/control-tower-client'
 import { useParticipantVolume } from '../../hooks/useParticipantVolume'
 import type {
   ContextMenuPoint,

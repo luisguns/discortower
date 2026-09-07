@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  LocalVideoTrack,
-  RemoteAudioTrack,
-  RemoteVideoTrack,
   RoomEvent,
   Track,
   type Participant,
+  type RemoteAudioTrack,
   type Room,
-} from 'livekit-client'
+} from '@gunns-dev/control-tower-client'
 import type { ParticipantMedia, RemoteVoice, ScreenShareLive } from '../types'
 import { participantAvatarFromMetadata, participantNameStyleFromMetadata } from '../services/profile'
 
@@ -72,7 +70,9 @@ export const useRoomSnapshot = (room: Room) => {
           id: participant.identity,
           participant,
           track:
-            publication?.track instanceof RemoteAudioTrack ? publication.track : undefined,
+            publication?.kind === Track.Kind.Audio
+              ? (publication.track as RemoteAudioTrack | undefined)
+              : undefined,
           muted: publication?.isMuted ?? true,
         }
       },
@@ -89,10 +89,7 @@ export const useRoomSnapshot = (room: Room) => {
         avatarDataUrl: participantAvatarFromMetadata(participant.metadata),
         nameStyle: participantNameStyleFromMetadata(participant.metadata),
         isLocal: participant === room.localParticipant,
-        cameraTrack:
-          cameraTrack instanceof LocalVideoTrack || cameraTrack instanceof RemoteVideoTrack
-            ? cameraTrack
-            : undefined,
+        cameraTrack: cameraPublication?.kind === Track.Kind.Video ? cameraTrack : undefined,
         cameraEnabled: Boolean(cameraPublication && !cameraPublication.isMuted),
         microphoneMuted: microphonePublication?.isMuted ?? true,
       }
@@ -105,13 +102,17 @@ export const useRoomSnapshot = (room: Room) => {
     const localAudioPublication = room.localParticipant.getTrackPublication(
       Track.Source.ScreenShareAudio,
     )
-    if (localVideoPublication?.videoTrack instanceof LocalVideoTrack) {
+    const localScreenVideo =
+      localVideoPublication?.kind === Track.Kind.Video
+        ? localVideoPublication.videoTrack
+        : undefined
+    if (localScreenVideo) {
       lives.push({
-        id: `local:${localVideoPublication.trackSid}`,
+        id: `local:${localVideoPublication!.trackSid}`,
         participantIdentity: room.localParticipant.identity,
         participantName: room.localParticipant.name || room.localParticipant.identity,
         isLocal: true,
-        videoTrack: localVideoPublication.videoTrack,
+        videoTrack: localScreenVideo,
         subscribed: true,
         hasAudio: Boolean(localAudioPublication && !localAudioPublication.isMuted),
         muted: false,
@@ -128,12 +129,10 @@ export const useRoomSnapshot = (room: Room) => {
         participantName: participant.name || participant.identity,
         isLocal: false,
         videoTrack:
-          videoPublication.videoTrack instanceof RemoteVideoTrack
-            ? videoPublication.videoTrack
-            : undefined,
+          videoPublication.kind === Track.Kind.Video ? videoPublication.videoTrack : undefined,
         audioTrack:
-          audioPublication?.track instanceof RemoteAudioTrack
-            ? audioPublication.track
+          audioPublication?.kind === Track.Kind.Audio
+            ? (audioPublication.track as RemoteAudioTrack | undefined)
             : undefined,
         videoPublication,
         audioPublication,

@@ -9,7 +9,7 @@ Deno.serve(async (request) => {
     if (!['owner', 'manager'].includes(actorRole)) throw new HttpError(403, 'ADMIN_REQUIRED')
     const { data: authUsers, error: authError } = await client.auth.admin.listUsers({ page: 1, perPage: 1000 })
     if (authError) throw new Error('USERS_LOOKUP_FAILED')
-    const { data: profiles, error: profileError } = await client.from('profiles').select('user_id,display_name,avatar_url,status,role,created_at,updated_at')
+    const { data: profiles, error: profileError } = await client.from('profiles').select('user_id,display_name,avatar_url,status,role,screen_share_quality_override,created_at,updated_at')
     if (profileError) throw new Error('PROFILES_LOOKUP_FAILED')
     const profileById = new Map((profiles || []).map((profile) => [profile.user_id, profile]))
     const users = (authUsers.users || []).map((authUser) => {
@@ -23,6 +23,7 @@ Deno.serve(async (request) => {
         role: authUser.id === user.id && actorRole === 'owner' ? 'owner' : profile?.role || 'member',
         createdAt: authUser.created_at,
         lastSignInAt: authUser.last_sign_in_at || undefined,
+        screenShareQualityOverride: profile?.screen_share_quality_override || undefined,
       }
     })
     return jsonResponse(request, { users })

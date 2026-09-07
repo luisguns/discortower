@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { LocalVideoTrack, RemoteVideoTrack } from 'livekit-client'
+import type { LocalVideoTrack, RemoteVideoTrack } from '@gunns-dev/control-tower-client'
 import type {
   ContextMenuPoint,
   GalleryLayoutMode,

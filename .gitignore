@@ -8,6 +8,8 @@ splotys-msix.zip
 .env.local
 .env.*.local
 supabase/.temp/
+supabase/.branches/
+supabase/.env.control-tower-test
 *.tsbuildinfo
 .DS_Store
 .claude/

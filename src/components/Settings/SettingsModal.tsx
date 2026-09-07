@@ -5,7 +5,7 @@ import type { useCallShortcuts } from '../../hooks/useCallShortcuts'
 import type { useMicrophoneMonitor } from '../../hooks/useMicrophoneMonitor'
 import type { useMicrophoneProcessing } from '../../hooks/useMicrophoneProcessing'
 import { formatShortcutBinding, shortcutFromKeyboardEvent } from '../../services/shortcuts'
-import { streamQualityPresets } from '../../services/livekit'
+import { isStreamQualityAllowed, streamQualityPresets } from '../../services/livekit'
 import type { ShortcutAction, StreamQualityId } from '../../types'
 import { Icon, type IconName } from '../ui/Icon'
 
@@ -23,7 +23,7 @@ interface SettingsModalProps {
   microphoneProcessing: MicrophoneProcessingState
   callSoundsEnabled: boolean
   quality: StreamQualityId
-  canHighQualityScreenShare?: boolean
+  maxScreenShareQuality?: StreamQualityId
   shortcuts: CallShortcutsState
   updater: AppUpdaterState
   onCallSoundsChange: (enabled: boolean) => void
@@ -80,7 +80,7 @@ export const SettingsModal = ({
   microphoneProcessing,
   callSoundsEnabled,
   quality,
-  canHighQualityScreenShare = true,
+  maxScreenShareQuality = '720p30',
   shortcuts,
   updater,
   onCallSoundsChange,
@@ -303,7 +303,7 @@ export const SettingsModal = ({
 
                 <SettingsCard description="A opção escolhida vale para a próxima transmissão." title="Qualidade da tela">
                   <div className="quality-options">
-                    {(Object.keys(streamQualityPresets) as StreamQualityId[]).filter((qualityId) => canHighQualityScreenShare || qualityId === '720p30').map((qualityId) => (
+                    {(Object.keys(streamQualityPresets) as StreamQualityId[]).filter((qualityId) => isStreamQualityAllowed(qualityId, maxScreenShareQuality)).map((qualityId) => (
                       <button
                         className={quality === qualityId ? 'is-active' : ''}
                         key={qualityId}
@@ -315,10 +315,6 @@ export const SettingsModal = ({
                         <small>{streamQualityPresets[qualityId].usageLabel}</small>
                       </button>
                     ))}
-                  </div>
-                  <div className="settings-note settings-note--quality">
-                    <Icon name="warning" />
-                    Resolução, FPS e espectadores aumentam o consumo do LiveKit. 720p30 preserva melhor a franquia gratuita.
                   </div>
                 </SettingsCard>
               </div>

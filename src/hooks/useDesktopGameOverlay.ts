@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { RoomEvent, Track, type Room } from 'livekit-client'
+import { RoomEvent, Track, type Room } from '@gunns-dev/control-tower-client'
 import { participantAvatarFromMetadata } from '../services/profile'
 
 export const useDesktopGameOverlay = (room: Room, enabled: boolean) => {

@@ -1,9 +1,19 @@
-import {
-  Room,
-  VideoPreset,
-} from 'livekit-client'
+import { Room as LiveKitRoom } from 'livekit-client'
+// Dual-SDK (Q-15): both transports stay in the bundle during canary so rollback
+// is instant and server-controlled. `Room`/`VideoPreset` come from the Control
+// Tower client, which is the API surface the rest of the app is typed against;
+// on the LiveKit path we build a real LiveKit Room and cast it to that surface.
+import { Room, VideoPreset } from '@gunns-dev/control-tower-client'
 import type { StreamQualityId } from '../types'
 import type { LocalProfile } from '../types'
+
+export type RtcProvider = 'livekit' | 'torre'
+
+export interface ConnectionDetails {
+  serverUrl: string
+  participantToken: string
+  provider: RtcProvider
+}
 import { serializeParticipantProfile } from './profile'
 import { getSupabase } from './supabase'
 
@@ -81,18 +91,24 @@ export const generateRoomCode = () => {
   return `${characters.slice(0, 3).join('')}-${characters.slice(3, 7).join('')}-${characters.slice(7).join('')}`
 }
 
-export const createLiveKitRoom = () =>
-  new Room({
-    adaptiveStream: true,
-    dynacast: true,
-    disconnectOnPageLeave: true,
-    webAudioMix: true,
-  })
+const ROOM_OPTIONS = {
+  adaptiveStream: true,
+  dynacast: true,
+  disconnectOnPageLeave: true,
+  webAudioMix: true,
+}
+
+export const createRoom = (provider: RtcProvider): Room => {
+  if (provider === 'torre') return new Room(ROOM_OPTIONS)
+  // The LiveKit Room mirrors the Control Tower client's surface that the app
+  // uses, so casting keeps a single `Room` type across the codebase.
+  return new LiveKitRoom(ROOM_OPTIONS) as unknown as Room
+}
 
 export const fetchConnectionDetails = async (
   callId: string,
   profile: LocalProfile,
-): Promise<{ serverUrl: string; participantToken: string }> => {
+): Promise<ConnectionDetails> => {
   if (!callId) throw new Error('CALL_INVALID')
   const { data, error } = await getSupabase().functions.invoke('issue-livekit-token', {
     body: {
@@ -113,7 +129,15 @@ export const fetchConnectionDetails = async (
   ) {
     throw new Error('AUTH_FUNCTION_INVALID_RESPONSE')
   }
-  return data as { serverUrl: string; participantToken: string }
+  const { serverUrl, participantToken } = data as {
+    serverUrl: string
+    participantToken: string
+  }
+  // Unknown/missing provider falls back to LiveKit — the safe, current-prod
+  // default — so a partial rollout never strands a client on the new transport.
+  const provider: RtcProvider =
+    (data as { provider?: unknown }).provider === 'torre' ? 'torre' : 'livekit'
+  return { serverUrl, participantToken, provider }
 }
 
 export const createChannelInviteUrl = (channelId: string) => {
@@ -159,6 +183,15 @@ export const streamQualityPresets: Record<
     preset: new VideoPreset(1920, 1080, 7_000_000, 60),
   },
 }
+
+const streamQualityRank: Record<StreamQualityId, number> = {
+  '720p30': 0,
+  '1080p30': 1,
+  '1080p60': 2,
+}
+
+export const isStreamQualityAllowed = (quality: StreamQualityId, maxQuality: StreamQualityId) =>
+  streamQualityRank[quality] <= streamQualityRank[maxQuality]
 
 export const friendlyConnectionError = (error: unknown) => {
   if (error instanceof Error && error.message === 'SUPABASE_NOT_INITIALIZED') {

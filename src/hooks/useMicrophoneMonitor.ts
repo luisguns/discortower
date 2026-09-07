@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { LocalAudioTrack, RoomEvent, Track, type Room } from 'livekit-client'
+import { RoomEvent, Track, type LocalAudioTrack, type Room } from '@gunns-dev/control-tower-client'
 import {
   getMicrophoneMonitorVolume,
   saveMicrophoneMonitorVolume,
@@ -64,12 +64,12 @@ export const useMicrophoneMonitor = (
 
     const start = async () => {
       const publication = room.localParticipant.getTrackPublication(Track.Source.Microphone)
-      if (!(publication?.track instanceof LocalAudioTrack)) return
+      if (publication?.kind !== Track.Kind.Audio || !publication.track) return
 
       const Context = audioContextConstructor()
       if (!Context) return
 
-      const monitorTrack = publication.track.mediaStreamTrack.clone()
+      const monitorTrack = (publication.track as LocalAudioTrack).mediaStreamTrack.clone()
       monitorTrack.enabled = true
       const context = new Context()
       const source = context.createMediaStreamSource(new MediaStream([monitorTrack]))

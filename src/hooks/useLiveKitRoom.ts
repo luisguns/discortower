@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ConnectionState, RoomEvent, type Room } from 'livekit-client'
+import { ConnectionState, RoomEvent, type Room } from '@gunns-dev/control-tower-client'
 import {
-  createLiveKitRoom,
+  createRoom,
   fetchConnectionDetails,
   friendlyConnectionError,
   friendlyMicrophoneError,
@@ -57,31 +57,35 @@ export const useLiveKitRoom = () => {
     setStatus('connecting')
     leavingRef.current = false
 
-    const nextRoom = createLiveKitRoom()
-    roomRef.current = nextRoom
-
-    const handleConnectionState = (state: ConnectionState) => {
-      setStatus(toConnectionStatus(state))
-    }
-    const handleDisconnected = () => {
-      if (!leavingRef.current) {
-        setError('A conexão com a call foi encerrada. Entre novamente para continuar.')
-      }
-      if (roomRef.current === nextRoom) {
-        roomRef.current = null
-        setRoom(null)
-      }
-      setStatus('disconnected')
-    }
-
-    nextRoom.on(RoomEvent.ConnectionStateChanged, handleConnectionState)
-    nextRoom.on(RoomEvent.Disconnected, handleDisconnected)
+    let nextRoom: Room | null = null
 
     try {
-      const { serverUrl, participantToken } = await fetchConnectionDetails(
+      // Fetch first: the token response carries the RTC provider, which decides
+      // whether we instantiate a Control Tower Room or a LiveKit Room.
+      const { serverUrl, participantToken, provider } = await fetchConnectionDetails(
         callId,
         profile,
       )
+      nextRoom = createRoom(provider)
+      roomRef.current = nextRoom
+
+      const handleConnectionState = (state: ConnectionState) => {
+        setStatus(toConnectionStatus(state))
+      }
+      const handleDisconnected = () => {
+        if (!leavingRef.current) {
+          setError('A conexão com a call foi encerrada. Entre novamente para continuar.')
+        }
+        if (roomRef.current === nextRoom) {
+          roomRef.current = null
+          setRoom(null)
+        }
+        setStatus('disconnected')
+      }
+
+      nextRoom.on(RoomEvent.ConnectionStateChanged, handleConnectionState)
+      nextRoom.on(RoomEvent.Disconnected, handleDisconnected)
+
       await nextRoom.connect(serverUrl, participantToken)
       saveLocalProfile(profile)
       setRoom(nextRoom)
@@ -131,9 +135,11 @@ export const useLiveKitRoom = () => {
 
       return true
     } catch (connectionFailure) {
-      nextRoom.removeAllListeners()
-      await nextRoom.disconnect(true)
-      if (roomRef.current === nextRoom) roomRef.current = null
+      if (nextRoom) {
+        nextRoom.removeAllListeners()
+        await nextRoom.disconnect(true)
+        if (roomRef.current === nextRoom) roomRef.current = null
+      }
       setRoom(null)
       setStatus('error')
       setError(friendlyConnectionError(connectionFailure))

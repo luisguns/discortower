@@ -1,11 +1,11 @@
 import { useEffect } from 'react'
 import {
-  RemoteTrackPublication,
   RoomEvent,
   Track,
   type RemoteParticipant,
+  type RemoteTrackPublication,
   type Room,
-} from 'livekit-client'
+} from '@gunns-dev/control-tower-client'
 
 const publicationKey = (participant: RemoteParticipant, publication: RemoteTrackPublication) =>
   `${participant.identity}:${publication.trackSid}`
@@ -28,9 +28,7 @@ export const useDesktopPerformanceMode = (room: Room) => {
     const suspendVideo = () => {
       for (const participant of room.remoteParticipants.values()) {
         for (const publication of participant.videoTrackPublications.values()) {
-          if (publication instanceof RemoteTrackPublication) {
-            suspendPublication(publication, participant)
-          }
+          suspendPublication(publication, participant)
         }
       }
     }
@@ -38,10 +36,7 @@ export const useDesktopPerformanceMode = (room: Room) => {
     const restoreVideo = () => {
       for (const participant of room.remoteParticipants.values()) {
         for (const publication of participant.videoTrackPublications.values()) {
-          if (
-            publication instanceof RemoteTrackPublication &&
-            suspendedPublications.has(publicationKey(participant, publication))
-          ) {
+          if (suspendedPublications.has(publicationKey(participant, publication))) {
             publication.setSubscribed(true)
           }
         }

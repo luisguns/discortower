@@ -40,5 +40,6 @@ export const issueParticipantToken = async (roomName: string, identity: string, 
     room: roomName,
     roomJoin: true,
   })
-  return { participantToken: await token.toJwt(), serverUrl: config.url }
+  const provider = (Deno.env.get('RTC_PROVIDER')?.trim() || 'livekit') as 'livekit' | 'torre'
+  return { participantToken: await token.toJwt(), serverUrl: config.url, provider }
 }

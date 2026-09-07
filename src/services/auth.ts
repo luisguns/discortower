@@ -1,7 +1,7 @@
 import type { Session, User } from '@supabase/supabase-js'
 import { clearAuthCallbackParams, getAuthCallbackType, getAuthRedirectUrl, getCurrentAuthCallbackUrl } from './auth-callback'
 import { getSupabase } from './supabase'
-import type { AccessCapabilities, AccessContext, AccountProfile, AccountRole, LocalProfile } from '../types'
+import type { AccessCapabilities, AccessContext, AccountProfile, AccountRole, LocalProfile, StreamQualityId } from '../types'
 import { normalizeProfileNameStyle } from './profile'
 
 export type AuthResult = { ok: true } | { ok: false; message: string }
@@ -72,13 +72,19 @@ export const accessContextFromResponse = (raw: unknown, user: User): AccessConte
     ? context.role
     : context.is_admin === true ? 'owner' : profile.role
   const rawCapabilities = context.capabilities || {}
+  const rawMaxQuality = rawCapabilities.max_screen_share_quality
+  const roleMaxQuality: StreamQualityId = role === 'owner' || role === 'manager' ? '1080p60' : role === 'host' ? '1080p30' : '720p30'
+  const maxScreenShareQuality: StreamQualityId = rawMaxQuality === '1080p60' || rawMaxQuality === '1080p30' || rawMaxQuality === '720p30'
+    ? rawMaxQuality
+    : roleMaxQuality
   const capabilities: AccessCapabilities = {
     canCreateChannel: rawCapabilities.can_create_channel === true || role === 'owner' || role === 'manager' || role === 'host',
     canManageAllChannels: rawCapabilities.can_manage_all_channels === true || role === 'owner' || role === 'manager',
     canManageUsers: rawCapabilities.can_manage_users === true || role === 'owner' || role === 'manager',
     canInviteManagers: rawCapabilities.can_invite_managers === true || role === 'owner',
     canModerateAllCalls: rawCapabilities.can_moderate_all_calls === true || role === 'owner' || role === 'manager',
-    canHighQualityScreenShare: rawCapabilities.can_high_quality_screen_share === true || role === 'owner' || role === 'manager' || role === 'host',
+    canHighQualityScreenShare: maxScreenShareQuality !== '720p30',
+    maxScreenShareQuality,
   }
   profile.role = role
   return {

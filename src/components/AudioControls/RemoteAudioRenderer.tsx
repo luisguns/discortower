@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { RemoteAudioTrack } from 'livekit-client'
+import type { RemoteAudioTrack } from '@gunns-dev/control-tower-client'
 
 interface RemoteAudioRendererProps {
   track?: RemoteAudioTrack
