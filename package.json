@@ -27,7 +27,7 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
-    "@gunns-dev/control-tower-client": "^0.1.0",
+    "@gunns-dev/control-tower-client": "^0.1.1",
     "@supabase/supabase-js": "^2.112.4",
     "electron-updater": "^6.8.9",
     "livekit-client": "2.22.0",
