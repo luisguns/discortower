@@ -11,6 +11,7 @@ import {
 } from '../../storage/preferences'
 import type { DevicePreferences, StreamQualityId } from '../../types'
 import { isStreamQualityAllowed } from '../../services/livekit'
+import { runningAppLabel, runningAppVersion } from '../../services/version'
 import { Icon } from '../ui/Icon'
 
 type Section = 'audio' | 'video' | 'transmission' | 'privacy'
@@ -61,5 +62,6 @@ export const AppSettingsScreen = ({ activitySharingEnabled, maxScreenShareQualit
     {section === 'video' && <><div className="app-settings__heading"><span><Icon name="camera" /></span><div><h2>Vídeo</h2><p>Defina qual câmera o app deve priorizar ao ligar o vídeo.</p></div></div><div className="app-settings__card"><DeviceSelect kind="videoinput" label="Câmera" preference="videoInputId" /><p className="app-settings__note">A câmera só é ativada quando você escolher ligá-la durante a call.</p></div></>}
     {section === 'transmission' && <><div className="app-settings__heading"><span><Icon name="screen" /></span><div><h2>Transmissão</h2><p>Estes valores serão usados como padrão ao compartilhar sua tela.</p></div></div><div className="app-settings__card"><label className="app-settings__field"><span>Qualidade padrão</span><select onChange={(event) => changeQuality(event.target.value as StreamQualityId)} value={effectiveQuality}><option value="720p30">720p · 30 FPS</option>{isStreamQualityAllowed('1080p30', maxScreenShareQuality) && <option value="1080p30">1080p · 30 FPS</option>}{isStreamQualityAllowed('1080p60', maxScreenShareQuality) && <option value="1080p60">1080p · 60 FPS</option>}</select></label><p className="app-settings__note">Limite autorizado para sua conta: {maxScreenShareQuality === '1080p60' ? '1080p · 60 FPS' : maxScreenShareQuality === '1080p30' ? '1080p · 30 FPS' : '720p · 30 FPS'}.</p><Toggle checked={gameOverlay} description="Mostra participantes por cima de jogos em tela cheia compatíveis." label="Overlay durante jogos" onChange={changeOverlay} /></div></>}
     {section === 'privacy' && <><div className="app-settings__heading"><span><Icon name="eye" /></span><div><h2>Privacidade</h2><p>Controle quais informações de contexto aparecem para outras pessoas.</p></div></div><div className="app-settings__card"><Toggle checked={activitySharingEnabled} description="Mantém sua atividade reconhecida visível enquanto o splotys estiver aberto." label="Exibir minhas atividades" onChange={onActivitySharingChange} /><p className="app-settings__note">O app não envia títulos de janelas, caminhos de arquivos nem sua lista completa de processos.</p></div></>}
+    <footer className="app-settings__version" aria-label="Versão em execução"><span>Versão em execução</span><strong>splotys {runningAppVersion}</strong><small>{runningAppLabel()}</small></footer>
   </section></div></main>
 }

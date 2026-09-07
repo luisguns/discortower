@@ -135,6 +135,9 @@ export const useLiveKitRoom = () => {
 
       return true
     } catch (connectionFailure) {
+      console.warn('RTC_JOIN_FAILED', {
+        message: connectionFailure instanceof Error ? connectionFailure.message : 'unknown',
+      })
       if (nextRoom) {
         nextRoom.removeAllListeners()
         await nextRoom.disconnect(true)

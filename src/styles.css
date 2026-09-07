@@ -7846,6 +7846,10 @@ svg {
 .app-settings__toggle small { max-width: 520px; color: #686577; font-size: 7px; line-height: 1.55; }
 .app-settings__toggle input { width: 36px; height: 19px; accent-color: var(--accent); }
 .app-settings__note { margin: 0; padding: 15px 0; color: #656274; font-size: 7px; line-height: 1.6; }
+.app-settings__version { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 14px; margin-top: 18px; padding: 13px 15px; border: 1px solid #32313a; border-radius: 12px; background: rgba(16, 16, 19, .55); color: #777488; }
+.app-settings__version span { font-size: 8px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.app-settings__version strong { color: #e5e2ec; font-size: 9px; }
+.app-settings__version small { grid-column: 1 / -1; color: #656274; font-size: 7px; }
 
 @media (max-width: 780px) {
   .app-settings__layout { grid-template-columns: 1fr; }

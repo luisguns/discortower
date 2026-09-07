@@ -66,7 +66,7 @@ Deno.serve(async (request) => {
         canScreenShare: !restricted.data?.screen_share_blocked,
       })
     } catch (error) {
-      console.error('LIVEKIT_TOKEN_ISSUE_FAILED', { channelId, roomSessionId: session.id, error: String(error) })
+      console.error('RTC_TOKEN_ISSUE_FAILED', { error: error instanceof Error ? error.message : 'unknown' })
       throw new Error('LIVEKIT_TOKEN_ISSUE_FAILED')
     }
     const { error: membershipError } = await client.from('channel_members').upsert({
@@ -76,6 +76,7 @@ Deno.serve(async (request) => {
     }, { onConflict: 'channel_id,user_id' })
     if (membershipError) throw new Error('CHANNEL_MEMBERSHIP_FAILED')
     await writeAudit(client, { action: 'livekit_token_issued', actorUserId: user.id, result: 'success', metadata: { channelId: resolvedChannelId, callId, roomSessionId: session.id, role, maxScreenShareQuality } })
+    console.info('RTC_TOKEN_ISSUED', { provider: token.provider })
     return jsonResponse(request, { ...token, channelId: resolvedChannelId, callId, roomSessionId: session.id, screenSharePolicy: maxScreenShareQuality })
   } catch (error) {
     return handleFunctionError(request, error)
