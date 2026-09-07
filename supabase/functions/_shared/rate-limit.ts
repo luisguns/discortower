@@ -1,4 +1,4 @@
-import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0'
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4'
 
 export const enforceRateLimit = async (client: SupabaseClient, key: string, limit: number, windowSeconds: number) => {
   const { data, error } = await client.rpc('consume_rate_limit', {
