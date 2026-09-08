@@ -323,9 +323,9 @@ const RoomsTable = ({ rooms, busy, onEnd, onRemove }: { rooms: AdminRoom[]; busy
   <div className="admin-room-grid">
     {!rooms.length && <div className="admin-empty">Nenhuma call registrada ainda.</div>}
     {rooms.map((room) => <article className="admin-room-card" key={room.id}>
-      <header><div><span className={`admin-status admin-status--${room.status}`} /> <strong>{room.roomName}</strong><small>{statusLabel(room.status)}</small></div>{room.status !== 'closed' && <button disabled={busy === room.id} onClick={() => void onEnd(room)} type="button">Encerrar</button>}</header>
+      <header><div><span className={`admin-status admin-status--${room.status}`} /> <strong>{room.roomName}</strong><small>{statusLabel(room.status)}{room.channelName && room.callName ? '' : ` · ${room.roomCode}`}</small></div>{room.status !== 'closed' && <button disabled={busy === room.id} onClick={() => void onEnd(room)} type="button">Encerrar</button>}</header>
       <div className="admin-room-meta"><span>Início <b>{formatDate(room.startedAt || room.createdAt)}</b></span><span>Duração <b>{formatDuration(room.startedAt, room.endedAt)}</b></span><span>Participantes <b>{room.participants.filter((item) => !item.leftAt).length}</b></span></div>
-      <div className="admin-participants">{room.participants.length ? room.participants.map((participant) => <div key={participant.id}><span>{participant.name}</span><small>{participant.identity}</small>{!participant.leftAt && room.status !== 'closed' && <button disabled={busy === participant.id} onClick={() => void onRemove(room, participant.id, participant.name)} type="button">Remover</button>}</div>) : <p>Nenhum participante recebido.</p>}</div>
+      <div className="admin-participants">{room.participants.length ? room.participants.map((participant) => <div key={participant.id}><span>{participant.name}</span><small>{participant.username ? `@${participant.username}` : participant.identity}</small>{!participant.leftAt && room.status !== 'closed' && <button disabled={busy === participant.id} onClick={() => void onRemove(room, participant.id, participant.name)} type="button">Remover</button>}</div>) : <p>Nenhum participante recebido.</p>}</div>
     </article>)}
   </div>
 )

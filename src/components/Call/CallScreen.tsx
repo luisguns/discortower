@@ -22,6 +22,7 @@ import {
   saveCallSoundsEnabled,
   saveGameOverlayEnabled,
   saveGalleryLayout,
+  saveMicrophoneMuted,
   saveStreamQuality,
 } from '../../storage/preferences'
 import type {
@@ -296,6 +297,7 @@ export const CallScreen = ({
         enabling,
         microphoneCaptureOptions(),
       )
+      saveMicrophoneMuted(!enabling)
       onMicrophoneErrorChange('')
       playCallSound(enabling ? 'unmute' : 'mute')
     } catch (error) {

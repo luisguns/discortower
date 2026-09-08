@@ -26,17 +26,22 @@ Deno.serve(async (request) => {
     if (!email || email.length > 320 || !emailPattern.test(email)) throw new HttpError(400, 'INVALID_EMAIL')
     if (password.length < 8 || password.length > 128) throw new HttpError(400, 'INVALID_PASSWORD')
 
+    // Look up the code regardless of status so we can tell the user *why* it
+    // failed (already used, expired, revoked) instead of a single generic error.
     const { data: codeRow, error: codeLookupError } = await client
       .from('invite_codes')
       .select('id,code,role,status,expires_at,created_by')
       .eq('code', code)
-      .eq('status', 'active')
       .maybeSingle()
-    if (codeLookupError || !codeRow) throw new HttpError(400, 'INVALID_OR_EXPIRED_CODE')
-    if (new Date(codeRow.expires_at) <= new Date()) {
-      await client.from('invite_codes').update({ status: 'expired' }).eq('id', codeRow.id)
-      throw new HttpError(400, 'INVALID_OR_EXPIRED_CODE')
+    if (codeLookupError) throw new HttpError(400, 'INVALID_OR_EXPIRED_CODE')
+    if (!codeRow) throw new HttpError(400, 'CODE_NOT_FOUND')
+    if (codeRow.status === 'used') throw new HttpError(409, 'CODE_ALREADY_USED')
+    if (codeRow.status === 'revoked') throw new HttpError(400, 'CODE_REVOKED')
+    if (codeRow.status === 'expired' || new Date(codeRow.expires_at) <= new Date()) {
+      if (codeRow.status !== 'expired') await client.from('invite_codes').update({ status: 'expired' }).eq('id', codeRow.id)
+      throw new HttpError(400, 'CODE_EXPIRED')
     }
+    if (codeRow.status !== 'active') throw new HttpError(400, 'INVALID_OR_EXPIRED_CODE')
 
     const { data: existingUsers } = await client.auth.admin.listUsers({ filter: email, page: 1, perPage: 1 })
     if (existingUsers?.users?.some((u: { email?: string }) => u.email?.toLowerCase() === email)) {

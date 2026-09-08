@@ -43,25 +43,15 @@ export const LandingPage = ({ onEnter }: LandingPageProps) => (
 
       <div className="landing-preview" aria-label="Prévia do aplicativo splotys">
         <div className="landing-preview__bar"><i /><i /><i /><span>splotys / sala privada</span></div>
-        <div className="landing-preview__body">
-          <aside>
-            <div className="landing-preview__logo"><BrandMark /><strong>splotys</strong></div>
-            <small>CANAIS</small>
-            <span className="is-active"># sala-geral</span>
-            <span># jogos</span>
-            <span># projeto</span>
-            <footer><i /> você está online</footer>
-          </aside>
-          <section>
-            <header><div><small>CANAL</small><strong>sala-geral</strong></div><span>3 conectados</span></header>
-            <div className="landing-preview__call">
-              <article><b>LT</b><span>Luis</span><small>falando agora</small></article>
-              <article><b>MA</b><span>Marina</span><small>microfone ativo</small></article>
-              <article className="is-screen"><Icon name="screen" /><span>Tela compartilhada</span><small>1080p · 60 fps</small></article>
-            </div>
-            <div className="landing-preview__controls"><i><Icon name="mic" /></i><i><Icon name="camera" /></i><i><Icon name="screen" /></i></div>
-          </section>
-        </div>
+        <img className="landing-preview__shot" src="/landing/visao-geral.png" alt="Tela inicial do splotys com a lista de canais e a presença da turma em tempo real" loading="lazy" width={1366} height={768} />
+      </div>
+    </section>
+
+    <section className="landing-gallery" aria-label="Telas do splotys">
+      <header><p className="landing-kicker">Por dentro do app</p><h2>Como o splotys<br />funciona na prática.</h2></header>
+      <div className="landing-gallery__grid">
+        <figure><img src="/landing/call-ativa.png" alt="Call de voz ativa em um canal, com participantes e transmissão de tela" loading="lazy" width={1366} height={768} /><figcaption>Calls de voz com presença e tela ao vivo.</figcaption></figure>
+        <figure><img src="/landing/conversa-privada.png" alt="Conversa privada entre amigos no splotys" loading="lazy" width={1366} height={768} /><figcaption>Encontre amigos pelo @username e converse em privado.</figcaption></figure>
       </div>
     </section>
 
@@ -87,7 +77,7 @@ export const LandingPage = ({ onEnter }: LandingPageProps) => (
     <footer className="landing-footer">
       <div className="landing-brand"><BrandMark /><span><strong>splotys</strong><small>Gunns Dev · 2026</small></span></div>
       <p>Comunicação privada para grupos que preferem estar juntos.</p>
-      <div><a href="/privacy.html">Privacidade</a><a href="/community-guidelines.html">Diretrizes da comunidade</a><a href="mailto:gustavo.inerd1830@gmail.com">Contato</a></div>
+      <div><a href="/privacy.html">Privacidade</a><a href="/community-guidelines.html">Diretrizes da comunidade</a><a href="mailto:contato@gunns.dev">Contato</a></div>
     </footer>
   </main>
 )

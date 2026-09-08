@@ -180,24 +180,43 @@ export const updatePassword = async (password: string): Promise<AuthResult> => {
   return error ? { ok: false, message: 'Não foi possível definir essa senha. Tente novamente.' } : { ok: true }
 }
 
+// Named errors from the redeem-invite-code Edge Function, each mapped to a
+// message that tells the person exactly what to fix.
+const inviteCodeErrorMessages: Record<string, string> = {
+  CODE_ALREADY_USED: 'Este código de convite já foi utilizado. Peça um novo a quem te convidou.',
+  CODE_EXPIRED: 'Este código de convite expirou. Peça um novo a quem te convidou.',
+  CODE_REVOKED: 'Este código de convite foi cancelado. Peça um novo a quem te convidou.',
+  CODE_NOT_FOUND: 'Código de convite não encontrado. Confira os 8 caracteres e tente de novo.',
+  INVALID_CODE: 'O código de convite precisa ter 8 caracteres.',
+  INVALID_OR_EXPIRED_CODE: 'Código inválido ou expirado.',
+  INVALID_EMAIL: 'E-mail inválido. Confira o endereço digitado.',
+  INVALID_PASSWORD: 'A senha precisa ter entre 8 e 128 caracteres.',
+  EMAIL_ALREADY_REGISTERED: 'Esse e-mail já tem uma conta. Faça login em vez de usar o convite.',
+  ACCOUNT_CREATION_FAILED: 'Não foi possível criar a conta com esse e-mail. Tente outro.',
+  RATE_LIMITED: 'Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo.',
+}
+
 export const redeemInviteCode = async (code: string, email: string, password: string): Promise<AuthResult> => {
-  const { data, error } = await getSupabase().functions.invoke('redeem-invite-code', {
+  const { error } = await getSupabase().functions.invoke('redeem-invite-code', {
     body: { code, email, password },
   })
-  if (error) {
-    const status = error.context instanceof Response ? error.context.status : 0
-    if (status === 400) {
-      const body = data as { error?: string } | null
-      if (body?.error === 'INVALID_OR_EXPIRED_CODE') return { ok: false, message: 'Código inválido ou expirado.' }
-      if (body?.error === 'INVALID_EMAIL') return { ok: false, message: 'E-mail inválido.' }
-      if (body?.error === 'INVALID_PASSWORD') return { ok: false, message: 'A senha precisa ter entre 8 e 128 caracteres.' }
-      if (body?.error === 'ACCOUNT_CREATION_FAILED') return { ok: false, message: 'Não foi possível criar a conta. Tente outro e-mail.' }
-    }
-    if (status === 409) return { ok: false, message: 'Esse e-mail já está cadastrado.' }
-    if (status === 429) return { ok: false, message: 'Muitas tentativas. Aguarde alguns minutos.' }
-    return { ok: false, message: 'Não foi possível criar a conta. Tente novamente.' }
+  if (!error) return { ok: true }
+  // On a non-2xx response supabase-js puts the JSON body on error.context
+  // (a Response), not on `data` — so the specific code must be read from there.
+  let status = 0
+  let errorCode = ''
+  const context = (error as { context?: Response }).context
+  if (context instanceof Response) {
+    status = context.status
+    try {
+      const parsed = await context.json()
+      if (parsed?.error) errorCode = String(parsed.error)
+    } catch { /* body may be empty or non-JSON; fall back to status below */ }
   }
-  return { ok: true }
+  if (errorCode && inviteCodeErrorMessages[errorCode]) return { ok: false, message: inviteCodeErrorMessages[errorCode] }
+  if (status === 409) return { ok: false, message: inviteCodeErrorMessages.EMAIL_ALREADY_REGISTERED }
+  if (status === 429) return { ok: false, message: inviteCodeErrorMessages.RATE_LIMITED }
+  return { ok: false, message: 'Não foi possível criar a conta agora. Verifique sua conexão e tente novamente.' }
 }
 
 export const signOut = async () => {

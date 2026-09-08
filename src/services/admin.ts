@@ -41,6 +41,7 @@ export interface AdminParticipant {
   userId?: string
   identity: string
   name: string
+  username?: string
   joinedAt: string
   leftAt?: string
 }
@@ -48,6 +49,9 @@ export interface AdminParticipant {
 export interface AdminRoom {
   id: string
   roomName: string
+  channelName?: string
+  callName?: string
+  roomCode: string
   status: 'starting' | 'open' | 'closed'
   startedAt?: string
   endedAt?: string
@@ -193,7 +197,7 @@ export const listAdminRooms = async () => {
   const supabase = getSupabase()
   const { data: roomData, error: roomError } = await supabase
     .from('room_sessions')
-    .select('id,room_name,status,started_at,ended_at,created_at')
+    .select('id,room_name,channel_id,channel_call_id,status,started_at,ended_at,created_at')
     .order('created_at', { ascending: false })
     .limit(100)
   const rooms = rows(roomData, roomError)
@@ -205,22 +209,50 @@ export const listAdminRooms = async () => {
     .in('room_session_id', rooms.map((room) => room.id))
     .order('joined_at', { ascending: true })
   const participants = rows(participantData, participantError)
-  return rooms.map((room) => ({
-    id: room.id,
-    roomName: room.room_name,
-    status: room.status,
-    startedAt: room.started_at || undefined,
-    endedAt: room.ended_at || undefined,
-    createdAt: room.created_at,
-    participants: participants.filter((participant) => participant.room_session_id === room.id).map((participant) => ({
-      id: participant.id,
-      userId: participant.user_id || undefined,
-      identity: participant.livekit_identity,
-      name: participant.participant_name,
-      joinedAt: participant.joined_at,
-      leftAt: participant.left_at || undefined,
-    })),
-  })) as AdminRoom[]
+
+  // The raw room_name is an opaque "DT_…" LiveKit code. Resolve the channel and
+  // call names, plus each participant's registered profile, so the panel shows
+  // human-readable identities instead of internal codes.
+  const channelIds = [...new Set(rooms.map((room) => room.channel_id).filter(Boolean))]
+  const callIds = [...new Set(rooms.map((room) => room.channel_call_id).filter(Boolean))]
+  const userIds = [...new Set(participants.map((participant) => participant.user_id).filter(Boolean))]
+  const [{ data: channelRows }, { data: callRows }, { data: profileRows }] = await Promise.all([
+    channelIds.length ? supabase.from('channels').select('id,name').in('id', channelIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    callIds.length ? supabase.from('channel_calls').select('id,name').in('id', callIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    userIds.length ? supabase.from('profiles').select('user_id,display_name,username').in('user_id', userIds) : Promise.resolve({ data: [] as { user_id: string; display_name: string; username: string }[] }),
+  ])
+  const channelName = new Map((channelRows || []).map((row) => [row.id, row.name]))
+  const callName = new Map((callRows || []).map((row) => [row.id, row.name]))
+  const profileById = new Map((profileRows || []).map((row) => [row.user_id, row]))
+
+  return rooms.map((room) => {
+    const channel = room.channel_id ? channelName.get(room.channel_id) : undefined
+    const call = room.channel_call_id ? callName.get(room.channel_call_id) : undefined
+    const label = [channel, call].filter(Boolean).join(' · ')
+    return {
+      id: room.id,
+      roomName: label || room.room_name,
+      channelName: channel,
+      callName: call,
+      roomCode: room.room_name,
+      status: room.status,
+      startedAt: room.started_at || undefined,
+      endedAt: room.ended_at || undefined,
+      createdAt: room.created_at,
+      participants: participants.filter((participant) => participant.room_session_id === room.id).map((participant) => {
+        const profile = participant.user_id ? profileById.get(participant.user_id) : undefined
+        return {
+          id: participant.id,
+          userId: participant.user_id || undefined,
+          identity: participant.livekit_identity,
+          name: profile?.display_name || participant.participant_name,
+          username: profile?.username || undefined,
+          joinedAt: participant.joined_at,
+          leftAt: participant.left_at || undefined,
+        }
+      }),
+    }
+  }) as AdminRoom[]
 }
 
 export const roomAction = (action: 'end_room' | 'remove_participant', roomId: string, participantId?: string) =>

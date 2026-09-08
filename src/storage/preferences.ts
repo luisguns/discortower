@@ -184,6 +184,13 @@ export const getActivitySharingEnabled = () => safeRead(ACTIVITY_SHARING_KEY) !=
 export const saveActivitySharingEnabled = (enabled: boolean) =>
   safeWrite(ACTIVITY_SHARING_KEY, String(enabled))
 
+// Mute state persists across calls (Discord-style): if you left muted, you rejoin
+// muted, and you can choose to enter a call already muted from the lobby.
+const MICROPHONE_MUTED_KEY = 'splotys:microphone-muted'
+export const getMicrophoneMuted = () => safeRead(MICROPHONE_MUTED_KEY) === 'true'
+export const saveMicrophoneMuted = (muted: boolean) =>
+  safeWrite(MICROPHONE_MUTED_KEY, String(muted))
+
 const emptyShortcutBindings = (): ShortcutBindings => ({
   microphone: '',
   deafen: '',

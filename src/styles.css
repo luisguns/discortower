@@ -6284,6 +6284,13 @@ svg {
 .profile-studio__preview-chat > div { display: grid; gap: 5px; }
 .profile-studio__preview-chat .profile-name { font-size: 10px; }
 .profile-studio__preview-chat p { margin: 0; color: #9593a3; font-size: 9px; }
+/* Caixa alta / long names must not push these flex rows past the card edge:
+   let the containers shrink and clip the styled name instead of overflowing. */
+.profile-studio__preview-call small { min-width: 0; overflow: hidden; }
+.profile-studio__preview-call div, .profile-studio__preview-chat > div { min-width: 0; }
+.profile-studio__preview-call small .profile-name,
+.profile-studio__preview-chat > div > .profile-name { overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; }
+.profile-studio__preview > .profile-name { max-width: 100%; overflow-wrap: anywhere; text-align: center; }
 .profile-studio__controls { display: grid; padding-bottom: 74px; gap: 12px; }
 .profile-studio__section { padding: 22px; border: 1px solid #3f4460; border-radius: 17px; background: rgba(14, 14, 17, .88); }
 .profile-studio__section > header { display: flex; margin-bottom: 20px; gap: 11px; align-items: center; }
@@ -6468,10 +6475,12 @@ svg {
 .dm-composer__invite > button.is-active { background: #2c2d3f; color: var(--accent); }
 .dm-composer__invite > button svg { width: 15px; }
 .dm-composer__invite-backdrop { position: fixed; inset: 0; z-index: 4; width: 100%; height: 100%; border: 0; background: transparent; }
-.dm-composer__invite-menu { position: absolute; bottom: 46px; left: 0; z-index: 5; display: grid; gap: 3px; width: 210px; max-height: 240px; padding: 8px; overflow: auto; border: 1px solid #3a3e5a; border-radius: 12px; background: #17182b; box-shadow: 0 18px 40px rgba(0,0,0,.5); }
+.dm-composer__invite-menu { position: absolute; bottom: 46px; left: 0; z-index: 5; display: grid; grid-template-columns: minmax(0, 1fr); gap: 3px; width: 232px; max-height: 240px; padding: 8px; overflow: auto; border: 1px solid #3a3e5a; border-radius: 12px; background: #17182b; box-shadow: 0 18px 40px rgba(0,0,0,.5); }
 .dm-composer__invite-menu p { margin: 2px 4px 4px; color: #8f8c9e; font-size: 7px; letter-spacing: .08em; text-transform: uppercase; }
 .dm-composer__invite-menu small { padding: 6px 4px; color: #78758a; font-size: 8px; }
-.dm-composer__invite-menu button { display: block; width: 100%; height: auto; padding: 8px 9px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #d7d7dd; font-size: 9px; text-align: left; }
+/* Outrank the generic ".dm-composer button" icon-button style below, which
+   would otherwise force these list items to a 36px grid square. */
+.dm-composer .dm-composer__invite-menu button { display: block; width: 100%; height: auto; padding: 8px 9px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #d7d7dd; font-size: 9px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; place-items: stretch; }
 .dm-composer__invite-menu button:hover:not(:disabled), .dm-composer__invite-menu button:focus-visible { border-color: #444a67; background: #212340; }
 .dm-composer__invite-menu button:disabled { opacity: .5; }
 .dm-invite { display: flex; gap: 9px; padding: 10px 11px; border: 1px solid #444a67; border-radius: 12px 12px 12px 3px; background: #242640; }
@@ -6751,6 +6760,7 @@ svg {
 
 .landing-nav,
 .landing-hero,
+.landing-gallery,
 .landing-features,
 .landing-invite,
 .landing-footer {
@@ -6848,6 +6858,15 @@ svg {
 .landing-preview__controls { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px; border-top: 1px solid #2e314a; }
 .landing-preview__controls i { display: grid; width: 31px; height: 31px; place-items: center; border: 1px solid #3e435f; border-radius: 50%; background: #22243d; color: #8d8a9c; }
 .landing-preview__controls svg { width: 13px; }
+.landing-preview__shot { display: block; width: 100%; height: auto; }
+
+.landing-gallery { padding: 96px 0 8px; }
+.landing-gallery > header { text-align: center; }
+.landing-gallery > header h2 { margin: 14px auto 0; font-size: clamp(40px, 5vw, 64px); }
+.landing-gallery__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; margin-top: 52px; }
+.landing-gallery figure { margin: 0; overflow: hidden; border: 1px solid #343852; border-radius: 20px; background: #17182b; box-shadow: 0 34px 80px rgba(0, 0, 0, 0.42); }
+.landing-gallery figure img { display: block; width: 100%; height: auto; border-bottom: 1px solid #2e314a; }
+.landing-gallery figcaption { padding: 16px 20px; color: #8b8a9c; font-size: 10px; }
 
 .landing-features { padding: 104px 0 112px; border-top: 1px solid rgba(255, 255, 255, 0.07); }
 .landing-features > header { display: flex; align-items: end; justify-content: space-between; gap: 40px; }
@@ -6878,12 +6897,14 @@ svg {
   .landing-hero { grid-template-columns: 1fr; padding-top: 70px; }
   .landing-hero__copy { max-width: 720px; }
   .landing-preview { transform: none; }
+  .landing-gallery__grid { grid-template-columns: 1fr; gap: 16px; }
   .landing-invite { grid-template-columns: 1fr; gap: 48px; }
 }
 
 @media (max-width: 680px) {
   .landing-nav,
   .landing-hero,
+  .landing-gallery,
   .landing-features,
   .landing-invite,
   .landing-footer { width: min(100% - 30px, 1180px); }
@@ -7698,6 +7719,18 @@ svg {
 .channel-context-menu__form input:focus { border-color:var(--accent); }
 .channel-context-menu__form button { width:auto; margin:0; padding:0 11px; background:var(--accent); color:#20131c; }
 .channel-context-menu__form button:disabled { opacity:.45; cursor:not-allowed; }
+.channel-context-menu__friends { display:grid; gap:2px; padding-top:4px; }
+.channel-context-menu__friends > label { padding:6px 6px 4px; color:#918da6; font-size:8px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+.channel-context-menu__friends > div { display:grid; gap:2px; max-height:210px; overflow:auto; scrollbar-width:thin; scrollbar-color:#4a4866 transparent; }
+.channel-context-menu__friends > div button { display:grid; grid-template-columns:26px minmax(0,1fr) auto; gap:9px; align-items:center; }
+.channel-context-menu__friends > div button .profile-avatar { width:26px; height:26px; border-radius:8px; font-size:9px; }
+.channel-context-menu__friends > div button > span { display:grid; min-width:0; gap:1px; }
+.channel-context-menu__friends > div button .profile-name { overflow:hidden; max-width:100%; font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
+.channel-context-menu__friends > div button > span small { overflow:hidden; color:#88859b; font-size:7px; text-overflow:ellipsis; white-space:nowrap; }
+.channel-context-menu__friends > div button em { color:var(--accent); font-size:7px; font-style:normal; letter-spacing:.04em; }
+.channel-context-menu__back { color:#918da6 !important; font-size:8px !important; letter-spacing:.06em; text-transform:uppercase; }
+.channel-context-menu__back svg { width:12px !important; }
+.channel-context-menu__empty { display:block; padding:10px 8px; color:#88859b; font-size:8px; line-height:1.6; }
 
 .app-toast { position:fixed; z-index:100; right:24px; bottom:24px; display:grid; width:min(360px, calc(100vw - 32px)); grid-template-columns:34px minmax(0, 1fr) 28px; align-items:center; gap:10px; padding:11px 10px 11px 11px; border:1px solid rgba(124,140,255,.42); border-radius:13px; background:rgba(22, 23, 40, .86); box-shadow:0 20px 70px rgba(0,0,0,.5), 0 0 35px rgba(124,140,255,.12); backdrop-filter:blur(20px) saturate(150%); animation:app-toast-in 220ms cubic-bezier(.2,.8,.2,1); }
 .app-toast > span { display:grid; width:34px; height:34px; place-items:center; border-radius:10px; background:rgba(124,140,255,.16); color:#aeb8ff; }
@@ -8050,8 +8083,8 @@ button.channel-home__profile-bar:hover, button.channel-home__profile-bar.is-acti
 
 .channel-workspace__calls-heading { display: flex; align-items: center; justify-content: space-between; padding: 22px 18px 10px; color: #989fb8; font-size: 8px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
 .channel-workspace__calls-heading b { display: grid; width: 22px; height: 22px; place-items: center; border: 1px solid #444a67; border-radius: 7px; color: #7c798d; font-size: 7px; }
-.channel-workspace__call-list { display: grid; min-height: 0; align-content: start; gap: 5px; padding: 0 10px 16px; overflow: hidden auto; scrollbar-color: #383740 transparent; scrollbar-width: thin; }
-.channel-workspace__call-list > button { display: grid; width: 100%; min-height: 58px; grid-template-columns: 36px minmax(0, 1fr) auto 13px; align-items: center; gap: 9px; padding: 9px 10px; border: 1px solid transparent; border-radius: 11px; background: transparent; color: #7c7a8d; text-align: left; transition: background 140ms ease, border-color 140ms ease, transform 140ms ease; }
+.channel-workspace__call-list { display: grid; min-height: 0; align-content: start; gap: 7px; padding: 2px 12px 18px; overflow: hidden auto; scrollbar-color: #383740 transparent; scrollbar-width: thin; }
+.channel-workspace__call-list > button { display: grid; width: 100%; min-height: 62px; grid-template-columns: 36px minmax(0, 1fr) auto 13px; align-items: center; gap: 11px; padding: 11px 12px; border: 1px solid transparent; border-radius: 11px; background: transparent; color: #7c7a8d; text-align: left; transition: background 140ms ease, border-color 140ms ease, transform 140ms ease; }
 .channel-workspace__call-list > button:hover { background: rgba(255, 255, 255, .025); color: #c9c8d0; transform: translateX(2px); }
 .channel-workspace__call-list > button.is-active { border-color: #444250; background: linear-gradient(90deg, rgba(255, 107, 138, .1), rgba(255, 107, 138, .025)); color: #f3f1fb; }
 .channel-workspace__call-icon { display: grid; width: 36px; height: 36px; place-items: center; border: 1px solid #454b68; border-radius: 10px; background: #22243d; color: #777488; }
@@ -8082,7 +8115,7 @@ button.channel-home__profile-bar:hover, button.channel-home__profile-bar.is-acti
 
 .call-preview { position: relative; display: flex; min-width: 0; min-height: 0; flex-direction: column; padding: clamp(30px, 4vw, 54px) clamp(32px, 5vw, 68px) 28px; overflow: hidden; background: radial-gradient(circle at 85% 12%, rgba(255, 107, 138, .07), transparent 29%), linear-gradient(145deg, #0b0b0d, #101122); }
 .call-preview::before { position: absolute; right: -120px; bottom: -190px; width: 420px; height: 420px; border: 1px solid rgba(255, 107, 138, .05); border-radius: 50%; box-shadow: inset 0 0 0 55px rgba(255, 107, 138, .012), inset 0 0 0 110px rgba(255, 107, 138, .012); content: ""; pointer-events: none; }
-.call-preview > header { position: relative; z-index: 1; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding-bottom: 25px; border-bottom: 1px solid #2c2b32; }
+.call-preview > header { position: relative; z-index: 1; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding-bottom: 30px; border-bottom: 1px solid #2c2b32; }
 .call-preview > header h1 { margin: 11px 0 7px; color: #f3f1fb; font: 600 clamp(40px, 5vw, 62px)/.92 "Space Grotesk", Inter, sans-serif; letter-spacing: -.02em; }
 .call-preview > header p { margin: 0; color: #6f6d7f; font-size: 9px; }
 .call-preview > header p strong { color: #a9a8b4; font-weight: 600; }
@@ -8092,19 +8125,19 @@ button.channel-home__profile-bar:hover, button.channel-home__profile-bar.is-acti
 .call-preview__live.is-live i { background: var(--accent); box-shadow: 0 0 11px rgba(255, 107, 138, .7); }
 .call-preview__room-mark { display: grid; width: 58px; height: 58px; place-items: center; border: 1px solid #49465b; border-radius: 17px; background: rgba(255, 107, 138, .055); color: var(--accent); }
 .call-preview__room-mark svg { width: 24px; height: 24px; }
-.call-preview__overview { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 20px; }
-.call-preview__overview > span { display: grid; min-width: 0; min-height: 64px; grid-template-columns: 23px minmax(0, 1fr); align-content: center; gap: 3px 9px; padding: 10px 13px; border: 1px solid #2f2e36; border-radius: 11px; background: rgba(17, 17, 20, .75); }
+.call-preview__overview { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
+.call-preview__overview > span { display: grid; min-width: 0; min-height: 70px; grid-template-columns: 23px minmax(0, 1fr); align-content: center; gap: 4px 10px; padding: 13px 15px; border: 1px solid #2f2e36; border-radius: 11px; background: rgba(17, 17, 20, .75); }
 .call-preview__overview svg { width: 16px; grid-row: 1 / 3; align-self: center; color: #737084; }
 .call-preview__overview strong { overflow: hidden; color: #d0cedd; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .call-preview__overview small { color: #5e5c6b; font-size: 7px; }
-.call-preview__people { position: relative; z-index: 1; min-height: 0; margin-top: 28px; overflow: hidden auto; scrollbar-color: #383740 transparent; scrollbar-width: thin; }
-.call-preview__people > header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.call-preview__people { position: relative; z-index: 1; min-height: 0; margin-top: 36px; overflow: hidden auto; scrollbar-color: #383740 transparent; scrollbar-width: thin; }
+.call-preview__people > header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .call-preview__people > header > div { display: grid; gap: 5px; }
 .call-preview__people > header span { color: #a7a5b3; font-size: 9px; font-weight: 700; }
 .call-preview__people > header small { color: #5f5c6d; font-size: 7px; }
 .call-preview__people > header b { display: grid; width: 27px; height: 27px; place-items: center; border: 1px solid #3a3943; border-radius: 8px; color: var(--accent); font-size: 8px; }
-.call-preview__people > div:not(.call-preview__empty-people) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.call-preview__people article { display: grid; min-width: 0; min-height: 62px; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px; border: 1px solid #3f4460; border-radius: 12px; background: rgba(19, 18, 22, .82); }
+.call-preview__people > div:not(.call-preview__empty-people) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.call-preview__people article { display: grid; min-width: 0; min-height: 68px; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 13px; border: 1px solid #3f4460; border-radius: 12px; background: rgba(19, 18, 22, .82); }
 .call-preview__people article .profile-avatar { width: 40px; height: 40px; border: 1px solid #4d4967; border-radius: 12px; }
 .call-preview__people article > span { display: grid; min-width: 0; gap: 4px; }
 .call-preview__people article strong,
@@ -8118,11 +8151,17 @@ button.channel-home__profile-bar:hover, button.channel-home__profile-bar.is-acti
 .call-preview__empty-people svg { width: 18px; }
 .call-preview__empty-people strong { color: #9d9baa; font-size: 9px; }
 .call-preview__empty-people small { font-size: 7px; }
-.call-preview__footer { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: auto; padding-top: 24px; }
+.call-preview__footer { position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 18px 24px; margin-top: auto; padding-top: 24px; }
 .call-preview__footer > div { display: flex; align-items: center; gap: 10px; }
+.call-preview__actions { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.call-preview__actions .channel-home__join { margin-top: 0; }
+.call-preview__mute { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border: 1px solid #37353f; border-radius: 999px; background: rgba(9, 9, 11, 0.6); color: #c9c7d4; font-size: 11px; font-weight: 600; letter-spacing: 0.02em; transition: border-color 150ms ease, color 150ms ease, background 150ms ease; }
+.call-preview__mute svg { width: 15px; height: 15px; }
+.call-preview__mute:hover { border-color: color-mix(in srgb, var(--accent) 55%, #37353f); color: #f2f4ef; }
+.call-preview__mute.is-muted { border-color: color-mix(in srgb, var(--accent) 60%, transparent); background: color-mix(in srgb, var(--accent) 14%, #09090b); color: var(--accent); }
 .call-preview__footer > div > span:last-child { display: grid; gap: 4px; }
-.call-preview__footer > div strong { color: #aaa9b5; font-size: 8px; }
-.call-preview__footer > div small { color: #5f5c6d; font-size: 7px; }
+.call-preview__footer > div:first-child strong { color: #aaa9b5; font-size: 8px; }
+.call-preview__footer > div:first-child small { color: #5f5c6d; font-size: 7px; }
 .call-preview__footer .channel-home__join { width: min(100%, 310px); min-height: 58px; margin: 0; border-radius: 13px; }
 .call-preview__footer .channel-home__join strong { font-size: 14px; }
 .call-preview__empty { position: relative; z-index: 1; display: grid; max-width: 500px; flex: 1; align-content: center; justify-items: start; }
@@ -8135,7 +8174,8 @@ button.channel-home__profile-bar:hover, button.channel-home__profile-bar.is-acti
 @media (max-width: 1120px) {
   .channel-workspace { grid-template-columns: 258px minmax(0, 1fr); }
   .call-preview { padding-right: 30px; padding-left: 30px; }
-  .call-preview__footer > div { display: none; }
+  .call-preview__footer > div:first-child { display: none; }
+  .call-preview__actions { width: 100%; }
   .call-preview__footer .channel-home__join { width: 100%; }
 }
 
@@ -8161,6 +8201,48 @@ button.channel-home__profile-bar:hover, button.channel-home__profile-bar.is-acti
     background: rgba(15, 15, 17, .97);
     box-shadow: 0 22px 64px rgba(0, 0, 0, .42);
   }
+}
+
+/* --- 0.8.1 mobile polish: a single narrow column must flow, never clip ---
+   Below 680px the app stacks into one column; these rules stop the two-column
+   panels (channel workspace, friends, call preview) from forcing horizontal
+   scroll or clipping their content, and let the page scroll naturally. */
+@media (max-width: 680px) {
+  /* The web shell otherwise locks the app to one viewport with overflow
+     hidden, so nothing below the fold can scroll into view. */
+  .web-app-shell { height: auto; min-height: 100dvh; overflow: visible; }
+
+  /* Grid distribution shrinks the sidebar's auto row to leftover space and
+     clips it; a flex column lets both regions take natural height and the
+     page scroll. */
+  .channel-home { display: flex; flex-direction: column; overflow: visible; padding-bottom: 76px; }
+  /* backdrop-filter would make the sidebar the containing block for the
+     fixed profile bar, trapping it inside the sidebar instead of the viewport. */
+  .channel-home__sidebar { flex: 0 0 auto; backdrop-filter: none; }
+  .channel-home__main { flex: 1 1 auto; min-height: 62dvh; overflow: visible; }
+  /* Pin the profile/settings bar to the bottom of the viewport instead of
+     letting it float mid-page between the stacked sidebar and main. */
+  .channel-home__sidebar .call-sidebar-profile { position: fixed; z-index: 20; right: 0; bottom: 0; left: 0; border-top: 1px solid #27262c; padding-bottom: max(10px, env(safe-area-inset-bottom)); background: #0e0e11; box-shadow: 0 -10px 28px rgba(0, 0, 0, .45); }
+  /* The channel strip scrolls horizontally; give it natural height so a
+     flex:1 basis of 0 can't collapse it to a sliver. */
+  .channel-home__channel-list { flex: 0 0 auto; }
+
+  .channel-home__dashboard { width: min(calc(100% - 32px), 640px); padding: 24px 0 72px; overflow: visible; }
+  .channel-home__dashboard > header h1 { font-size: clamp(34px, 11vw, 52px); }
+  .channel-home__cards { grid-template-columns: 1fr; margin-top: 24px; }
+  .channel-home__cards > button { min-height: 0; }
+
+  .channel-workspace { grid-template-columns: 1fr; overflow: visible; }
+  .channel-workspace__calls { border-right: 0; border-bottom: 1px solid #353952; }
+  .channel-workspace__call-list { overflow: visible; }
+  .call-preview { padding: 24px 18px 34px; overflow: visible; }
+  .call-preview::before { display: none; }
+  .call-preview > header h1 { font-size: clamp(28px, 9vw, 44px); }
+  .call-preview__people { overflow: visible; }
+
+  .social-workspace { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); overflow: visible; }
+  .social-panel { display: grid; border-right: 0; border-bottom: 1px solid #29282f; }
+  .social-panel__list { max-height: 40vh; }
 }
 
 /* Styled names inherit the sizing of every surface they replace. */

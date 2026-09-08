@@ -6,7 +6,7 @@ import {
   friendlyConnectionError,
   friendlyMicrophoneError,
 } from '../services/livekit'
-import { saveLocalProfile } from '../storage/preferences'
+import { getMicrophoneMuted, saveLocalProfile } from '../storage/preferences'
 import type { ConnectionStatus, LocalProfile } from '../types'
 import { microphoneCaptureOptions } from './useMicrophoneProcessing'
 import { startMicrophoneCapture } from '../services/microphoneCapture'
@@ -149,7 +149,14 @@ export const useLiveKitRoom = () => {
           window.clearTimeout(microphoneTimer)
           if (microphoneRequestRef.current !== microphoneRequest || roomRef.current !== connectedRoom || microphoneTimedOut) return
           if (!track) throw captureError || new Error('MICROPHONE_CAPTURE_CANCELLED')
+          // Honor the persisted mute state so joining muted never leaks audio: stop
+          // frames before publish, then reflect the muted state on the participant.
+          const startMuted = getMicrophoneMuted()
+          if (startMuted) track.enabled = false
           await connectedRoom.localParticipant.publishTrack(track, { source: Track.Source.Microphone })
+          if (startMuted && microphoneRequestRef.current === microphoneRequest && roomRef.current === connectedRoom) {
+            await connectedRoom.localParticipant.setMicrophoneEnabled(false)
+          }
           if (microphoneRequestRef.current === microphoneRequest && !microphoneTimedOut) {
             console.info(`RTC_MICROPHONE_TIMING provider=${provider} capture_ms=${captureMs} ready_ms=${elapsed()}`)
           }
