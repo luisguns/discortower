@@ -19,9 +19,11 @@ Deno.serve(async (request) => {
       callId = fallback?.id || ''
     }
     if (!callId || !/^[0-9a-f-]{36}$/i.test(callId)) throw new HttpError(400, 'INVALID_CALL')
-    await enforceRateLimit(client, `issue-token:${user.id}`, 30, 60)
-
-    const [{ data: profile, error: profileError }, role, { data: mediaSettings, error: mediaSettingsError }] = await Promise.all([
+    // Rate limit runs alongside the reads instead of gating them: it only writes
+    // a counter and throws when exceeded, so overlapping it with the profile
+    // fetch shaves a round-trip off the hot join path.
+    const [, { data: profile, error: profileError }, role, { data: mediaSettings, error: mediaSettingsError }] = await Promise.all([
+      enforceRateLimit(client, `issue-token:${user.id}`, 30, 60),
       client.from('profiles').select('status,display_name,avatar_url,name_font,name_color,name_effect,name_weight,name_spacing,name_case,name_badge,name_animation,screen_share_quality_override').eq('user_id', user.id).maybeSingle(),
       effectiveRole(client, user.id),
       client.from('call_guardrail_settings').select('member_screen_share_quality,host_screen_share_quality,manager_screen_share_quality').eq('id', true).maybeSingle(),
@@ -75,14 +77,21 @@ Deno.serve(async (request) => {
       console.error('RTC_TOKEN_ISSUE_FAILED', { error: error instanceof Error ? error.message : 'unknown' })
       throw new Error('LIVEKIT_TOKEN_ISSUE_FAILED')
     }
-    const { error: membershipError } = await client.from('channel_members').upsert({
-      channel_id: resolvedChannelId,
-      last_seen_at: new Date().toISOString(),
-      user_id: user.id,
-    }, { onConflict: 'channel_id,user_id' })
-    if (membershipError) throw new Error('CHANNEL_MEMBERSHIP_FAILED')
     const rtcHost = new URL(token.serverUrl).host
-    await writeAudit(client, { action: 'livekit_token_issued', actorUserId: user.id, result: 'success', metadata: { channelId: resolvedChannelId, callId, roomSessionId: session.id, role, maxScreenShareQuality, provider: token.provider, rtcHost } })
+    // Membership bookkeeping and the audit row are side effects the client never
+    // waits on. Defer them past the response (kept alive by EdgeRuntime.waitUntil)
+    // so the token — the only thing the join is blocked on — returns immediately.
+    const finalizeSideEffects = (async () => {
+      const { error: membershipError } = await client.from('channel_members').upsert({
+        channel_id: resolvedChannelId,
+        last_seen_at: new Date().toISOString(),
+        user_id: user.id,
+      }, { onConflict: 'channel_id,user_id' })
+      if (membershipError) console.error('CHANNEL_MEMBERSHIP_FAILED', { error: membershipError.message })
+      await writeAudit(client, { action: 'livekit_token_issued', actorUserId: user.id, result: 'success', metadata: { channelId: resolvedChannelId, callId, roomSessionId: session.id, role, maxScreenShareQuality, provider: token.provider, rtcHost } })
+    })().catch((error) => console.error('TOKEN_SIDE_EFFECTS_FAILED', { error: error instanceof Error ? error.message : 'unknown' }))
+    const runtime = (globalThis as { EdgeRuntime?: { waitUntil?: (promise: Promise<unknown>) => void } }).EdgeRuntime
+    runtime?.waitUntil?.(finalizeSideEffects)
     console.info('RTC_TOKEN_ISSUED', { provider: token.provider })
     return jsonResponse(request, { ...token, channelId: resolvedChannelId, callId, roomSessionId: session.id, screenSharePolicy: maxScreenShareQuality })
   } catch (error) {

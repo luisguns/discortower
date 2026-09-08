@@ -12,7 +12,8 @@ import { LobbyWorkspace as Lobby } from './components/Lobby/LobbyWorkspace'
 import { AppSettingsScreen } from './components/Settings/AppSettingsScreen'
 import { useLiveKitRoom } from './hooks/useLiveKitRoom'
 import { useDesktopActivity } from './hooks/useDesktopActivity'
-import { getChannelIdFromUrl, replaceChannelIdInCurrentUrl } from './services/livekit'
+import { getChannelIdFromUrl, normalizeDisplayName, replaceChannelIdInCurrentUrl } from './services/livekit'
+import { normalizeProfileNameStyle } from './services/profile'
 import { acceptChannelInvite, archiveChannel, createCall, createChannel, createChannelInvite, createChannelInviteLink, listChannels, renameChannel, subscribeToChannels } from './services/channels'
 import { listChannelPresence } from './services/presence'
 import { listSocial, subscribeToSocial } from './services/social'
@@ -207,7 +208,14 @@ function App() {
   }
 
   const join = async (profile: LocalProfile, nextCallId: string, nextChannelId?: string) => {
-    const savedProfile = await auth.updateProfile(profile)
+    // Persisting the profile (a ~19 KB avatar write) blocks the join, so skip it
+    // when nothing changed since it was loaded — the common case on every join.
+    const current = auth.access?.profile
+    const profileUnchanged = Boolean(current) &&
+      normalizeDisplayName(profile.displayName) === normalizeDisplayName(current!.displayName || '') &&
+      (profile.avatarDataUrl ?? '') === (current!.avatarDataUrl ?? '') &&
+      JSON.stringify(normalizeProfileNameStyle(profile.nameStyle)) === JSON.stringify(normalizeProfileNameStyle(current!.nameStyle))
+    const savedProfile = profileUnchanged ? current : await auth.updateProfile(profile)
     if (!savedProfile) return false
     const connected = await liveKit.join(nextCallId, profile)
     if (connected) {
