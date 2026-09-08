@@ -1,0 +1,84 @@
+// config.alloy — agente Grafana Alloy
+// Coleta: (1) saúde da VPS via node_exporter, (2) métricas RTC do Control Tower,
+// (3) logs de todos os containers Docker. Empurra métricas pro Prometheus da
+// Grafana Cloud e logs pro Loki da Grafana Cloud.
+//
+// Os valores sensíveis vêm do .env (env_file no compose). NÃO comite o .env.
+
+// ─────────────────────────────────────────────────────────────────────────
+// 1. MÉTRICAS — de onde coletar (scrape)
+// ─────────────────────────────────────────────────────────────────────────
+
+// Saúde da VPS: CPU, RAM, disco, rede (largura de banda), IO, systemd.
+prometheus.scrape "node" {
+  targets = [{ __address__ = "localhost:9100", instance = "splotys-vps" }]
+  scrape_interval = "15s"
+  forward_to = [prometheus.remote_write.grafanacloud.receiver]
+}
+
+// Métricas nativas do Control Tower / LiveKit (calls, participantes,
+// banda por sala, jitter, packet loss, erros de sinalização).
+// AJUSTE a porta: no LiveKit é a `prometheus_port` do config (padrão 6789).
+prometheus.scrape "control_tower" {
+  targets = [{ __address__ = "localhost:6789", instance = "control-tower" }]
+  scrape_interval = "15s"
+  forward_to = [prometheus.remote_write.grafanacloud.receiver]
+}
+
+// Envio das métricas pra Grafana Cloud.
+prometheus.remote_write "grafanacloud" {
+  endpoint {
+    url = sys.env("GC_PROM_URL")     // ex: https://prometheus-prod-XX.grafana.net/api/prom/push
+    basic_auth {
+      username = sys.env("GC_PROM_USER")
+      password = sys.env("GC_TOKEN")
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 2. LOGS — descobrir containers Docker e enviar seus logs (erros/inconsistências)
+// ─────────────────────────────────────────────────────────────────────────
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// Rotula cada log com o nome do container, pra filtrar no Grafana.
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  labels     = { job = "docker" }
+  forward_to = [loki.process.errors.receiver]
+}
+
+// Marca linhas de erro/warn com um label `level` pra facilitar alertas.
+loki.process "errors" {
+  stage.regex {
+    expression = "(?i)(?P<lvl>error|panic|fatal|warn)"
+  }
+  stage.labels {
+    values = { level = "lvl" }
+  }
+  forward_to = [loki.write.grafanacloud.receiver]
+}
+
+// Envio dos logs pra Grafana Cloud.
+loki.write "grafanacloud" {
+  endpoint {
+    url = sys.env("GC_LOKI_URL")     // ex: https://logs-prod-XX.grafana.net/loki/api/v1/push
+    basic_auth {
+      username = sys.env("GC_LOKI_USER")
+      password = sys.env("GC_TOKEN")
+    }
+  }
+}

@@ -1,0 +1,39 @@
+# docker-compose.observability.yml
+# Sobe o node_exporter (saúde da VPS + banda) e o Grafana Alloy (agente que
+# coleta tudo e empurra pra Grafana Cloud). Rode ao lado do Control Tower:
+#   docker compose -f docker-compose.observability.yml up -d
+#
+# Pré-requisito: crie um arquivo .env ao lado deste (veja .env.example).
+
+services:
+  node_exporter:
+    image: quay.io/prometheus/node-exporter:v1.8.2
+    container_name: node_exporter
+    restart: unless-stopped
+    pid: host
+    network_mode: host          # necessário p/ ver métricas de rede reais da VPS
+    command:
+      - '--path.rootfs=/host'
+      - '--collector.systemd'    # estado dos serviços systemd
+      - '--collector.processes'  # nº de processos / uso por processo
+    volumes:
+      - '/:/host:ro,rslave'
+
+  alloy:
+    image: grafana/alloy:v1.5.1
+    container_name: alloy
+    restart: unless-stopped
+    network_mode: host           # p/ scrapear localhost:9100, :6789 etc.
+    env_file: .env
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro   # ler logs dos containers
+      - alloy_data:/var/lib/alloy/data
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:12345         # UI de debug do Alloy
+
+volumes:
+  alloy_data:
