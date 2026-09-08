@@ -30,7 +30,7 @@
     "test:presence": "node --experimental-strip-types --test tests/presence-timing.test.mjs"
   },
   "dependencies": {
-    "@gunns-dev/control-tower-client": "0.1.1",
+    "@gunns-dev/control-tower-client": "0.1.2",
     "@supabase/supabase-js": "^2.112.4",
     "electron-updater": "^6.8.9",
     "livekit-client": "2.22.0",

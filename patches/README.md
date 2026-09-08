@@ -1,20 +1,14 @@
-# Control Tower client 0.1.1
+# Control Tower client
 
-The pinned client patch includes the benchmark package 0/1/2: sender-scoped data
-assembly with bounded queues and receiver acknowledgements, media cleanup, refreshed credentials and full
-rejoin, local audio diagnostics and playback status. It also retains native
-microphone `publishTrack(track, { source })` compatibility, overlapping transport
-creation and data-channel readiness before `Room.connect` resolves.
+The benchmark client changes are published as
+`@gunns-dev/control-tower-client@0.1.2`. The app installs that exact version
+directly; no local SDK patch is required for the release.
 
-`npm ci` applies the patch and fails if it no longer matches the installed SDK.
 `npm run test:call-join` tests the installed package, including parallel transport
 failure cleanup, publication, mute/unmute, and browser capture cancellation.
 
 The corresponding TypeScript changes are also in the sibling Control Tower
-workspace (`packages/client/src`). No npm release was published in this package.
-The patch is the reproducible integration until the joint release. When an upstream
-release includes them, upgrade the exact dependency version, remove this patch,
-and rerun the tests before removing patch-package.
+workspace (`packages/client/src`).
 
 The local package 3/4/5 adds real producer mute, consumer pause/resume, subscription
 preferences across rejoin, video quality/demand control and the screen audio preset.
