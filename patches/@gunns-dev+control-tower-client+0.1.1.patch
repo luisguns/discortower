@@ -1,0 +1,83 @@
+diff --git a/node_modules/@gunns-dev/control-tower-client/dist/participant.d.ts b/node_modules/@gunns-dev/control-tower-client/dist/participant.d.ts
+index 32888dd..103756b 100644
+--- a/node_modules/@gunns-dev/control-tower-client/dist/participant.d.ts
++++ b/node_modules/@gunns-dev/control-tower-client/dist/participant.d.ts
+@@ -62,6 +62,10 @@ export declare class LocalParticipant extends Participant {
+     get isCameraEnabled(): boolean;
+     get isScreenShareEnabled(): boolean;
+     setMicrophoneEnabled(enabled: boolean, captureOptions?: MediaTrackConstraints): Promise<LocalAudioTrack | undefined>;
++    /** Publish an already captured microphone, matching LiveKit's native-track API. */
++    publishTrack(mediaTrack: MediaStreamTrack, options: {
++        source: Track.Source.Microphone;
++    }): Promise<TrackPublication>;
+     setCameraEnabled(enabled: boolean, captureOptions?: MediaTrackConstraints): Promise<LocalVideoTrack | undefined>;
+     setScreenShareEnabled(enabled: boolean, captureOptions?: ScreenShareCaptureOptions, publishOptions?: ScreenSharePublishOptions): Promise<LocalVideoTrack | undefined>;
+     /**
+diff --git a/node_modules/@gunns-dev/control-tower-client/dist/participant.js b/node_modules/@gunns-dev/control-tower-client/dist/participant.js
+index 750d095..934021b 100644
+--- a/node_modules/@gunns-dev/control-tower-client/dist/participant.js
++++ b/node_modules/@gunns-dev/control-tower-client/dist/participant.js
+@@ -97,9 +97,25 @@ export class LocalParticipant extends Participant {
+             },
+         });
+         const mediaTrack = stream.getAudioTracks()[0];
+-        const localTrack = new LocalAudioTrack(mediaTrack, Track.Source.Microphone);
++        try {
++            const publication = await this.publishTrack(mediaTrack, { source: Track.Source.Microphone });
++            return publication.track;
++        }
++        catch (error) {
++            stream.getTracks().forEach((track) => track.stop());
++            throw error;
++        }
++    }
++    /** Publish an already captured microphone, matching LiveKit's native-track API. */
++    async publishTrack(mediaTrack, options) {
++        if (mediaTrack.kind !== 'audio' || options.source !== Track.Source.Microphone) {
++            throw new Error('Only microphone audio is supported by publishTrack');
++        }
++        if (mediaTrack.readyState === 'ended')
++            throw new Error('Microphone track ended');
+         if (!this._sendTransport)
+             throw new Error('Send transport not initialized');
++        const localTrack = new LocalAudioTrack(mediaTrack, Track.Source.Microphone);
+         const producer = await this._sendTransport.produce({
+             track: mediaTrack,
+             appData: { source: Track.Source.Microphone },
+@@ -114,7 +130,7 @@ export class LocalParticipant extends Participant {
+         });
+         this.publications.set(producer.id, pub);
+         this._emit?.(RoomEvent.LocalTrackPublished, pub, this);
+-        return localTrack;
++        return pub;
+     }
+     async setCameraEnabled(enabled, captureOptions) {
+         const existing = this.getTrackPublication(Track.Source.Camera);
+diff --git a/node_modules/@gunns-dev/control-tower-client/dist/room.js b/node_modules/@gunns-dev/control-tower-client/dist/room.js
+index c7512e8..f7251a0 100644
+--- a/node_modules/@gunns-dev/control-tower-client/dist/room.js
++++ b/node_modules/@gunns-dev/control-tower-client/dist/room.js
+@@ -82,8 +82,21 @@ export class Room extends Emitter {
+         await this._device.load({
+             routerRtpCapabilities: welcome.rtpCapabilities,
+         });
+-        this._sendTransport = await this._createTransport('send');
+-        this._recvTransport = await this._createTransport('recv');
++        // Independent signaling requests: avoid adding a second network round trip.
++        // Wait for both outcomes so disconnect can clean up a successful sibling
++        // even when the other transport failed.
++        const transports = await Promise.allSettled([
++            this._createTransport('send'),
++            this._createTransport('recv'),
++        ]);
++        if (transports[0].status === 'fulfilled')
++            this._sendTransport = transports[0].value;
++        if (transports[1].status === 'fulfilled')
++            this._recvTransport = transports[1].value;
++        for (const result of transports) {
++            if (result.status === 'rejected')
++                throw result.reason;
++        }
+         this._localParticipant._init((method, data) => this._signal.request(method, data), this._sendTransport, (event, ...args) => this.emit(event, ...args));
+         this._signal.setNotifyHandler((method, data) => this._handleNotify(method, data));
+         this._signal.setCloseHandler(() => this._handleClose());

@@ -7,7 +7,12 @@ const normalizeName = (value: string) => value.trim().replace(/\s+/g, ' ').slice
 const roomNameFor = (sessionId: string) => `DT_${sessionId.replaceAll('-', '').toUpperCase()}`
 
 Deno.serve(async (request) => {
-  if (request.method === 'OPTIONS') return optionsResponse(request)
+  if (request.method === 'OPTIONS') {
+    const response = optionsResponse(request)
+    // Cache only the CORS permission check, never a token or authorization result.
+    response.headers.set('Access-Control-Max-Age', '600')
+    return response
+  }
   try {
     if (request.method !== 'POST') throw new HttpError(405, 'METHOD_NOT_ALLOWED')
     const { client, user } = await requireUser(request)
@@ -24,7 +29,7 @@ Deno.serve(async (request) => {
     // fetch shaves a round-trip off the hot join path.
     const [, { data: profile, error: profileError }, role, { data: mediaSettings, error: mediaSettingsError }] = await Promise.all([
       enforceRateLimit(client, `issue-token:${user.id}`, 30, 60),
-      client.from('profiles').select('status,display_name,avatar_url,name_font,name_color,name_effect,name_weight,name_spacing,name_case,name_badge,name_animation,screen_share_quality_override').eq('user_id', user.id).maybeSingle(),
+      client.from('profiles').select('status,display_name,name_font,name_color,name_effect,name_weight,name_spacing,name_case,name_badge,name_animation,screen_share_quality_override').eq('user_id', user.id).maybeSingle(),
       effectiveRole(client, user.id),
       client.from('call_guardrail_settings').select('member_screen_share_quality,host_screen_share_quality,manager_screen_share_quality').eq('id', true).maybeSingle(),
     ])
@@ -67,6 +72,7 @@ Deno.serve(async (request) => {
     // (see useParticipantProfiles). Keep this metadata small.
     const participantMetadata = JSON.stringify({ splotysProfile: { version: 2, nameStyle: { font: profile.name_font, color: profile.name_color, effect: profile.name_effect, weight: profile.name_weight, spacing: profile.name_spacing, casing: profile.name_case, badge: profile.name_badge, animation: profile.name_animation }, media: { maxScreenShareQuality } } })
     const restricted = await client.from('call_media_restrictions').select('screen_share_blocked').eq('room_session_id', session.id).eq('user_id', user.id).maybeSingle()
+    if (restricted.error) throw new Error('MEDIA_RESTRICTIONS_LOOKUP_FAILED')
     let token: { participantToken: string; serverUrl: string; provider: 'livekit' | 'torre' }
     try {
       token = await issueParticipantToken(roomName, identity, participantName, participantMetadata, {

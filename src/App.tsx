@@ -173,9 +173,9 @@ function App() {
 
   useEffect(() => {
     if (auth.status === 'authenticated') return
-    if (liveKit.room) void liveKit.leave()
+    if (liveKit.room || liveKit.status === 'connecting') void liveKit.leave()
     setAdminOpen(false)
-  }, [auth.status, liveKit.leave, liveKit.room])
+  }, [auth.status, liveKit.leave, liveKit.room, liveKit.status])
 
   useEffect(() => {
     const desktop = window.splotysDesktop

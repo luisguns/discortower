@@ -24,10 +24,12 @@
     "desktop:dist:windows": "npm run build && electron-builder --config electron-builder.config.cjs --win nsis portable --x64 --publish never",
     "desktop:dist:store": "npm run build && electron-builder --config electron-builder.config.cjs --win appx --x64 --publish never",
     "preview": "vite preview",
-    "typecheck": "tsc -b --pretty false"
+    "typecheck": "tsc -b --pretty false",
+    "postinstall": "patch-package --error-on-fail",
+    "test:call-join": "node --experimental-strip-types --experimental-test-module-mocks --test tests/call-join.test.mjs"
   },
   "dependencies": {
-    "@gunns-dev/control-tower-client": "^0.1.1",
+    "@gunns-dev/control-tower-client": "0.1.1",
     "@supabase/supabase-js": "^2.112.4",
     "electron-updater": "^6.8.9",
     "livekit-client": "2.22.0",
@@ -41,6 +43,7 @@
     "concurrently": "^10.0.5",
     "electron": "^43.4.1",
     "electron-builder": "^26.15.3",
+    "patch-package": "8.0.1",
     "sharp": "^0.35.3",
     "typescript": "7.0.2",
     "vite": "8.2.1",

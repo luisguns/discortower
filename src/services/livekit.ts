@@ -5,7 +5,6 @@ import { Room as LiveKitRoom } from 'livekit-client'
 // on the LiveKit path we build a real LiveKit Room and cast it to that surface.
 import { Room, VideoPreset } from '@gunns-dev/control-tower-client'
 import type { StreamQualityId } from '../types'
-import type { LocalProfile } from '../types'
 
 export type RtcProvider = 'livekit' | 'torre'
 
@@ -14,7 +13,6 @@ export interface ConnectionDetails {
   participantToken: string
   provider: RtcProvider
 }
-import { serializeParticipantProfile } from './profile'
 import { getSupabase } from './supabase'
 
 export const normalizeDisplayName = (value: string) => value.trim().replace(/\s+/g, ' ')
@@ -107,13 +105,10 @@ export const createRoom = (provider: RtcProvider): Room => {
 
 export const fetchConnectionDetails = async (
   callId: string,
-  profile: LocalProfile,
 ): Promise<ConnectionDetails> => {
   if (!callId) throw new Error('CALL_INVALID')
   const { data, error } = await getSupabase().functions.invoke('issue-livekit-token', {
     body: {
-      participantMetadata: serializeParticipantProfile(profile),
-      participantName: normalizeDisplayName(profile.displayName),
       callId,
     },
   })

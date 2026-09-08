@@ -33,6 +33,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify call join lifecycle and RTC patch
+        run: npm run test:call-join
+
       - name: Build
         run: npm run build
         env:
