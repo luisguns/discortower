@@ -66,6 +66,8 @@ export const useLiveKitRoom = () => {
         callId,
         profile,
       )
+      const rtcHost = new URL(serverUrl).host
+      console.info(`RTC_CONNECTION_DETAILS provider=${provider} host=${rtcHost}`)
       nextRoom = createRoom(provider)
       roomRef.current = nextRoom
 
@@ -135,9 +137,10 @@ export const useLiveKitRoom = () => {
 
       return true
     } catch (connectionFailure) {
-      console.warn('RTC_JOIN_FAILED', {
-        message: connectionFailure instanceof Error ? connectionFailure.message : 'unknown',
-      })
+      const failureMessage = connectionFailure instanceof Error
+        ? connectionFailure.message
+        : 'unknown'
+      console.warn(`RTC_JOIN_FAILED message=${failureMessage}`)
       if (nextRoom) {
         nextRoom.removeAllListeners()
         await nextRoom.disconnect(true)
