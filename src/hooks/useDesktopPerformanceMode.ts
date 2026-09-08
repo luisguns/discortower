@@ -8,7 +8,7 @@ import {
 } from '@gunns-dev/control-tower-client'
 
 const publicationKey = (participant: RemoteParticipant, publication: RemoteTrackPublication) =>
-  `${participant.identity}:${publication.trackSid}`
+  `${participant.identity}:${publication.source}`
 
 export const useDesktopPerformanceMode = (room: Room) => {
   useEffect(() => {
@@ -21,8 +21,13 @@ export const useDesktopPerformanceMode = (room: Room) => {
       participant: RemoteParticipant,
     ) => {
       if (publication.kind !== Track.Kind.Video || !publication.isDesired) return
+      const track = publication.videoTrack
+      if (track && 'attachedElements' in track && track.attachedElements.some((element) =>
+        element.ownerDocument.pictureInPictureElement === element ||
+        (element.ownerDocument !== document && !element.ownerDocument.hidden),
+      )) return
       suspendedPublications.add(publicationKey(participant, publication))
-      publication.setSubscribed(false)
+      publication.setEnabled(false)
     }
 
     const suspendVideo = () => {
@@ -37,7 +42,7 @@ export const useDesktopPerformanceMode = (room: Room) => {
       for (const participant of room.remoteParticipants.values()) {
         for (const publication of participant.videoTrackPublications.values()) {
           if (suspendedPublications.has(publicationKey(participant, publication))) {
-            publication.setSubscribed(true)
+            publication.setEnabled(true)
           }
         }
       }

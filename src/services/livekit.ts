@@ -1,4 +1,3 @@
-import { Room as LiveKitRoom } from 'livekit-client'
 // Dual-SDK (Q-15): both transports stay in the bundle during canary so rollback
 // is instant and server-controlled. `Room`/`VideoPreset` come from the Control
 // Tower client, which is the API surface the rest of the app is typed against;
@@ -96,10 +95,17 @@ const ROOM_OPTIONS = {
   webAudioMix: true,
 }
 
-export const createRoom = (provider: RtcProvider): Room => {
-  if (provider === 'torre') return new Room(ROOM_OPTIONS)
+export const createRoom = async (provider: RtcProvider, tokenProvider?: () => Promise<string>): Promise<Room> => {
+  if (provider === 'torre') {
+    const candidate = import.meta.env.VITE_CONTROL_TOWER_VOICE_PROFILE
+    const voiceProfile = candidate === 'standard' || candidate === 'speech48' ? candidate : 'speech32'
+    return new Room({ ...ROOM_OPTIONS, tokenProvider, voiceProfile })
+  }
   // The LiveKit Room mirrors the Control Tower client's surface that the app
   // uses, so casting keeps a single `Room` type across the codebase.
+  // Keep instant rollback without making every launch parse/evaluate the larger
+  // LiveKit SDK. Vite emits this import as a provider-specific cached chunk.
+  const { Room: LiveKitRoom } = await import('livekit-client')
   return new LiveKitRoom(ROOM_OPTIONS) as unknown as Room
 }
 
@@ -114,7 +120,19 @@ export const fetchConnectionDetails = async (
   })
   if (error) {
     const status = error.context?.status
-    throw new Error(status ? `AUTH_FUNCTION_${status}` : 'AUTH_FUNCTION_UNAVAILABLE')
+    // Edge Functions return a small, public error code (for example
+    // ACTIVE_CALL_LIMIT_REACHED). Preserve it so the UI can distinguish a
+    // capacity guardrail from an actual request-rate limit.
+    let code = ''
+    if (error.context) {
+      try {
+        const body = await error.context.clone().json() as { error?: unknown }
+        if (typeof body.error === 'string') code = body.error
+      } catch {
+        // Keep the status fallback for non-JSON proxy/network failures.
+      }
+    }
+    throw new Error(code || (status ? `AUTH_FUNCTION_${status}` : 'AUTH_FUNCTION_UNAVAILABLE'))
   }
   if (
     !data ||

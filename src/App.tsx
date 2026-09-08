@@ -15,7 +15,7 @@ import { useDesktopActivity } from './hooks/useDesktopActivity'
 import { getChannelIdFromUrl, normalizeDisplayName, replaceChannelIdInCurrentUrl } from './services/livekit'
 import { normalizeProfileNameStyle } from './services/profile'
 import { acceptChannelInvite, archiveChannel, createCall, createChannel, createChannelInvite, createChannelInviteLink, listChannels, renameChannel, subscribeToChannels } from './services/channels'
-import { listChannelPresence } from './services/presence'
+import { subscribeToChannelPresence } from './services/presence'
 import { listSocial, subscribeToSocial } from './services/social'
 import { getActivitySharingEnabled, saveActivitySharingEnabled } from './storage/preferences'
 import { isStoreDemo, storeDemoActivity, storeDemoChannels, storeDemoPresence, storeDemoSocial } from './dev/store-demo'
@@ -123,13 +123,7 @@ function App() {
       setPresence(storeDemoPresence)
       return
     }
-    let mounted = true
-    const load = async () => {
-      try { const next = await listChannelPresence(); if (mounted) setPresence(next) } catch { /* Presence is supplementary. */ }
-    }
-    void load()
-    const timer = window.setInterval(() => void load(), 15_000)
-    return () => { mounted = false; window.clearInterval(timer) }
+    return subscribeToChannelPresence(setPresence)
   }, [auth.status, storeDemo])
 
   const refreshSocial = async () => {

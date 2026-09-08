@@ -59,7 +59,7 @@ const { Room, LocalParticipant, Track, RoomEvent } = await import('@gunns-dev/co
 test('pre-captured audio publishes without opening a second microphone', async () => {
   const participant = new LocalParticipant('peer', 'identity', 'name', '', {})
   const track = makeTrack()
-  const produce = mock.fn(async () => ({ id: 'producer' }))
+  const produce = mock.fn(async () => ({ id: 'producer', pause() { track.enabled = false }, resume() { track.enabled = true } }))
   const emit = mock.fn()
   const request = mock.fn(async () => {})
   participant._init(request, { produce }, emit)
@@ -130,4 +130,18 @@ test('failed parallel transport leaves its successful sibling available for clea
   assert.ok(transport)
   await room.disconnect()
   assert.equal(transport.close.mock.callCount(), 1)
+})
+
+test('video publication negotiates demand control with the SFU through the installed SDK', async () => {
+  const room = new Room({ dynacast: true })
+  const handlers = new Map()
+  room._device = { createSendTransport: () => ({ id: 'send', on: (event, handler) => handlers.set(event, handler) }) }
+  const request = mock.fn(async (method) => method === 'createTransport' ? { id: 'send' } : { producerId: 'screen' })
+  room._signal = { request }
+  await room._createTransport('send')
+  await new Promise((resolve, reject) => handlers.get('produce')({
+    kind: 'video', rtpParameters: {}, appData: { source: Track.Source.ScreenShare, dynacast: true },
+  }, resolve, reject))
+  assert.equal(request.mock.calls.at(-1).arguments[0], 'produce')
+  assert.equal(request.mock.calls.at(-1).arguments[1].appData.dynacast, true)
 })

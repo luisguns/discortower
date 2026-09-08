@@ -1,3 +1,4 @@
+import { recordAudioEvent } from '../../services/audioDiagnostics'
 import { useEffect, useRef } from 'react'
 import type { RemoteAudioTrack } from '@gunns-dev/control-tower-client'
 
@@ -39,15 +40,16 @@ export const RemoteAudioRenderer = ({
     const shouldMute = deafened || muted
     const effectiveVolume = shouldMute ? 0 : volume
     track.setVolume(effectiveVolume)
-    if (!shouldMute) void element.play().catch(() => undefined)
+    if (!shouldMute) void element.play().then(() => { track.reportPlaybackStatus?.(true); recordAudioEvent('playback-started') }).catch(() => { track.reportPlaybackStatus?.(false); recordAudioEvent('playback-blocked') })
   }, [deafened, muted, track, volume])
 
   useEffect(() => {
     if (!track) return
     void track.setSinkId(outputDeviceId).catch(() => {
+      recordAudioEvent('output-device-failed')
       // A saved output can disappear; the browser safely keeps its default output.
     })
   }, [outputDeviceId, track])
 
-  return <audio autoPlay className="remote-audio" ref={audioRef} />
+  return <audio autoPlay className="remote-audio" ref={audioRef} onWaiting={() => recordAudioEvent('waiting')} onStalled={() => recordAudioEvent('stalled')} />
 }

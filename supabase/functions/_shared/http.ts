@@ -18,8 +18,8 @@ export const corsHeaders = (request: Request): Record<string, string> => {
 
 export const optionsResponse = (request: Request) => new Response(null, { headers: corsHeaders(request), status: 204 })
 
-export const jsonResponse = (request: Request, body: unknown, status = 200) => new Response(JSON.stringify(body), {
-  headers: { ...corsHeaders(request), 'Content-Type': 'application/json; charset=utf-8' },
+export const jsonResponse = (request: Request, body: unknown, status = 200, headers: Record<string, string> = {}) => new Response(JSON.stringify(body), {
+  headers: { ...corsHeaders(request), 'Content-Type': 'application/json; charset=utf-8', ...headers },
   status,
 })
 

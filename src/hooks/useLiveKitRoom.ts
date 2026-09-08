@@ -84,7 +84,12 @@ export const useLiveKitRoom = () => {
       const tokenMs = elapsed()
       const rtcHost = new URL(serverUrl).host
       console.info(`RTC_CONNECTION_DETAILS provider=${provider} host=${rtcHost}`)
-      nextRoom = createRoom(provider)
+      nextRoom = await createRoom(provider, async () => {
+        const refreshed = await fetchConnectionDetails(callId)
+        if (microphoneRequestRef.current !== microphoneRequest || leavingRef.current) throw new Error('CALL_CANCELLED')
+        if (refreshed.provider !== provider || refreshed.serverUrl !== serverUrl) throw new Error('RTC_PROVIDER_CHANGED')
+        return refreshed.participantToken
+      })
       roomRef.current = nextRoom
 
       const handleConnectionState = (state: ConnectionState) => {

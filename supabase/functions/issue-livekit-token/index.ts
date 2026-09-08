@@ -1,12 +1,35 @@
 import { enforceRateLimit } from '../_shared/rate-limit.ts'
-import { handleFunctionError, HttpError, jsonResponse, optionsResponse, readJson, requireUser, effectiveRole } from '../_shared/http.ts'
+import { handleFunctionError, HttpError, jsonResponse, optionsResponse, readJson, requireUser } from '../_shared/http.ts'
 import { writeAudit } from '../_shared/audit.ts'
 import { issueParticipantToken } from '../_shared/livekit.ts'
 
 const normalizeName = (value: string) => value.trim().replace(/\s+/g, ' ').slice(0, 48)
 const roomNameFor = (sessionId: string) => `DT_${sessionId.replaceAll('-', '').toUpperCase()}`
 
+interface TokenIssueProfile {
+  status: string
+  display_name: string
+  name_font: string
+  name_color: string
+  name_effect: string
+  name_weight: string
+  name_spacing: string
+  name_case: string
+  name_badge: string
+  name_animation: string
+  screen_share_quality_override?: string | null
+}
+
+interface TokenMediaSettings {
+  member_screen_share_quality: string
+  host_screen_share_quality: string
+  manager_screen_share_quality: string
+}
+
 Deno.serve(async (request) => {
+  const startedAt = performance.now()
+  const timings: string[] = []
+  const mark = (name: string, since: number) => timings.push(`${name};dur=${(performance.now() - since).toFixed(1)}`)
   if (request.method === 'OPTIONS') {
     const response = optionsResponse(request)
     // Cache only the CORS permission check, never a token or authorization result.
@@ -15,7 +38,9 @@ Deno.serve(async (request) => {
   }
   try {
     if (request.method !== 'POST') throw new HttpError(405, 'METHOD_NOT_ALLOWED')
+    let phaseAt = performance.now()
     const { client, user } = await requireUser(request)
+    mark('auth', phaseAt)
     const body = await readJson(request)
     let callId = typeof body?.callId === 'string' ? body.callId : ''
     const channelId = typeof body?.channelId === 'string' ? body.channelId : ''
@@ -27,13 +52,17 @@ Deno.serve(async (request) => {
     // Rate limit runs alongside the reads instead of gating them: it only writes
     // a counter and throws when exceeded, so overlapping it with the profile
     // fetch shaves a round-trip off the hot join path.
-    const [, { data: profile, error: profileError }, role, { data: mediaSettings, error: mediaSettingsError }] = await Promise.all([
+    phaseAt = performance.now()
+    const [, { data: context, error: contextError }] = await Promise.all([
       enforceRateLimit(client, `issue-token:${user.id}`, 30, 60),
-      client.from('profiles').select('status,display_name,name_font,name_color,name_effect,name_weight,name_spacing,name_case,name_badge,name_animation,screen_share_quality_override').eq('user_id', user.id).maybeSingle(),
-      effectiveRole(client, user.id),
-      client.from('call_guardrail_settings').select('member_screen_share_quality,host_screen_share_quality,manager_screen_share_quality').eq('id', true).maybeSingle(),
+      client.rpc('get_token_issue_context', { p_user_id: user.id }),
     ])
-    if (profileError || mediaSettingsError || !profile || !mediaSettings || profile.status !== 'active') throw new HttpError(403, 'ACCOUNT_DISABLED')
+    mark('context', phaseAt)
+    const issueContext = context as { profile?: TokenIssueProfile; role?: string; mediaSettings?: TokenMediaSettings } | null
+    const profile = issueContext?.profile
+    const role = String(issueContext?.role || 'member')
+    const mediaSettings = issueContext?.mediaSettings
+    if (contextError || !profile || !mediaSettings || profile.status !== 'active') throw new HttpError(403, 'ACCOUNT_DISABLED')
     const participantName = normalizeName(profile.display_name)
     if (!participantName) throw new HttpError(400, 'PROFILE_REQUIRED')
     const maxScreenShareQuality = profile.screen_share_quality_override || (
@@ -45,12 +74,18 @@ Deno.serve(async (request) => {
 
     const sessionRoomName = roomNameFor(crypto.randomUUID())
     let session: Record<string, unknown>
+    let screenShareBlocked = false
     try {
-      const { data, error } = await client.rpc('reserve_channel_call_session', {
+      phaseAt = performance.now()
+      const { data, error } = await client.rpc('reserve_channel_call_access', {
         p_call_id: callId, p_user_id: user.id, p_room_name: sessionRoomName,
       })
       if (error || !data) throw new Error(error?.message || 'ROOM_RESERVATION_FAILED')
-      session = data as Record<string, unknown>
+      const access = data as { session?: Record<string, unknown>; screenShareBlocked?: boolean }
+      if (!access.session) throw new Error('ROOM_RESERVATION_FAILED')
+      session = access.session
+      screenShareBlocked = access.screenShareBlocked === true
+      mark('reserve', phaseAt)
     } catch (error) {
       const message = error instanceof Error ? error.message : ''
       if (message.includes('ACTIVE_CALL_LIMIT_REACHED')) throw new HttpError(429, 'ACTIVE_CALL_LIMIT_REACHED')
@@ -71,14 +106,14 @@ Deno.serve(async (request) => {
     // Avatars are exchanged peer-to-peer over the RTC data channel instead
     // (see useParticipantProfiles). Keep this metadata small.
     const participantMetadata = JSON.stringify({ splotysProfile: { version: 2, nameStyle: { font: profile.name_font, color: profile.name_color, effect: profile.name_effect, weight: profile.name_weight, spacing: profile.name_spacing, casing: profile.name_case, badge: profile.name_badge, animation: profile.name_animation }, media: { maxScreenShareQuality } } })
-    const restricted = await client.from('call_media_restrictions').select('screen_share_blocked').eq('room_session_id', session.id).eq('user_id', user.id).maybeSingle()
-    if (restricted.error) throw new Error('MEDIA_RESTRICTIONS_LOOKUP_FAILED')
     let token: { participantToken: string; serverUrl: string; provider: 'livekit' | 'torre' }
     try {
+      phaseAt = performance.now()
       token = await issueParticipantToken(roomName, identity, participantName, participantMetadata, {
         canHighQualityScreenShare: maxScreenShareQuality !== '720p30',
-        canScreenShare: !restricted.data?.screen_share_blocked,
+        canScreenShare: !screenShareBlocked,
       })
+      mark('token', phaseAt)
     } catch (error) {
       console.error('RTC_TOKEN_ISSUE_FAILED', { error: error instanceof Error ? error.message : 'unknown' })
       throw new Error('LIVEKIT_TOKEN_ISSUE_FAILED')
@@ -98,8 +133,13 @@ Deno.serve(async (request) => {
     })().catch((error) => console.error('TOKEN_SIDE_EFFECTS_FAILED', { error: error instanceof Error ? error.message : 'unknown' }))
     const runtime = (globalThis as { EdgeRuntime?: { waitUntil?: (promise: Promise<unknown>) => void } }).EdgeRuntime
     runtime?.waitUntil?.(finalizeSideEffects)
-    console.info('RTC_TOKEN_ISSUED', { provider: token.provider })
-    return jsonResponse(request, { ...token, channelId: resolvedChannelId, callId, roomSessionId: session.id, screenSharePolicy: maxScreenShareQuality })
+    mark('total', startedAt)
+    console.info('RTC_TOKEN_ISSUED', { provider: token.provider, timings })
+    return jsonResponse(request, { ...token, channelId: resolvedChannelId, callId, roomSessionId: session.id, screenSharePolicy: maxScreenShareQuality }, 200, {
+      'Server-Timing': timings.join(', '),
+      'Timing-Allow-Origin': request.headers.get('origin') || 'https://splotys.com',
+      'Access-Control-Expose-Headers': 'Server-Timing',
+    })
   } catch (error) {
     return handleFunctionError(request, error)
   }

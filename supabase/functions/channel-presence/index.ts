@@ -114,28 +114,25 @@ Deno.serve(async (request) => {
   try {
     if (request.method !== 'POST') throw new HttpError(405, 'METHOD_NOT_ALLOWED')
     const { client, user } = await requireUser(request)
-    await assertActiveAccount(client, user.id)
-    const body = await request.json().catch(() => ({})) as { action?: string; channelId?: string; activityId?: string | null }
+    const body = await request.json().catch(() => ({})) as { action?: string; channelId?: string; activityId?: string | null; ttlSeconds?: number }
 
-    if (body.action === 'catalog') return jsonResponse(request, { catalog: await catalog(client) })
-    if (body.action === 'summary') return jsonResponse(request, { channels: await summaries(client) })
     if (body.action === 'heartbeat') {
-      let activityId: string | null = null
-      if (body.activityId) {
-        const { data: activity } = await client.from('activity_catalog').select('id').eq('id', body.activityId).eq('enabled', true).maybeSingle()
-        if (!activity) throw new HttpError(400, 'ACTIVITY_INVALID')
-        activityId = activity.id
-      }
-      const now = new Date()
-      const { error } = await client.from('user_presence').upsert({
-        activity_id: activityId,
-        expires_at: new Date(now.getTime() + 45_000).toISOString(),
-        last_seen_at: now.toISOString(),
-        user_id: user.id,
+      const ttlSeconds = Number.isInteger(body.ttlSeconds) && Number(body.ttlSeconds) >= 120 && Number(body.ttlSeconds) <= 300
+        ? Number(body.ttlSeconds)
+        : 150
+      const { error } = await client.rpc('set_user_presence', {
+        p_activity_id: body.activityId || null,
+        p_ttl_seconds: ttlSeconds,
+        p_user_id: user.id,
       })
+      if (error?.message.includes('ACCOUNT_INACTIVE')) throw new HttpError(403, 'ACCOUNT_INACTIVE')
+      if (error?.message.includes('ACTIVITY_INVALID')) throw new HttpError(400, 'ACTIVITY_INVALID')
       if (error) throw error
       return jsonResponse(request, { ok: true, online: true })
     }
+    await assertActiveAccount(client, user.id)
+    if (body.action === 'catalog') return jsonResponse(request, { catalog: await catalog(client) })
+    if (body.action === 'summary') return jsonResponse(request, { channels: await summaries(client) })
     if (body.action === 'offline') {
       await client.from('user_presence').delete().eq('user_id', user.id)
       return jsonResponse(request, { ok: true, online: false })

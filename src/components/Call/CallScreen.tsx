@@ -1,3 +1,4 @@
+import { startAudioDiagnostics, exportAudioDiagnostics } from '../../services/audioDiagnostics'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RoomEvent, type Room } from '@gunns-dev/control-tower-client'
 import { useAudioDevices } from '../../hooks/useAudioDevices'
@@ -146,6 +147,7 @@ export const CallScreen = ({
   onToggleSidebar,
   onToggleFullscreen,
 }: CallScreenProps) => {
+  useEffect(() => startAudioDiagnostics(room), [room])
   const snapshot = useRoomSnapshot(room)
   // Avatars arrive over the RTC data channel (not the token), so overlay them
   // onto the snapshot/chat by participant identity as they land.
@@ -664,6 +666,12 @@ export const CallScreen = ({
         </div>
 
         <div className="call-dock__group call-dock__group--end">
+          <ControlButton
+            detail="Salvar diagnóstico local, sem gravar voz"
+            icon="headphones"
+            label="Marcar corte de áudio"
+            onClick={exportAudioDiagnostics}
+          />
           <ControlButton
             danger
             detail="Encerrar conexão"

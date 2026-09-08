@@ -216,8 +216,18 @@ export const ScreenShareStage = ({
 
   useEffect(() => {
     for (const live of lives) {
-      if (!live.isLocal && !live.subscribed && live.audioPublication?.isDesired) {
-        live.audioPublication.setSubscribed(false)
+      if (!live.isLocal && live.videoPublication) {
+        void Promise.resolve(live.videoPublication.setVideoQuality(live.id === selectedLive?.id ? 2 : 0))
+          .catch(() => setStageError('Não foi possível ajustar a qualidade da transmissão.'))
+      }
+    }
+  }, [lives, selectedLive?.id])
+
+  useEffect(() => {
+    for (const live of lives) {
+      if (!live.isLocal && live.videoPublication?.isDesired === false && live.audioPublication?.isDesired) {
+        void Promise.resolve(live.audioPublication.setSubscribed(false))
+          .catch(() => setStageError('Não foi possível pausar o áudio da transmissão.'))
       }
     }
   }, [lives])
@@ -253,9 +263,11 @@ export const ScreenShareStage = ({
       closePopout()
     }
 
-    selectedLive.videoPublication?.setSubscribed(watching)
-    selectedLive.audioPublication?.setSubscribed(watching)
     setStageError('')
+    void Promise.all([
+      selectedLive.videoPublication?.setSubscribed(watching),
+      selectedLive.audioPublication?.setSubscribed(watching),
+    ]).catch(() => setStageError('Não foi possível atualizar a transmissão. Tente novamente.'))
   }, [closePopout, selectedLive])
 
   useEffect(() => {

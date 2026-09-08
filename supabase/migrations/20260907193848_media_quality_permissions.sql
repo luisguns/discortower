@@ -1,12 +1,15 @@
-create type public.screen_share_quality as enum ('720p30', '1080p30', '1080p60');
+do $$ begin
+  create type public.screen_share_quality as enum ('720p30', '1080p30', '1080p60');
+exception when duplicate_object then null;
+end $$;
 
 alter table public.profiles
-  add column screen_share_quality_override public.screen_share_quality;
+  add column if not exists screen_share_quality_override public.screen_share_quality;
 
 alter table public.call_guardrail_settings
-  add column member_screen_share_quality public.screen_share_quality not null default '720p30',
-  add column host_screen_share_quality public.screen_share_quality not null default '1080p30',
-  add column manager_screen_share_quality public.screen_share_quality not null default '1080p60';
+  add column if not exists member_screen_share_quality public.screen_share_quality not null default '720p30',
+  add column if not exists host_screen_share_quality public.screen_share_quality not null default '1080p30',
+  add column if not exists manager_screen_share_quality public.screen_share_quality not null default '1080p60';
 
 create or replace function public.get_my_access_context()
 returns jsonb
