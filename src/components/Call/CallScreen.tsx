@@ -158,7 +158,7 @@ export const CallScreen = ({
   const microphoneMonitor = useMicrophoneMonitor(
     room,
     devices.preferences.voiceOutputId,
-    `${devices.selectedInput}:${microphoneProcessing.noiseSuppression}`,
+    devices.selectedInput,
   )
   const chat = useRoomChat(room)
   const [deafened, setDeafened] = useState(false)

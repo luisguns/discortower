@@ -1,0 +1,13 @@
+diff --git a/node_modules/@gunns-dev/control-tower-client/dist/room.js b/node_modules/@gunns-dev/control-tower-client/dist/room.js
+index 0fa2493..9a46e25 100644
+--- a/node_modules/@gunns-dev/control-tower-client/dist/room.js
++++ b/node_modules/@gunns-dev/control-tower-client/dist/room.js
+@@ -199,7 +199,7 @@ export class Room extends Emitter {
+             return;
+         const constraint = exact ? { exact: deviceId } : deviceId;
+         const constraints = kind === 'audioinput'
+-            ? { audio: { deviceId: constraint } }
++            ? { audio: { ...pub.track.mediaStreamTrack.getConstraints(), deviceId: constraint } }
+             : { video: { deviceId: constraint } };
+         const stream = await navigator.mediaDevices.getUserMedia(constraints);
+         const newMediaTrack = kind === 'audioinput' ? stream.getAudioTracks()[0] : stream.getVideoTracks()[0];

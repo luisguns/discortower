@@ -1,70 +1,83 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { RoomEvent, Track, type LocalAudioTrack, type Room } from '@gunns-dev/control-tower-client'
 import {
-  getNoiseSuppression,
   saveNoiseSuppression,
+  saveAutoGainControl,
+  saveEchoCancellation,
+  getMicrophoneProcessingEnabled, saveMicrophoneProcessingEnabled, getMicrophoneProcessingOptions,
 } from '../storage/preferences'
 
-export const microphoneCaptureOptions = () => ({
-  autoGainControl: true,
-  echoCancellation: true,
-  noiseSuppression: getNoiseSuppression(),
-})
+export const microphoneCaptureOptions = getMicrophoneProcessingOptions
+
+type ProcessingKey = keyof ReturnType<typeof microphoneCaptureOptions>
+const save = {
+  autoGainControl: saveAutoGainControl,
+  echoCancellation: saveEchoCancellation,
+  noiseSuppression: saveNoiseSuppression,
+}
 
 export const useMicrophoneProcessing = (room: Room) => {
-  const [noiseSuppression, setNoiseSuppression] = useState(getNoiseSuppression)
+  const [processingEnabled, setProcessingEnabledState] = useState(getMicrophoneProcessingEnabled)
+  const [settings, setSettings] = useState(microphoneCaptureOptions)
   const [busy, setBusy] = useState(false)
+  const pending = useRef(false)
   const [error, setError] = useState('')
-  const supported =
-    typeof navigator !== 'undefined' &&
-    navigator.mediaDevices?.getSupportedConstraints().noiseSuppression === true
+  const supported = typeof navigator !== 'undefined'
+    ? navigator.mediaDevices?.getSupportedConstraints() ?? {} : {}
 
-  const apply = useCallback(
-    async (enabled: boolean) => {
-      const publication = room.localParticipant.getTrackPublication(Track.Source.Microphone)
-      if (publication?.kind !== Track.Kind.Audio || !publication.track) return
-      await (publication.track as LocalAudioTrack).applyConstraints({
-        autoGainControl: true,
-        echoCancellation: true,
-        noiseSuppression: enabled,
-      })
-    },
-    [room],
-  )
+  const apply = useCallback(async (options: ReturnType<typeof microphoneCaptureOptions>) => {
+    const publication = room.localParticipant.getTrackPublication(Track.Source.Microphone)
+    if (publication?.kind !== Track.Kind.Audio || !publication.track) return
+    const track = publication.track as LocalAudioTrack
+    // applyConstraints replaces the constraint set: retain the chosen device.
+    await track.applyConstraints({ ...track.mediaStreamTrack.getConstraints(), ...options })
+  }, [room])
 
   useEffect(() => {
-    const restore = () => void apply(getNoiseSuppression()).catch(() => undefined)
+    const restore = () => void apply(microphoneCaptureOptions()).catch(() => {
+      setError('Não foi possível restaurar o processamento do microfone. Tente ajustar os filtros novamente.')
+    })
     room.on(RoomEvent.LocalTrackPublished, restore)
     restore()
-    return () => {
-      room.off(RoomEvent.LocalTrackPublished, restore)
-    }
+    return () => { room.off(RoomEvent.LocalTrackPublished, restore) }
   }, [apply, room])
 
-  const setEnabled = useCallback(
-    async (enabled: boolean) => {
-      if (!supported) return
-      setBusy(true)
-      setError('')
-      saveNoiseSuppression(enabled)
-      setNoiseSuppression(enabled)
-      try {
-        await apply(enabled)
-      } catch {
-        setError('O navegador não conseguiu alterar o tratamento de ruído deste microfone.')
-      } finally {
-        setBusy(false)
-      }
-    },
-    [apply, supported],
-  )
+  const setProcessing = useCallback(async (key: ProcessingKey, enabled: boolean) => {
+    if (!getMicrophoneProcessingEnabled() || !supported[key] || pending.current) return
+    pending.current = true
+    setBusy(true)
+    setError('')
+    try {
+      const next = { ...microphoneCaptureOptions(), [key]: enabled }
+      await apply(next)
+      save[key](enabled)
+      setSettings(next)
+    } catch {
+      setError('Não foi possível alterar o processamento deste microfone. A preferência anterior foi mantida.')
+    } finally {
+      pending.current = false
+      setBusy(false)
+    }
+  }, [apply, supported])
 
-  return {
-    noiseSuppression,
-    supported,
-    busy,
-    error,
-    clearError: () => setError(''),
-    setEnabled,
-  }
+  const setProcessingEnabled = useCallback(async (enabled: boolean) => {
+    if (pending.current) return
+    pending.current = true
+    setBusy(true)
+    setError('')
+    try {
+      const next = getMicrophoneProcessingOptions(enabled)
+      await apply(next)
+      saveMicrophoneProcessingEnabled(enabled)
+      setProcessingEnabledState(enabled)
+      setSettings(next)
+    } catch {
+      setError('Não foi possível alterar o processamento deste microfone. A preferência anterior foi mantida.')
+    } finally {
+      pending.current = false
+      setBusy(false)
+    }
+  }, [apply])
+
+  return { ...settings, processingEnabled, setProcessingEnabled, supported, busy, error, setProcessing, clearError: () => setError('') }
 }

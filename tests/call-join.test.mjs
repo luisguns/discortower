@@ -145,3 +145,30 @@ test('video publication negotiates demand control with the SFU through the insta
   assert.equal(request.mock.calls.at(-1).arguments[0], 'produce')
   assert.equal(request.mock.calls.at(-1).arguments[1].appData.dynacast, true)
 })
+
+
+test('switching microphones preserves processing settings before transmitting the new track', async (t) => {
+  const previous = Object.getOwnPropertyDescriptor(navigator, 'mediaDevices')
+  const filters = { autoGainControl: false, noiseSuppression: false, echoCancellation: false }
+  const oldTrack = { ...makeTrack(), getConstraints: () => ({ ...filters, deviceId: { exact: 'old' } }) }
+  const nextTrack = makeTrack()
+  let captured
+  Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: {
+    getUserMedia: async (constraints) => { captured = constraints; return makeStream(nextTrack) },
+  } })
+  t.after(() => {
+    if (previous) Object.defineProperty(navigator, 'mediaDevices', previous)
+    else delete navigator.mediaDevices
+  })
+  const room = new Room()
+  const participant = new LocalParticipant('peer', 'identity', 'name', '', {})
+  participant._init(async () => {}, { produce: async () => ({ id: 'mic', replaceTrack: async ({ track }) => {
+    assert.equal(track, nextTrack)
+    assert.deepEqual(captured.audio, { ...filters, deviceId: { exact: 'new' } })
+  } }) })
+  const publication = await participant.publishTrack(oldTrack, { source: Track.Source.Microphone })
+  room._localParticipant = participant
+  await room.switchActiveDevice('audioinput', 'new', true)
+  assert.equal(publication.track.mediaStreamTrack, nextTrack)
+  assert.equal(oldTrack.readyState, 'ended')
+})

@@ -2,7 +2,10 @@
 
 The benchmark client changes are published as
 `@gunns-dev/control-tower-client@0.1.2`. The app installs that exact version
-directly; no local SDK patch is required for the release.
+directly. A local patch preserves microphone capture constraints (AGC, echo
+cancellation and noise suppression) when switching input devices. Without it,
+the SDK opens the new device with browser defaults. `postinstall` applies the
+patch, and `test:call-join` verifies the replacement track receives the filters.
 
 `npm run test:call-join` tests the installed package, including parallel transport
 failure cleanup, publication, mute/unmute, and browser capture cancellation.

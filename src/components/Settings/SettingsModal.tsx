@@ -185,7 +185,7 @@ export const SettingsModal = ({
                   <label className="select-field">
                     <span>Entrada de voz</span>
                     <select
-                      disabled={devices.loading || devices.inputs.length === 0}
+                      disabled={devices.loading || microphoneProcessing.busy || devices.inputs.length === 0}
                       onChange={(event) => void devices.switchInput(event.target.value)}
                       value={devices.selectedInput}
                     >
@@ -198,27 +198,40 @@ export const SettingsModal = ({
                     </select>
                   </label>
 
-                  <label className={`setting-switch ${!microphoneProcessing.supported ? 'is-disabled' : ''}`}>
+                  <label className="setting-switch">
                     <span>
-                      <strong>Supressão de ruído</strong>
-                      <small>Reduz teclado, ventoinha e ruído contínuo no próprio dispositivo.</small>
+                      <strong>Pós-processamento do microfone</strong>
+                      <small>Desligue para captar sem os três filtros abaixo. Ao religar, suas escolhas anteriores são restauradas.</small>
                     </span>
                     <input
-                      checked={microphoneProcessing.noiseSuppression}
-                      disabled={!microphoneProcessing.supported || microphoneProcessing.busy}
-                      onChange={(event) => void microphoneProcessing.setEnabled(event.target.checked)}
+                      checked={microphoneProcessing.processingEnabled}
+                      disabled={microphoneProcessing.busy || devices.loading}
+                      onChange={(event) => void microphoneProcessing.setProcessingEnabled(event.target.checked)}
                       type="checkbox"
                     />
                     <i aria-hidden="true" />
                   </label>
-                  {!microphoneProcessing.supported && (
-                    <div className="settings-note"><Icon name="warning" />Seu navegador não expõe esse filtro.</div>
-                  )}
+                  {([
+                    { key: 'noiseSuppression', label: 'Redução de ruído', description: 'Reduz ruído de fundo. Desligue se cortar trechos da sua voz.' },
+                    { key: 'autoGainControl', label: 'Ganho automático', description: 'Ajusta o volume automaticamente. Deixe desligado se o volume oscilar ao falar perto.' },
+                    { key: 'echoCancellation', label: 'Cancelamento de eco', description: 'Evita que o áudio dos alto-falantes volte para a call. Com fones, você pode desligar.' },
+                  ] as const).map(({ key, label, description }) => (
+                    <label className={`setting-switch ${!microphoneProcessing.processingEnabled || !microphoneProcessing.supported[key] ? 'is-disabled' : ''}`} key={key}>
+                      <span><strong>{label}</strong><small>{microphoneProcessing.supported[key] ? description : 'Este filtro não está disponível neste navegador.'}</small></span>
+                      <input
+                        checked={microphoneProcessing[key]}
+                        disabled={!microphoneProcessing.processingEnabled || !microphoneProcessing.supported[key] || microphoneProcessing.busy || devices.loading}
+                        onChange={(event) => void microphoneProcessing.setProcessing(key, event.target.checked)}
+                        type="checkbox"
+                      />
+                      <i aria-hidden="true" />
+                    </label>
+                  ))}
 
                   <label className={`setting-switch ${!microphoneMonitor.supported ? 'is-disabled' : ''}`}>
                     <span>
                       <strong>Ouvir meu microfone</strong>
-                      <small>Retorno local para testar como os outros recebem sua voz.</small>
+                      <small>Retorno local da captura com os filtros escolhidos. Use fones para testar.</small>
                     </span>
                     <input
                       checked={microphoneMonitor.enabled}
@@ -244,7 +257,7 @@ export const SettingsModal = ({
                         type="range"
                         value={microphoneMonitor.volume}
                       />
-                      <small>Use fones para evitar microfonia. Esse retorno não passa pelo LiveKit.</small>
+                      <small>Use fones para evitar microfonia. Esse retorno não passa pela rede.</small>
                     </div>
                   )}
                 </SettingsCard>

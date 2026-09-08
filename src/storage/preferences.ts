@@ -148,7 +148,7 @@ export const getStreamQuality = (): StreamQualityId => {
 export const saveStreamQuality = (quality: StreamQualityId) =>
   safeWrite(QUALITY_KEY, quality)
 
-export const getNoiseSuppression = () => safeRead(NOISE_SUPPRESSION_KEY) !== 'false'
+export const getNoiseSuppression = () => safeRead(NOISE_SUPPRESSION_KEY) === 'true'
 
 export const saveNoiseSuppression = (enabled: boolean) =>
   safeWrite(NOISE_SUPPRESSION_KEY, String(enabled))
@@ -216,3 +216,18 @@ export const getShortcutBindings = (): ShortcutBindings => {
 
 export const saveShortcutBindings = (bindings: ShortcutBindings) =>
   safeWrite(SHORTCUT_BINDINGS_KEY, JSON.stringify(bindings))
+
+// Keep voice dynamics intact by default. Echo cancellation remains enabled for speakers.
+export const getAutoGainControl = () => safeRead('splotys:auto-gain-control') === 'true'
+export const saveAutoGainControl = (enabled: boolean) => safeWrite('splotys:auto-gain-control', String(enabled))
+export const getEchoCancellation = () => safeRead('splotys:echo-cancellation') !== 'false'
+export const saveEchoCancellation = (enabled: boolean) => safeWrite('splotys:echo-cancellation', String(enabled))
+
+export const getMicrophoneProcessingEnabled = () => safeRead('splotys:microphone-processing') !== 'false'
+export const saveMicrophoneProcessingEnabled = (enabled: boolean) => safeWrite('splotys:microphone-processing', String(enabled))
+
+export const getMicrophoneProcessingOptions = (enabled = getMicrophoneProcessingEnabled()) => ({
+  autoGainControl: enabled && getAutoGainControl(),
+  echoCancellation: enabled && getEchoCancellation(),
+  noiseSuppression: enabled && getNoiseSuppression(),
+})
