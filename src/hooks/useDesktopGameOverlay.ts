@@ -2,7 +2,12 @@ import { useEffect } from 'react'
 import { RoomEvent, Track, type Room } from '@gunns-dev/control-tower-client'
 import { participantAvatarFromMetadata } from '../services/profile'
 
-export const useDesktopGameOverlay = (room: Room, enabled: boolean) => {
+export const useDesktopGameOverlay = (
+  room: Room,
+  enabled: boolean,
+  avatars: Map<string, string>,
+  localAvatarDataUrl?: string,
+) => {
   useEffect(() => {
     const desktop = window.splotysDesktop
     if (!desktop || desktop.platform !== 'win32') return
@@ -19,7 +24,9 @@ export const useDesktopGameOverlay = (room: Room, enabled: boolean) => {
       ].map((participant) => ({
         id: participant.identity,
         name: participant.name || participant.identity,
-        avatarDataUrl: participantAvatarFromMetadata(participant.metadata),
+        avatarDataUrl:
+          (participant === room.localParticipant ? localAvatarDataUrl : avatars.get(participant.identity)) ??
+          participantAvatarFromMetadata(participant.metadata),
         isLocal: participant === room.localParticipant,
         muted: participant.getTrackPublication(Track.Source.Microphone)?.isMuted ?? true,
         speaking: activeSpeakers.has(participant.identity),
@@ -51,5 +58,5 @@ export const useDesktopGameOverlay = (room: Room, enabled: boolean) => {
       room.off(RoomEvent.ActiveSpeakersChanged, publishSpeakers)
       desktop.setGameOverlayState({ enabled: false, participants: [] })
     }
-  }, [enabled, room])
+  }, [avatars, enabled, localAvatarDataUrl, room])
 }

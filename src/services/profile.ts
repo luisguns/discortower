@@ -125,16 +125,34 @@ export const prepareProfileAvatar = async (file: File) => {
   return dataUrl
 }
 
+// The avatar is deliberately omitted: this payload rides in the token-request
+// body, and the issued RTC token must stay small so the signaling WebSocket URL
+// (which carries the token as `?access_token=`) does not exceed the browser/
+// proxy request-line limit. Avatars travel over the data channel at call time.
 export const serializeParticipantProfile = (profile: LocalProfile) =>
   JSON.stringify({
     splotysProfile: {
       version: PROFILE_METADATA_VERSION,
-      avatarDataUrl: isSafeAvatarDataUrl(profile.avatarDataUrl)
-        ? profile.avatarDataUrl
-        : undefined,
       nameStyle: normalizeProfileNameStyle(profile.nameStyle),
     },
   })
+
+// Peer-to-peer avatar exchange over the RTC data channel. Each participant
+// broadcasts its own avatar (a data URL up to a few hundred KB) so peers can
+// render it without the avatar ever touching the token or its WebSocket URL.
+export const PROFILE_AVATAR_TOPIC = 'splotys.profile.avatar.v1'
+
+export const serializeAvatarBroadcast = (avatarDataUrl?: string) =>
+  JSON.stringify({ v: PROFILE_METADATA_VERSION, avatarDataUrl: isSafeAvatarDataUrl(avatarDataUrl) ? avatarDataUrl : undefined })
+
+export const parseAvatarBroadcast = (text: string): string | undefined => {
+  try {
+    const parsed = JSON.parse(text) as { avatarDataUrl?: unknown }
+    return isSafeAvatarDataUrl(parsed.avatarDataUrl) ? parsed.avatarDataUrl : undefined
+  } catch {
+    return undefined
+  }
+}
 
 const profileFromMetadata = (metadata?: string) => {
   if (!metadata) return undefined

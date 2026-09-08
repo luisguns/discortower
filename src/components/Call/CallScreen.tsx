@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RoomEvent, type Room } from '@gunns-dev/control-tower-client'
 import { useAudioDevices } from '../../hooks/useAudioDevices'
 import { useAppUpdater } from '../../hooks/useAppUpdater'
@@ -8,6 +8,7 @@ import { useDesktopPerformanceMode } from '../../hooks/useDesktopPerformanceMode
 import { useMicrophoneMonitor } from '../../hooks/useMicrophoneMonitor'
 import { useRoomSnapshot } from '../../hooks/useRoomSnapshot'
 import { microphoneCaptureOptions, useMicrophoneProcessing } from '../../hooks/useMicrophoneProcessing'
+import { useParticipantProfiles } from '../../hooks/useParticipantProfiles'
 import { useRoomChat } from '../../hooks/useRoomChat'
 import { useScreenShare } from '../../hooks/useScreenShare'
 import { playCallSound, primeCallSounds } from '../../services/callSounds'
@@ -42,6 +43,7 @@ interface CallScreenProps {
   room: Room
   roomCode: string
   channelId?: string
+  localAvatarDataUrl?: string
   maxScreenShareQuality?: StreamQualityId
   status: ConnectionStatus
   microphoneError: string
@@ -131,6 +133,7 @@ export const CallScreen = ({
   room,
   roomCode,
   channelId,
+  localAvatarDataUrl,
   maxScreenShareQuality = '720p30',
   status,
   microphoneError,
@@ -144,6 +147,9 @@ export const CallScreen = ({
   onToggleFullscreen,
 }: CallScreenProps) => {
   const snapshot = useRoomSnapshot(room)
+  // Avatars arrive over the RTC data channel (not the token), so overlay them
+  // onto the snapshot/chat by participant identity as they land.
+  const avatars = useParticipantProfiles(room, localAvatarDataUrl)
   useDesktopPerformanceMode(room)
   const devices = useAudioDevices(room)
   const microphoneProcessing = useMicrophoneProcessing(room)
@@ -180,7 +186,29 @@ export const CallScreen = ({
   const micEnabled = room.localParticipant.isMicrophoneEnabled
   const cameraEnabled = room.localParticipant.isCameraEnabled
   useEffect(() => { setParticipantsOpen(true) }, [room])
-  useDesktopGameOverlay(room, gameOverlayEnabled)
+  useDesktopGameOverlay(room, gameOverlayEnabled, avatars, localAvatarDataUrl)
+
+  const participantMedia = useMemo(
+    () =>
+      snapshot.participantMedia.map((participant) => ({
+        ...participant,
+        avatarDataUrl:
+          (participant.isLocal ? localAvatarDataUrl : avatars.get(participant.id)) ??
+          participant.avatarDataUrl,
+      })),
+    [snapshot.participantMedia, avatars, localAvatarDataUrl],
+  )
+
+  const chatMessages = useMemo(
+    () =>
+      chat.messages.map((message) => ({
+        ...message,
+        senderAvatarUrl:
+          (message.isLocal ? localAvatarDataUrl : avatars.get(message.senderIdentity)) ??
+          message.senderAvatarUrl,
+      })),
+    [chat.messages, avatars, localAvatarDataUrl],
+  )
 
   useEffect(() => {
     if (snapshot.participants.length > 1 && callLimitNotice.includes('sozinho')) setCallLimitNotice('')
@@ -380,7 +408,7 @@ export const CallScreen = ({
   }
 
   const selectedParticipant = participantMenu
-    ? snapshot.participantMedia.find((participant) => participant.id === participantMenu.participantId)
+    ? participantMedia.find((participant) => participant.id === participantMenu.participantId)
     : undefined
   const selectedVoice = participantMenu
     ? snapshot.remoteVoices.find((voice) => voice.id === participantMenu.participantId)
@@ -485,7 +513,7 @@ export const CallScreen = ({
           galleryLayout={galleryLayout}
           lives={snapshot.lives}
           onParticipantMenu={openParticipantMenu}
-          participants={snapshot.participantMedia}
+          participants={participantMedia}
           screenOutputId={devices.preferences.screenOutputId}
         />
       </div>
@@ -500,6 +528,8 @@ export const CallScreen = ({
       )}
       <ParticipantList
         activeSpeakerIds={snapshot.activeSpeakerIds}
+        avatars={avatars}
+        localAvatarDataUrl={localAvatarDataUrl}
         onClose={() => setParticipantsOpen(false)}
         onParticipantMenu={openParticipantMenu}
         open={participantsOpen}
@@ -534,7 +564,7 @@ export const CallScreen = ({
 
       <ChatPanel
         error={chat.error}
-        messages={chat.messages}
+        messages={chatMessages}
         onClose={() => setChatOpen(false)}
         onErrorClose={chat.clearError}
         onSendImage={chat.sendImage}

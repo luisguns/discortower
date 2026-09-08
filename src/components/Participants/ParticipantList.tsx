@@ -10,6 +10,8 @@ interface ParticipantListProps {
   participants: Participant[]
   remoteVoices: RemoteVoice[]
   activeSpeakerIds: Set<string>
+  avatars: Map<string, string>
+  localAvatarDataUrl?: string
   open: boolean
   onClose: () => void
   onParticipantMenu: (participantId: string, point: ContextMenuPoint) => void
@@ -62,6 +64,8 @@ export const ParticipantList = ({
   participants,
   remoteVoices,
   activeSpeakerIds,
+  avatars,
+  localAvatarDataUrl,
   open,
   onClose,
   onParticipantMenu,
@@ -83,7 +87,7 @@ export const ParticipantList = ({
       <ul className="participants-list">
         <ParticipantRow
           detail="Você"
-          avatarDataUrl={participantAvatarFromMetadata(local.metadata)}
+          avatarDataUrl={localAvatarDataUrl ?? avatars.get(local.identity) ?? participantAvatarFromMetadata(local.metadata)}
           nameStyle={participantNameStyleFromMetadata(local.metadata)}
           id={local.identity}
           muted={localMuted}
@@ -96,7 +100,7 @@ export const ParticipantList = ({
           return (
             <ParticipantRow
               detail={voice.track ? 'Na call' : 'Sem microfone'}
-              avatarDataUrl={participantAvatarFromMetadata(voice.participant.metadata)}
+              avatarDataUrl={avatars.get(voice.participant.identity) ?? participantAvatarFromMetadata(voice.participant.metadata)}
               nameStyle={participantNameStyleFromMetadata(voice.participant.metadata)}
               id={voice.participant.identity}
               key={voice.id}

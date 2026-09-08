@@ -257,6 +257,7 @@ function App() {
         onMicrophoneErrorChange={liveKit.setMicrophoneError}
         room={liveKit.room}
         channelId={channelId}
+        localAvatarDataUrl={auth.access.profile.avatarDataUrl}
         maxScreenShareQuality={auth.access.capabilities.maxScreenShareQuality}
         roomCode={channels.find((channel) => channel.id === channelId)?.name || 'Canal'}
         status={liveKit.status}

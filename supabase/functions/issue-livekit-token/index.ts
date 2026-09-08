@@ -57,7 +57,13 @@ Deno.serve(async (request) => {
     const roomName = String(session.room_name || sessionRoomName)
     const resolvedChannelId = String(session.channel_id || channelId)
     const identity = `usr_${user.id}_${crypto.randomUUID().replaceAll('-', '').slice(0, 10)}`
-    const participantMetadata = JSON.stringify({ splotysProfile: { version: 2, avatarDataUrl: typeof profile.avatar_url === 'string' ? profile.avatar_url : undefined, nameStyle: { font: profile.name_font, color: profile.name_color, effect: profile.name_effect, weight: profile.name_weight, spacing: profile.name_spacing, casing: profile.name_case, badge: profile.name_badge, animation: profile.name_animation }, media: { maxScreenShareQuality } } })
+    // The avatar is intentionally NOT embedded here: a data-URL avatar can be
+    // hundreds of KB, which bloats the JWT and the `?access_token=` query on the
+    // signaling WebSocket URL past the browser/proxy request-line limit, so the
+    // upgrade is dropped before it reaches the RTC server and the call fails.
+    // Avatars are exchanged peer-to-peer over the RTC data channel instead
+    // (see useParticipantProfiles). Keep this metadata small.
+    const participantMetadata = JSON.stringify({ splotysProfile: { version: 2, nameStyle: { font: profile.name_font, color: profile.name_color, effect: profile.name_effect, weight: profile.name_weight, spacing: profile.name_spacing, casing: profile.name_case, badge: profile.name_badge, animation: profile.name_animation }, media: { maxScreenShareQuality } } })
     const restricted = await client.from('call_media_restrictions').select('screen_share_blocked').eq('room_session_id', session.id).eq('user_id', user.id).maybeSingle()
     let token: { participantToken: string; serverUrl: string; provider: 'livekit' | 'torre' }
     try {
