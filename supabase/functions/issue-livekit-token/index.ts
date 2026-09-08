@@ -75,7 +75,8 @@ Deno.serve(async (request) => {
       user_id: user.id,
     }, { onConflict: 'channel_id,user_id' })
     if (membershipError) throw new Error('CHANNEL_MEMBERSHIP_FAILED')
-    await writeAudit(client, { action: 'livekit_token_issued', actorUserId: user.id, result: 'success', metadata: { channelId: resolvedChannelId, callId, roomSessionId: session.id, role, maxScreenShareQuality } })
+    const rtcHost = new URL(token.serverUrl).host
+    await writeAudit(client, { action: 'livekit_token_issued', actorUserId: user.id, result: 'success', metadata: { channelId: resolvedChannelId, callId, roomSessionId: session.id, role, maxScreenShareQuality, provider: token.provider, rtcHost } })
     console.info('RTC_TOKEN_ISSUED', { provider: token.provider })
     return jsonResponse(request, { ...token, channelId: resolvedChannelId, callId, roomSessionId: session.id, screenSharePolicy: maxScreenShareQuality })
   } catch (error) {
