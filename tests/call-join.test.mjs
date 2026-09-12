@@ -172,3 +172,85 @@ test('switching microphones preserves processing settings before transmitting th
   assert.equal(publication.track.mediaStreamTrack, nextTrack)
   assert.equal(oldTrack.readyState, 'ended')
 })
+
+const screenTrack = () => ({
+  kind: 'video', readyState: 'live', enabled: true,
+  stop() { this.readyState = 'ended' },
+  getSettings: () => ({ width: 1920, height: 1080 }),
+  addEventListener() {},
+})
+const installDisplayCapture = (t, capture) => {
+  const previous = Object.getOwnPropertyDescriptor(navigator, 'mediaDevices')
+  Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getDisplayMedia: capture } })
+  t.after(() => {
+    if (previous) Object.defineProperty(navigator, 'mediaDevices', previous)
+    else delete navigator.mediaDevices
+  })
+}
+const displayStream = (video, audio) => ({
+  getTracks: () => [video, audio].filter(Boolean),
+  getVideoTracks: () => video ? [video] : [],
+  getAudioTracks: () => audio ? [audio] : [],
+})
+
+test('leaving while the screen picker is open stops late video and audio without publishing', async (t) => {
+  const picker = deferred(), video = screenTrack(), audio = makeTrack()
+  installDisplayCapture(t, () => picker.promise)
+  const participant = new LocalParticipant('peer', 'identity', 'name', '', {})
+  const produce = mock.fn()
+  participant._init(async () => {}, { produce })
+  const starting = participant.setScreenShareEnabled(true)
+  const rejected = assert.rejects(starting, /cancelled/)
+  participant._dispose(true)
+  picker.resolve(displayStream(video, audio))
+  await rejected
+  assert.equal(video.readyState, 'ended')
+  assert.equal(audio.readyState, 'ended')
+  assert.equal(produce.mock.callCount(), 0)
+})
+
+test('screen audio publication failure rolls back video and releases both capture tracks', async (t) => {
+  const video = screenTrack(), audio = makeTrack()
+  installDisplayCapture(t, async () => displayStream(video, audio))
+  const close = mock.fn()
+  const participant = new LocalParticipant('peer', 'identity', 'name', '', {})
+  participant._init(async () => {}, { produce: async ({ track }) => {
+    if (track.kind === 'audio') throw new Error('audio failed')
+    return { id: 'video', close }
+  } })
+  await assert.rejects(participant.setScreenShareEnabled(true), /audio failed/)
+  assert.equal(video.readyState, 'ended')
+  assert.equal(audio.readyState, 'ended')
+  assert.equal(participant.publications.size, 0)
+  assert.equal(close.mock.callCount(), 1)
+})
+
+test('duplicate screen starts share one capture and stop invalidates a pending picker', async (t) => {
+  const picker = deferred(), video = screenTrack()
+  const capture = mock.fn(() => picker.promise)
+  installDisplayCapture(t, capture)
+  const participant = new LocalParticipant('peer', 'identity', 'name', '', {})
+  participant._init(async () => {}, { produce: mock.fn() })
+  const first = assert.rejects(participant.setScreenShareEnabled(true), /cancelled/)
+  const second = assert.rejects(participant.setScreenShareEnabled(true), /cancelled/)
+  await participant.setScreenShareEnabled(false)
+  picker.resolve(displayStream(video))
+  await Promise.all([first, second])
+  assert.equal(capture.mock.callCount(), 1)
+  assert.equal(video.readyState, 'ended')
+})
+
+test('stopping during video publication rolls back a producer that resolves late', async (t) => {
+  const produced = deferred(), video = screenTrack(), close = mock.fn()
+  installDisplayCapture(t, async () => displayStream(video))
+  const participant = new LocalParticipant('peer', 'identity', 'name', '', {})
+  participant._init(async () => {}, { produce: () => produced.promise })
+  const starting = assert.rejects(participant.setScreenShareEnabled(true), /cancelled/)
+  await new Promise(setImmediate)
+  await participant.setScreenShareEnabled(false)
+  produced.resolve({ id: 'video', close })
+  await starting
+  assert.equal(video.readyState, 'ended')
+  assert.equal(participant.publications.size, 0)
+  assert.equal(close.mock.callCount(), 1)
+})

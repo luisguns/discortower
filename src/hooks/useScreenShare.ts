@@ -110,6 +110,9 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
         },
         video: {
           displaySurface: 'window',
+          width: { ideal: preset.resolution.width },
+          height: { ideal: preset.resolution.height },
+          frameRate: { ideal: preset.encoding.maxFramerate, max: preset.encoding.maxFramerate },
         },
         resolution: preset.resolution,
         contentHint: quality === '1080p60' ? 'motion' : 'detail',
@@ -168,12 +171,19 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
 
     window.clearTimeout(timeoutId)
     pendingRef.current = false
-    if (requestRef.current !== requestId) return
+    if (requestRef.current !== requestId) {
+      if (outcome.kind === 'success') {
+        await room.localParticipant.setScreenShareEnabled(false).catch(() => undefined)
+      }
+      return
+    }
 
     if (outcome.kind === 'success') {
+      console.info('RTC_SCREEN_SHARE_STARTED')
       syncState()
     } else {
       const { shareError } = outcome
+      console.warn(`RTC_SCREEN_SHARE_FAILED name=${shareError instanceof Error ? shareError.name : 'unknown'}`)
       if (shareError instanceof DOMException && shareError.name === 'NotAllowedError') {
         setError('Compartilhamento cancelado ou bloqueado pelo navegador.')
       } else if (shareError instanceof DOMException && shareError.name === 'NotFoundError') {
@@ -223,6 +233,7 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
       window.clearTimeout(timeoutId)
       pendingRef.current = false
       if (outcome.kind === 'success') {
+        console.info('RTC_SCREEN_SHARE_STOPPED')
         syncState()
       } else {
         setError('Não foi possível encerrar a transmissão.')

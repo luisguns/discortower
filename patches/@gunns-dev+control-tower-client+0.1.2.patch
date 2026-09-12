@@ -1,3 +1,71 @@
+diff --git a/node_modules/@gunns-dev/control-tower-client/dist/participant.js b/node_modules/@gunns-dev/control-tower-client/dist/participant.js
+index 5d86adc..b4efecf 100644
+--- a/node_modules/@gunns-dev/control-tower-client/dist/participant.js
++++ b/node_modules/@gunns-dev/control-tower-client/dist/participant.js
+@@ -278,24 +278,51 @@ export class LocalParticipant extends Participant {
+         const mediaTrack = stream.getVideoTracks()[0];
+         return this._publishVideo(mediaTrack, Track.Source.Camera);
+     }
++    _screenShareGeneration = 0;
++    _screenSharePending;
+     async setScreenShareEnabled(enabled, captureOptions, publishOptions = {}) {
+         if (!enabled) {
++            ++this._screenShareGeneration;
+             await this._closeScreenShareTracks();
+             return undefined;
+         }
++        if (this._disposed) throw new Error('Participant closed');
++        if (this._screenSharePending) return this._screenSharePending;
+         const existing = this.getTrackPublication(Track.Source.ScreenShare);
+-        if (existing?.track instanceof LocalVideoTrack)
+-            return existing.track;
+-        const stream = await navigator.mediaDevices.getDisplayMedia((captureOptions ?? { video: true }));
+-        const videoTrack = stream.getVideoTracks()[0];
+-        if (!videoTrack)
+-            throw new Error('Display capture did not provide a video track');
+-        const localVideo = await this._publishVideo(videoTrack, Track.Source.ScreenShare, this._screenEncodings(publishOptions.screenShareEncoding, publishOptions.simulcast ?? false));
+-        const audioTrack = stream.getAudioTracks()[0];
+-        if (audioTrack)
+-            await this._publishScreenAudio(audioTrack, publishOptions);
+-        videoTrack.addEventListener('ended', () => void this.setScreenShareEnabled(false));
+-        return localVideo;
++        if (existing?.track instanceof LocalVideoTrack) return existing.track;
++        const generation = ++this._screenShareGeneration;
++        const operation = this._startScreenShare(generation, captureOptions, publishOptions);
++        this._screenSharePending = operation;
++        try { return await operation; }
++        finally { if (this._screenSharePending === operation) this._screenSharePending = undefined; }
++    }
++    async _startScreenShare(generation, captureOptions, publishOptions) {
++        const stream = await navigator.mediaDevices.getDisplayMedia(captureOptions ?? { video: true });
++        const assertActive = () => {
++            if (this._disposed || generation !== this._screenShareGeneration)
++                throw new Error('Screen capture cancelled');
++        };
++        try {
++            assertActive();
++            const videoTrack = stream.getVideoTracks()[0];
++            if (!videoTrack) throw new Error('Display capture did not provide a video track');
++            videoTrack.addEventListener('ended', () => {
++                if (generation === this._screenShareGeneration)
++                    void this.setScreenShareEnabled(false).catch(() => {});
++            }, { once: true });
++            const localVideo = await this._publishVideo(videoTrack, Track.Source.ScreenShare,
++                this._screenEncodings(publishOptions.screenShareEncoding, publishOptions.simulcast ?? false));
++            assertActive();
++            if (videoTrack.readyState === 'ended') throw new Error('Screen capture ended');
++            const audioTrack = stream.getAudioTracks()[0];
++            if (audioTrack) await this._publishScreenAudio(audioTrack, publishOptions);
++            assertActive();
++            return localVideo;
++        } catch (error) {
++            for (const track of stream.getTracks()) track.stop();
++            await this._closeScreenShareTracks();
++            throw error;
++        }
+     }
+     /**
+      * @internal
 diff --git a/node_modules/@gunns-dev/control-tower-client/dist/room.js b/node_modules/@gunns-dev/control-tower-client/dist/room.js
 index 0fa2493..9a46e25 100644
 --- a/node_modules/@gunns-dev/control-tower-client/dist/room.js

@@ -11,6 +11,17 @@ import type { ConnectionStatus, LocalProfile } from '../types'
 import { microphoneCaptureOptions } from './useMicrophoneProcessing'
 import { startMicrophoneCapture } from '../services/microphoneCapture'
 
+const disconnectRoom = async (room: Room) => {
+  room.removeAllListeners()
+  // Stop devices synchronously, even if the SDK is waiting on signaling.
+  try {
+    for (const source of [Track.Source.Microphone, Track.Source.Camera, Track.Source.ScreenShare, Track.Source.ScreenShareAudio]) {
+      room.localParticipant.getTrackPublication(source)?.track?.mediaStreamTrack.stop()
+    }
+  } catch { /* The Control Tower participant is unavailable before connect. */ }
+  try { await room.disconnect(true) } catch { console.warn('RTC_DISCONNECT_FAILED') }
+}
+
 const toConnectionStatus = (state: ConnectionState): ConnectionStatus => {
   if (state === ConnectionState.Connecting) return 'connecting'
   if (
@@ -30,6 +41,7 @@ export const useLiveKitRoom = () => {
   const [microphoneError, setMicrophoneError] = useState('')
   const [microphoneStarting, setMicrophoneStarting] = useState(false)
   const roomRef = useRef<Room | null>(null)
+  const disconnectingRef = useRef<Promise<void>>(Promise.resolve())
   const leavingRef = useRef(false)
   const microphoneRequestRef = useRef(0)
   const joinPendingRef = useRef(false)
@@ -50,8 +62,7 @@ export const useLiveKitRoom = () => {
     setMicrophoneStarting(false)
 
     if (activeRoom) {
-      activeRoom.removeAllListeners()
-      await activeRoom.disconnect(true)
+      disconnectingRef.current = disconnectRoom(activeRoom)
     }
 
     leavingRef.current = false
@@ -77,6 +88,10 @@ export const useLiveKitRoom = () => {
     let nextRoom: Room | null = null
 
     try {
+      // Leaving is immediate for the UI; a new connection waits for the previous
+      // socket to close so rapid re-entry cannot keep two sessions alive.
+      await disconnectingRef.current
+      if (microphoneRequestRef.current !== microphoneRequest) return false
       // Fetch first: the token response carries the RTC provider, which decides
       // whether we instantiate a Control Tower Room or a LiveKit Room.
       const { serverUrl, participantToken, provider } = await fetchConnectionDetails(callId)
@@ -90,10 +105,16 @@ export const useLiveKitRoom = () => {
         if (refreshed.provider !== provider || refreshed.serverUrl !== serverUrl) throw new Error('RTC_PROVIDER_CHANGED')
         return refreshed.participantToken
       })
+      if (microphoneRequestRef.current !== microphoneRequest) {
+        capture.cancel()
+        await disconnectRoom(nextRoom)
+        return false
+      }
       roomRef.current = nextRoom
 
       const handleConnectionState = (state: ConnectionState) => {
         if (roomRef.current !== nextRoom) return
+        console.info(`RTC_STATE_${toConnectionStatus(state).toUpperCase()}`)
         setStatus(toConnectionStatus(state))
       }
       const handleDisconnected = () => {
@@ -117,8 +138,7 @@ export const useLiveKitRoom = () => {
 
       await nextRoom.connect(serverUrl, participantToken)
       if (microphoneRequestRef.current !== microphoneRequest) {
-        nextRoom.removeAllListeners()
-        await nextRoom.disconnect(true)
+        await disconnectRoom(nextRoom)
         return false
       }
       const connectedMs = elapsed()
@@ -196,8 +216,7 @@ export const useLiveKitRoom = () => {
         : 'unknown'
       console.warn(`RTC_JOIN_FAILED message=${failureMessage}`)
       if (nextRoom) {
-        nextRoom.removeAllListeners()
-        await nextRoom.disconnect(true)
+        await disconnectRoom(nextRoom)
         if (roomRef.current === nextRoom) roomRef.current = null
       }
       if (microphoneRequestRef.current === microphoneRequest) {
@@ -217,8 +236,7 @@ export const useLiveKitRoom = () => {
       captureRef.current?.cancel()
       const activeRoom = roomRef.current
       if (activeRoom) {
-        activeRoom.removeAllListeners()
-        void activeRoom.disconnect(true)
+        void disconnectRoom(activeRoom)
         roomRef.current = null
       }
     },

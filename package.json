@@ -26,7 +26,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false",
     "postinstall": "patch-package --error-on-fail",
-    "test:call-join": "node --experimental-strip-types --experimental-test-module-mocks --test tests/call-join.test.mjs",
+    "test:call-join": "node --experimental-strip-types --experimental-test-module-mocks --test tests/call-join.test.mjs tests/call-lifecycle.test.mjs",
+    "test:desktop": "node --test tests/desktop-lifecycle.test.cjs",
     "test:presence": "node --experimental-strip-types --test tests/presence-timing.test.mjs"
   },
   "dependencies": {

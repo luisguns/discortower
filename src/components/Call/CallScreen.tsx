@@ -383,12 +383,9 @@ export const CallScreen = ({
   }
 
   const leaveCall = useCallback(async () => {
-    try {
-      if (screenShare.isSharing) await screenShare.stop()
-    } finally {
-      await onLeave()
-    }
-  }, [onLeave, screenShare])
+    // Disconnect owns all media cleanup; never wait for the capture/SFU first.
+    await onLeave()
+  }, [onLeave])
 
   const shortcuts = useCallShortcuts({
     microphone: () => void toggleMicrophone(),

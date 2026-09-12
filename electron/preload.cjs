@@ -1,5 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
+window.addEventListener('error', () => console.error('SPLOTYS_RENDERER_ERROR'))
+window.addEventListener('unhandledrejection', () => console.error('SPLOTYS_UNHANDLED_REJECTION'))
+
 contextBridge.exposeInMainWorld('splotysDesktop', {
   isDesktop: true,
   platform: process.platform,

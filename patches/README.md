@@ -7,6 +7,11 @@ cancellation and noise suppression) when switching input devices. Without it,
 the SDK opens the new device with browser defaults. `postinstall` applies the
 patch, and `test:call-join` verifies the replacement track receives the filters.
 
+The patch also makes screen capture transactional: duplicate starts share one
+picker, stopping invalidates pending capture, and any publication failure stops
+all captured tracks and rolls back partial publications. Regression tests cover
+leaving with a picker open and stopping while video publication is pending.
+
 `npm run test:call-join` tests the installed package, including parallel transport
 failure cleanup, publication, mute/unmute, and browser capture cancellation.
 

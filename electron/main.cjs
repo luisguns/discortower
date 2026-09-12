@@ -17,6 +17,9 @@ const { autoUpdater } = require('electron-updater')
 const { spawn } = require('node:child_process')
 const fs = require('node:fs/promises')
 const path = require('node:path')
+const { createDiagnostics } = require('./diagnostics.cjs')
+const { installWindowLifecycle } = require('./window-lifecycle.cjs')
+const diagnostic = createDiagnostics(path.join(app.getPath('userData'), 'logs'))
 
 const APP_ID = 'dev.gunns.splotys'
 const APP_SCHEME = 'splotys-app'
@@ -969,6 +972,8 @@ const installRendererIpc = () => {
   ipcMain.on('desktop:set-in-call', (event, value) => {
     if (!mainWindow || event.sender !== mainWindow.webContents) return
     isInCall = value === true
+    diagnostic('call-state', { inCall: isInCall })
+    if (!isInCall && activePicker) finishPicker(null)
     rebuildTrayMenu()
     syncGameOverlayRuntime()
     syncGlobalShortcuts()
@@ -1184,7 +1189,7 @@ const createMainWindow = async () => {
       nodeIntegration: false,
       sandbox: true,
       webSecurity: true,
-      backgroundThrottling: true,
+      backgroundThrottling: false,
     },
   })
   mainWindow.on('enter-full-screen', () => mainWindow?.webContents.send('desktop:fullscreen-changed', true))
@@ -1193,6 +1198,18 @@ const createMainWindow = async () => {
   mainWindow.on('unmaximize', () => mainWindow?.webContents.send('desktop:maximized-changed', false))
 
   configureWindowNavigation(mainWindow)
+
+  installWindowLifecycle(mainWindow, {
+    diagnostic,
+    isQuitting: () => isQuitting,
+    resetCall: () => {
+      isInCall = false
+      if (activePicker) finishPicker(null)
+      destroyGameOverlay()
+      syncGlobalShortcuts()
+      rebuildTrayMenu()
+    },
+  })
 
   mainWindow.once('ready-to-show', () => mainWindow?.show())
   mainWindow.webContents.on('did-finish-load', () => {
@@ -1236,6 +1253,7 @@ const registerDeepLinkProtocol = () => {
 
 app.whenReady().then(async () => {
   if (!gotSingleInstanceLock) return
+  diagnostic('app-start', { version: app.getVersion(), electron: process.versions.electron })
   registerDeepLinkProtocol()
   if (!isDevelopment) installAppProtocol()
   installCapturePicker()
@@ -1266,6 +1284,10 @@ app.on('before-quit', () => {
   if (activePicker) finishPicker(null)
   stopGameWatcher()
   destroyGameOverlay()
+})
+
+app.on('child-process-gone', (_event, details) => {
+  diagnostic('child-process-gone', { type: details.type, reason: details.reason, exitCode: details.exitCode })
 })
 
 app.on('window-all-closed', () => {
