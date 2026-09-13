@@ -55,6 +55,35 @@ mock.module('mediasoup-client', {
   },
 })
 const { Room, LocalParticipant, Track, RoomEvent } = await import('@gunns-dev/control-tower-client')
+const { Signal } = await import('../node_modules/@gunns-dev/control-tower-client/dist/signal.js')
+
+test('explicit leave sends a distinct close code and waits for the socket handshake', async (t) => {
+  const original = globalThis.WebSocket
+  class Socket extends EventTarget {
+    static OPEN = 1
+    static CLOSED = 3
+    static latest
+    readyState = 1
+    constructor() { super(); Socket.latest = this }
+    close(code, reason) { this.closeRequest = { code, reason } }
+  }
+  globalThis.WebSocket = Socket
+  t.after(() => { globalThis.WebSocket = original })
+  const signal = new Signal()
+  const connected = signal.connect('ws://example.test', 'test')
+  const socket = Socket.latest
+  socket.onmessage({ data: JSON.stringify({ t: 'notify', method: 'welcome', data: {} }) })
+  await connected
+  let completed = false
+  const closing = signal.close(4000, 'CLIENT_LEAVE').then(() => { completed = true })
+  await Promise.resolve()
+  assert.equal(completed, false)
+  assert.equal(signal.isOpen, false)
+  assert.deepEqual(socket.closeRequest, { code: 4000, reason: 'CLIENT_LEAVE' })
+  socket.dispatchEvent(new Event('close'))
+  await closing
+  assert.equal(completed, true)
+})
 
 test('pre-captured audio publishes without opening a second microphone', async () => {
   const participant = new LocalParticipant('peer', 'identity', 'name', '', {})

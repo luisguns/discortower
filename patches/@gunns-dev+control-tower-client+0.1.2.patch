@@ -67,7 +67,7 @@ index 5d86adc..b4efecf 100644
      /**
       * @internal
 diff --git a/node_modules/@gunns-dev/control-tower-client/dist/room.js b/node_modules/@gunns-dev/control-tower-client/dist/room.js
-index 0fa2493..9a46e25 100644
+index 0fa2493..9ed3f82 100644
 --- a/node_modules/@gunns-dev/control-tower-client/dist/room.js
 +++ b/node_modules/@gunns-dev/control-tower-client/dist/room.js
 @@ -199,7 +199,7 @@ export class Room extends Emitter {
@@ -79,3 +79,51 @@ index 0fa2493..9a46e25 100644
              : { video: { deviceId: constraint } };
          const stream = await navigator.mediaDevices.getUserMedia(constraints);
          const newMediaTrack = kind === 'audioinput' ? stream.getAudioTracks()[0] : stream.getVideoTracks()[0];
+@@ -246,13 +246,14 @@ export class Room extends Emitter {
+         }
+         this._sendTransport?.close();
+         this._recvTransport?.close();
+-        this._signal.close();
++        const closed = this._signal.close(4000, 'CLIENT_LEAVE');
+         this.remoteParticipants.clear();
+         this._activeSpeakers = [];
+         this._streamAssembler.clear();
+         this._subscribedDataProducers.clear();
+         this._setState(ConnectionState.Disconnected);
+         this.emit(RoomEvent.Disconnected);
++        await closed;
+     }
+     registerTextStreamHandler(topic, handler) {
+         this._streamAssembler.registerTextHandler(topic, handler);
+diff --git a/node_modules/@gunns-dev/control-tower-client/dist/signal.js b/node_modules/@gunns-dev/control-tower-client/dist/signal.js
+index 7d9f85d..064e43c 100644
+--- a/node_modules/@gunns-dev/control-tower-client/dist/signal.js
++++ b/node_modules/@gunns-dev/control-tower-client/dist/signal.js
+@@ -114,7 +114,7 @@ export class Signal {
+             this._ws.send(JSON.stringify({ t: 'req', id, method, data }));
+         });
+     }
+-    close() {
++    close(code = 1000, reason = '') {
+         const ws = this._ws;
+         this._ws = undefined;
+         this._rejectConnect?.(new Error('Connection cancelled'));
+@@ -123,7 +123,17 @@ export class Signal {
+             pending.reject(new Error('Connection closed'));
+         this._pendingRequests.clear();
+         this._notifications.length = 0;
+-        ws?.close();
++        if (!ws || ws.readyState === WebSocket.CLOSED) return Promise.resolve();
++        return new Promise((resolve) => {
++            const finish = () => {
++                clearTimeout(timer);
++                ws.removeEventListener('close', finish);
++                resolve();
++            };
++            const timer = setTimeout(finish, 2000);
++            ws.addEventListener('close', finish, { once: true });
++            ws.close(code, reason);
++        });
+     }
+     get isOpen() {
+         return this._ws?.readyState === WebSocket.OPEN;

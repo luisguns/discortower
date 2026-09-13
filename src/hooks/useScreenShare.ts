@@ -183,7 +183,9 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
       syncState()
     } else {
       const { shareError } = outcome
-      console.warn(`RTC_SCREEN_SHARE_FAILED name=${shareError instanceof Error ? shareError.name : 'unknown'}`)
+      // Keep the original error in the local console for diagnosis (the desktop
+      // file logger stores only RTC event codes, never arbitrary console text).
+      console.warn('RTC_SCREEN_SHARE_FAILED', shareError)
       if (shareError instanceof DOMException && shareError.name === 'NotAllowedError') {
         setError('Compartilhamento cancelado ou bloqueado pelo navegador.')
       } else if (shareError instanceof DOMException && shareError.name === 'NotFoundError') {

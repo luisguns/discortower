@@ -12,6 +12,12 @@ picker, stopping invalidates pending capture, and any publication failure stops
 all captured tracks and rolls back partial publications. Regression tests cover
 leaving with a picker open and stopping while video publication is pending.
 
+Explicit room disconnect now uses WebSocket close code 4000 (`CLIENT_LEAVE`) and
+waits up to two seconds for its close handshake. Local media stops before this
+wait. Deploy the matching Control Tower signaling change: it removes that peer
+immediately while retaining reconnect grace for network failures. Without the
+server change, the old peer still remains for the 45-second grace period.
+
 `npm run test:call-join` tests the installed package, including parallel transport
 failure cleanup, publication, mute/unmute, and browser capture cancellation.
 
