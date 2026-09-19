@@ -39,6 +39,9 @@ jobs:
       - name: Verify telemetry redaction and budgets
         run: npm run test:observability
 
+      - name: Verify per-account screen share policy
+        run: npm run test:screen-policy
+
       - name: Build
         # Source maps match the public source repository; no upload token required.
         run: npm run build

@@ -2,6 +2,7 @@ import { enforceRateLimit } from '../_shared/rate-limit.ts'
 import { handleFunctionError, HttpError, jsonResponse, optionsResponse, readJson, requireUser } from '../_shared/http.ts'
 import { writeAudit } from '../_shared/audit.ts'
 import { issueParticipantToken } from '../_shared/livekit.ts'
+import { resolveScreenShareQuality } from '../_shared/screen-share-policy.ts'
 
 const normalizeName = (value: string) => value.trim().replace(/\s+/g, ' ').slice(0, 48)
 const roomNameFor = (sessionId: string) => `DT_${sessionId.replaceAll('-', '').toUpperCase()}`
@@ -65,12 +66,7 @@ Deno.serve(async (request) => {
     if (contextError || !profile || !mediaSettings || profile.status !== 'active') throw new HttpError(403, 'ACCOUNT_DISABLED')
     const participantName = normalizeName(profile.display_name)
     if (!participantName) throw new HttpError(400, 'PROFILE_REQUIRED')
-    const maxScreenShareQuality = profile.screen_share_quality_override || (
-      role === 'owner' ? '1080p60'
-        : role === 'manager' ? mediaSettings.manager_screen_share_quality
-          : role === 'host' ? mediaSettings.host_screen_share_quality
-            : mediaSettings.member_screen_share_quality
-    )
+    const maxScreenShareQuality = resolveScreenShareQuality(role, profile.screen_share_quality_override, mediaSettings)
 
     const sessionRoomName = roomNameFor(crypto.randomUUID())
     let session: Record<string, unknown>

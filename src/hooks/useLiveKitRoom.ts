@@ -7,7 +7,7 @@ import {
   friendlyMicrophoneError,
 } from '../services/livekit'
 import { getMicrophoneMuted, saveLocalProfile } from '../storage/preferences'
-import type { ConnectionStatus, LocalProfile } from '../types'
+import type { ConnectionStatus, LocalProfile, StreamQualityId } from '../types'
 import { microphoneCaptureOptions } from './useMicrophoneProcessing'
 import { startMicrophoneCapture } from '../services/microphoneCapture'
 import { observe, reportFailure, measure, setCallContext, rtcConnectionUrl } from '../services/observability'
@@ -39,6 +39,7 @@ const toConnectionStatus = (state: ConnectionState): ConnectionStatus => {
 
 export const useLiveKitRoom = () => {
   const [room, setRoom] = useState<Room | null>(null)
+  const [screenSharePolicy, setScreenSharePolicy] = useState<StreamQualityId>('720p30')
   const [status, setStatus] = useState<ConnectionStatus>('disconnected')
   const [error, setError] = useState('')
   const [microphoneError, setMicrophoneError] = useState('')
@@ -60,6 +61,7 @@ export const useLiveKitRoom = () => {
     leavingRef.current = true
     roomRef.current = null
     setRoom(null)
+    setScreenSharePolicy('720p30')
     setStatus('disconnected')
     setError('')
     setMicrophoneError('')
@@ -102,8 +104,9 @@ export const useLiveKitRoom = () => {
       if (microphoneRequestRef.current !== microphoneRequest) return false
       // Fetch first: the token response carries the RTC provider, which decides
       // whether we instantiate a Control Tower Room or a LiveKit Room.
-      const { serverUrl, participantToken, provider } = await fetchConnectionDetails(callId)
+      const { serverUrl, participantToken, provider, screenSharePolicy: authorizedQuality } = await fetchConnectionDetails(callId)
       if (microphoneRequestRef.current !== microphoneRequest) return false
+      setScreenSharePolicy(authorizedQuality || '720p30')
       const tokenMs = elapsed()
       setCallContext(callId, attemptId, provider)
       observe('rtc.authorization.completed', { duration_ms: tokenMs, provider })
@@ -113,6 +116,7 @@ export const useLiveKitRoom = () => {
         const refreshed = await fetchConnectionDetails(callId)
         if (microphoneRequestRef.current !== microphoneRequest || leavingRef.current) throw new Error('CALL_CANCELLED')
         if (refreshed.provider !== provider || refreshed.serverUrl !== serverUrl) throw new Error('RTC_PROVIDER_CHANGED')
+        if (microphoneRequestRef.current === microphoneRequest) setScreenSharePolicy(refreshed.screenSharePolicy || '720p30')
         return refreshed.participantToken
       })
       if (microphoneRequestRef.current !== microphoneRequest) {
@@ -262,6 +266,7 @@ export const useLiveKitRoom = () => {
 
   return {
     room,
+    screenSharePolicy,
     status,
     error,
     microphoneError,

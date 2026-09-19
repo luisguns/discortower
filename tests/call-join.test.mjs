@@ -287,3 +287,31 @@ test('stopping during video publication rolls back a producer that resolves late
   assert.equal(participant.publications.size, 0)
   assert.equal(close.mock.callCount(), 1)
 })
+
+test('server removal stops publisher capture and preview without echoing closeProducer, and permits a new share', async t => {
+  const video = screenTrack(), audio = makeTrack(), emitted = [], request = mock.fn(async () => ({}))
+  installDisplayCapture(t, async () => displayStream(video, audio))
+  const participant = new LocalParticipant('peer', 'identity', 'name', '', {})
+  participant._init(request, { produce: async ({ track }) => ({ id: track.kind, close: mock.fn() }) }, (...args) => emitted.push(args))
+  await participant.setScreenShareEnabled(true)
+  const room = new Room()
+  room._localParticipant = participant
+  const stopped = []
+  room._state = 'connected'
+  room.on('localTrackStoppedByServer', source => stopped.push(source))
+  room._handleNotify('producerClosed', { peerId: 'peer', producerId: 'video' })
+  room._handleNotify('producerClosed', { peerId: 'peer', producerId: 'audio' })
+  room._handleNotify('producerClosed', { peerId: 'peer', producerId: 'video' })
+  assert.equal(video.readyState, 'ended'); assert.equal(audio.readyState, 'ended')
+  assert.equal(participant.isScreenShareEnabled, false)
+  assert.equal(participant.publications.size, 0)
+  assert.equal(request.mock.callCount(), 0)
+  assert.equal(stopped.length, 2)
+  assert.equal(emitted.filter(([event]) => event === RoomEvent.LocalTrackUnpublished).length, 2)
+  const replacement = screenTrack()
+  navigator.mediaDevices.getDisplayMedia = async () => displayStream(replacement)
+  await participant.setScreenShareEnabled(true)
+  assert.equal(participant.isScreenShareEnabled, true)
+  await participant.setScreenShareEnabled(false)
+  assert.equal(replacement.readyState, 'ended')
+})

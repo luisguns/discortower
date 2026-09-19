@@ -2,6 +2,7 @@ import { WebhookReceiver } from 'npm:@gunns-dev/control-tower-server-sdk@0.1.0'
 import { writeAudit } from '../_shared/audit.ts'
 import { adminClient, handleFunctionError, HttpError, jsonResponse, optionsResponse } from '../_shared/http.ts'
 import { livekitConfig, roomService, TrackSource } from '../_shared/livekit.ts'
+import { resolveScreenShareQuality, screenShareExceedsPolicy } from '../_shared/screen-share-policy.ts'
 
 type LiveKitEvent = {
   id?: string
@@ -103,13 +104,19 @@ Deno.serve(async (request) => {
       if (identity && isScreen) await client.from('participant_sessions').update({ screen_sharing: true }).eq('room_session_id', room.id).eq('livekit_identity', identity).is('left_at', null)
       const width = Number(event.track?.width || 0)
       const height = Number(event.track?.height || 0)
-      const { data: guardrails } = await client.from('call_guardrail_settings').select('max_screen_share_dimension').eq('id', true).maybeSingle()
-      const maxScreenShareDimension = Number(guardrails?.max_screen_share_dimension || 1280)
-      if (identity && isScreen && Math.max(width, height) > maxScreenShareDimension) {
+      const userId = userIdFromIdentity(identity)
+      let authorizedQuality = '720p30' as ReturnType<typeof resolveScreenShareQuality>
+      if (userId && isScreen && (width > 0 || height > 0)) {
+        // Service-role RPC reads trusted profile/role/settings, never user metadata.
+        const { data: context, error } = await client.rpc('get_token_issue_context', { p_user_id: userId })
+        if (error || !context?.profile || !context?.mediaSettings) throw new Error('SCREEN_POLICY_LOOKUP_FAILED')
+        authorizedQuality = resolveScreenShareQuality(context.role, context.profile.screen_share_quality_override, context.mediaSettings)
+      }
+      const { maxDimension: maxScreenShareDimension, exceeded } = screenShareExceedsPolicy(authorizedQuality, width, height)
+      if (identity && isScreen && exceeded) {
         try { await roomService().updateParticipant(room.room_name, identity, { permission: { canPublishSources: [TrackSource.MICROPHONE, TrackSource.CAMERA] } } as any) } catch { /* participant may have left */ }
-        const userId = userIdFromIdentity(identity)
         if (userId) await client.from('call_media_restrictions').upsert({ room_session_id: room.id, user_id: userId, screen_share_blocked: true, reason: 'resolution_limit' })
-        await writeAudit(client, { action: 'screen_share_policy_violation', actorUserId: userId || undefined, targetRoomId: room.id, result: 'blocked', metadata: { width, height, maxScreenShareDimension } })
+        await writeAudit(client, { action: 'screen_share_policy_violation', actorUserId: userId || undefined, targetRoomId: room.id, result: 'blocked', metadata: { width, height, maxScreenShareDimension, authorizedQuality } })
       }
     } else if (eventType === 'track_unpublished' && room) {
       const identity = event.participant?.identity || ''

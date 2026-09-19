@@ -12,7 +12,7 @@ import { LobbyWorkspace as Lobby } from './components/Lobby/LobbyWorkspace'
 import { AppSettingsScreen } from './components/Settings/AppSettingsScreen'
 import { useLiveKitRoom } from './hooks/useLiveKitRoom'
 import { useDesktopActivity } from './hooks/useDesktopActivity'
-import { getChannelIdFromUrl, normalizeDisplayName, replaceChannelIdInCurrentUrl } from './services/livekit'
+import { getChannelIdFromUrl, normalizeDisplayName, replaceChannelIdInCurrentUrl, isStreamQualityAllowed } from './services/livekit'
 import { normalizeProfileNameStyle } from './services/profile'
 import { acceptChannelInvite, archiveChannel, createCall, createChannel, createChannelInvite, createChannelInviteLink, listChannels, renameChannel, subscribeToChannels } from './services/channels'
 import { subscribeToChannelPresence } from './services/presence'
@@ -260,7 +260,7 @@ function App() {
         room={liveKit.room}
         channelId={channelId}
         localAvatarDataUrl={auth.access.profile.avatarDataUrl}
-        maxScreenShareQuality={auth.access.capabilities.maxScreenShareQuality}
+        maxScreenShareQuality={isStreamQualityAllowed(auth.access.capabilities.maxScreenShareQuality, liveKit.screenSharePolicy) ? auth.access.capabilities.maxScreenShareQuality : liveKit.screenSharePolicy}
         roomCode={channels.find((channel) => channel.id === channelId)?.name || 'Canal'}
         status={liveKit.status}
         onLogout={logout}
@@ -269,7 +269,7 @@ function App() {
         onToggleSidebar={() => setCallSidebarVisible((value) => !value)}
         sidebarVisible={callSidebarVisible}
       />
-      {callActivitySettingsOpen && <div className="call-app-settings-overlay"><AppSettingsScreen activitySharingEnabled={activitySharingEnabled} maxScreenShareQuality={auth.access.capabilities.maxScreenShareQuality} onActivitySharingChange={changeActivitySharing} onClose={() => setCallActivitySettingsOpen(false)} /></div>}
+      {callActivitySettingsOpen && <div className="call-app-settings-overlay"><AppSettingsScreen activitySharingEnabled={activitySharingEnabled} maxScreenShareQuality={isStreamQualityAllowed(auth.access.capabilities.maxScreenShareQuality, liveKit.screenSharePolicy) ? auth.access.capabilities.maxScreenShareQuality : liveKit.screenSharePolicy} onActivitySharingChange={changeActivitySharing} onClose={() => setCallActivitySettingsOpen(false)} /></div>}
       </div>
       </div>
     )

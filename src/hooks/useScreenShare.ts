@@ -62,9 +62,17 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
   }, [room])
 
   useEffect(() => {
+    const stoppedByServer = (source: string) => {
+      if (source !== Track.Source.ScreenShare && source !== Track.Source.ScreenShareAudio) return
+      syncState()
+      setError('O servidor encerrou esta transmissão. Confira a qualidade autorizada antes de compartilhar novamente.')
+      observe('screen.stopped_by_server', { source }, 'warn')
+    }
+    room.on('localTrackStoppedByServer', stoppedByServer)
     room.on(RoomEvent.LocalTrackPublished, syncState)
     room.on(RoomEvent.LocalTrackUnpublished, syncState)
     return () => {
+      room.off('localTrackStoppedByServer', stoppedByServer)
       room.off(RoomEvent.LocalTrackPublished, syncState)
       room.off(RoomEvent.LocalTrackUnpublished, syncState)
     }
@@ -115,8 +123,8 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
         },
         video: {
           displaySurface: 'window',
-          width: { ideal: preset.resolution.width },
-          height: { ideal: preset.resolution.height },
+          width: { ideal: preset.resolution.width, max: preset.resolution.width },
+          height: { ideal: preset.resolution.height, max: preset.resolution.height },
           frameRate: { ideal: preset.encoding.maxFramerate, max: preset.encoding.maxFramerate },
         },
         resolution: preset.resolution,

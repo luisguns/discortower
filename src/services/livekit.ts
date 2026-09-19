@@ -11,6 +11,7 @@ export interface ConnectionDetails {
   serverUrl: string
   participantToken: string
   provider: RtcProvider
+  screenSharePolicy: StreamQualityId
 }
 import { getSupabase } from './supabase'
 
@@ -150,7 +151,9 @@ export const fetchConnectionDetails = async (
   // default — so a partial rollout never strands a client on the new transport.
   const provider: RtcProvider =
     (data as { provider?: unknown }).provider === 'torre' ? 'torre' : 'livekit'
-  return { serverUrl, participantToken, provider }
+  const policy = (data as { screenSharePolicy?: unknown }).screenSharePolicy
+  const screenSharePolicy = policy === '1080p30' || policy === '1080p60' ? policy : '720p30'
+  return { serverUrl, participantToken, provider, screenSharePolicy }
 }
 
 export const createChannelInviteUrl = (channelId: string) => {

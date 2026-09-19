@@ -1,5 +1,5 @@
 diff --git a/node_modules/@gunns-dev/control-tower-client/dist/participant.js b/node_modules/@gunns-dev/control-tower-client/dist/participant.js
-index 5d86adc..b4efecf 100644
+index 5d86adc..73a3e14 100644
 --- a/node_modules/@gunns-dev/control-tower-client/dist/participant.js
 +++ b/node_modules/@gunns-dev/control-tower-client/dist/participant.js
 @@ -278,24 +278,51 @@ export class LocalParticipant extends Participant {
@@ -66,8 +66,28 @@ index 5d86adc..b4efecf 100644
      }
      /**
       * @internal
+@@ -595,6 +622,19 @@ export class LocalParticipant extends Participant {
+         })
+             .catch((error) => console.warn('Video demand update failed', error));
+     }
++    _unpublishFromServer(producerId) {
++        const publication = this.publications.get(producerId);
++        if (!publication) return;
++        if (publication.source === Track.Source.ScreenShare || publication.source === Track.Source.ScreenShareAudio) ++this._screenShareGeneration;
++        this.publications.delete(producerId);
++        this._producers.get(producerId)?.close();
++        this._producers.delete(producerId);
++        this._producerOptions.delete(producerId);
++        this._videoDemand.delete(producerId);
++        publication.track?.mediaStreamTrack.stop();
++        this._emit?.(RoomEvent.LocalTrackUnpublished, publication, this);
++        return publication;
++    }
+     async _closeScreenShareTracks() {
+         const screenPublications = [...this.publications.values()].filter((publication) => publication.source === Track.Source.ScreenShare ||
+             publication.source === Track.Source.ScreenShareAudio);
 diff --git a/node_modules/@gunns-dev/control-tower-client/dist/room.js b/node_modules/@gunns-dev/control-tower-client/dist/room.js
-index 0fa2493..ea93f14 100644
+index 0fa2493..b09f4b9 100644
 --- a/node_modules/@gunns-dev/control-tower-client/dist/room.js
 +++ b/node_modules/@gunns-dev/control-tower-client/dist/room.js
 @@ -163,6 +163,10 @@ export class Room extends Emitter {
@@ -106,6 +126,18 @@ index 0fa2493..ea93f14 100644
      }
      registerTextStreamHandler(topic, handler) {
          this._streamAssembler.registerTextHandler(topic, handler);
+@@ -563,6 +568,11 @@ export class Room extends Emitter {
+                 break;
+             }
+             case 'producerClosed': {
++                if (this._localParticipant && d.peerId === this._localParticipant.peerId) {
++                    const publication = this._localParticipant._unpublishFromServer(d.producerId);
++                    if (publication) this.emit('localTrackStoppedByServer', publication.source);
++                    break;
++                }
+                 this._closeConsumerForProducer(d.producerId);
+                 const rp = this.remoteParticipants.get(d.peerId);
+                 if (rp) {
 diff --git a/node_modules/@gunns-dev/control-tower-client/dist/signal.js b/node_modules/@gunns-dev/control-tower-client/dist/signal.js
 index 7d9f85d..919c2f2 100644
 --- a/node_modules/@gunns-dev/control-tower-client/dist/signal.js
