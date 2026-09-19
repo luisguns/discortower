@@ -112,11 +112,13 @@ export const createRoom = async (provider: RtcProvider, tokenProvider?: () => Pr
 
 export const fetchConnectionDetails = async (
   callId: string,
+  attemptId?: string,
 ): Promise<ConnectionDetails> => {
   if (!callId) throw new Error('CALL_INVALID')
   const { data, error } = await getSupabase().functions.invoke('issue-livekit-token', {
     body: {
       callId,
+      attemptId,
     },
   })
   if (error) {

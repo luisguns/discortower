@@ -12,6 +12,15 @@ export function observeRoom(room: Room) {
   const conditions = createConditionMonitor(emit)
   let previousState = room.state, lastStats = 0
   let transitions: number[] = []
+  // Both SDKs expose these as strings; failures may not change connection state.
+  for (const event of ['trackSubscriptionFailed', 'dataChannelFailed', 'mediaDevicesError', 'encryptionError', 'signalError', 'connectionError', 'reconnectAttemptFailed', 'reconnectFailed']) {
+    const listener = (...args: unknown[]) => {
+      const error = args.find(arg => arg instanceof Error)
+      reportFailure(`rtc.${event}`, error || new Error('RTC_MEDIA_OR_SIGNAL_FAILURE'), { ...context, state: room.state, peers: room.remoteParticipants.size, code: typeof args[0] === 'number' ? args[0] : undefined, attempt: typeof args[1] === 'number' ? args[1] : undefined })
+    }
+    room.on(event, listener)
+    listeners.push([event, listener])
+  }
   for (const event of [RoomEvent.ConnectionStateChanged, RoomEvent.Disconnected,
     RoomEvent.ParticipantConnected, RoomEvent.ParticipantDisconnected,
     RoomEvent.TrackPublished, RoomEvent.TrackUnpublished, RoomEvent.TrackSubscribed,
@@ -40,7 +49,7 @@ export function observeRoom(room: Room) {
     const connected = room.state === 'connected'
     const keys = new Set(['connection', 'flapping', 'capture', 'duplicates'])
     const fields = { state: room.state, peers: room.remoteParticipants.size }
-    conditions.check('connection', 'rtc.connection_stuck', room.state === 'connecting' || room.state === 'reconnecting', fields, 20_000)
+    conditions.check('connection', 'rtc.connection_stuck', ['connecting', 'reconnecting', 'signalReconnecting'].includes(room.state), fields, 20_000)
     transitions = transitions.filter(time => performance.now() - time < 60_000)
     conditions.check('flapping', 'rtc.connection_flapping', transitions.length >= 6, { ...fields, transitions: transitions.length }, 0)
     const local = room.localParticipant

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { reportFailure } from '../services/observability'
 import { RoomEvent, Track, type LocalAudioTrack, type Room } from '@gunns-dev/control-tower-client'
 import {
   getMicrophoneMonitorVolume,
@@ -87,7 +88,8 @@ export const useMicrophoneMonitor = (
         if (outputDeviceId && typeof audio.setSinkId === 'function') {
           await audio.setSinkId(outputDeviceId)
         }
-      } catch {
+      } catch (error) {
+        reportFailure('microphone.monitor.output', error)
         // Fall back to the system output if the saved device disappeared.
       }
 
@@ -106,7 +108,8 @@ export const useMicrophoneMonitor = (
         await context.resume()
         await audio.play()
         if (!cancelled) setError('')
-      } catch {
+      } catch (error) {
+        reportFailure('microphone.monitor.playback', error)
         destroyGraph()
         if (!cancelled) {
           setEnabledState(false)
@@ -115,7 +118,11 @@ export const useMicrophoneMonitor = (
       }
     }
 
-    void start()
+    void start().catch(error => {
+      reportFailure('microphone.monitor.start', error)
+      destroyGraph()
+      if (!cancelled) { setEnabledState(false); setError('Não foi possível iniciar o retorno do microfone.') }
+    })
     return () => {
       cancelled = true
       destroyGraph()

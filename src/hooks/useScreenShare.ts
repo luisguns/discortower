@@ -82,7 +82,7 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
     () => () => {
       requestRef.current += 1
       if (room.localParticipant.isScreenShareEnabled) {
-        void room.localParticipant.setScreenShareEnabled(false).catch(() => undefined)
+        void room.localParticipant.setScreenShareEnabled(false).catch(error => reportFailure('screen.unmount_cleanup', error))
       }
     },
     [room],

@@ -30,6 +30,13 @@ test('RTC observers are idempotent and release their timer and listeners', async
   const remote = { identity: 'usr_11111111-1111-1111-1111-111111111111_remote', getTrackPublication: source => source === Track.Source.ScreenShare ? remotePublication : undefined }
   const room = { state: 'connected', localParticipant: local, remoteParticipants: new Map([['peer', remote]]), on: (event, cb) => listeners.set(event, cb), off: event => listeners.delete(event) }
   module.observeRoom(room); module.observeRoom(room)
+  const subscriptionError = new Error('CONSUMER_FAILED')
+  listeners.get('trackSubscriptionFailed')(subscriptionError)
+  assert.equal(events.at(-1)[0], 'rtc.trackSubscriptionFailed')
+  assert.equal(events.at(-1)[1], subscriptionError)
+  assert.equal(events.at(-1)[2].call_id, 'call-a')
+  listeners.get('reconnectAttemptFailed')(new Error('SIGNAL_TIMEOUT'), 3)
+  assert.equal(events.at(-1)[2].attempt, 3)
   assert.equal(timers.size, 1)
   listeners.get(RoomEvent.TrackUnsubscribed)({ trackSid: 'producer-1', source: 'screen_share' })
   assert.equal(events.at(-1)[0], 'rtc.trackUnsubscribed')

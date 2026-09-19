@@ -3,6 +3,7 @@ import { handleFunctionError, HttpError, jsonResponse, optionsResponse, readJson
 import { writeAudit } from '../_shared/audit.ts'
 import { issueParticipantToken } from '../_shared/livekit.ts'
 import { resolveScreenShareQuality } from '../_shared/screen-share-policy.ts'
+import { participantIdentity } from '../_shared/participant-identity.ts'
 
 const normalizeName = (value: string) => value.trim().replace(/\s+/g, ' ').slice(0, 48)
 const roomNameFor = (sessionId: string) => `DT_${sessionId.replaceAll('-', '').toUpperCase()}`
@@ -94,7 +95,9 @@ Deno.serve(async (request) => {
 
     const roomName = String(session.room_name || sessionRoomName)
     const resolvedChannelId = String(session.channel_id || channelId)
-    const identity = `usr_${user.id}_${crypto.randomUUID().replaceAll('-', '').slice(0, 10)}`
+    // Keep the same RTC identity when refreshing this join's token. A new join
+    // gets a new attempt, allowing the SFU to replace the previous connection.
+    const identity = participantIdentity(user.id, body?.attemptId)
     // The avatar is intentionally NOT embedded here: a data-URL avatar can be
     // hundreds of KB, which bloats the JWT and the `?access_token=` query on the
     // signaling WebSocket URL past the browser/proxy request-line limit, so the

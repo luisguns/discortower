@@ -87,10 +87,20 @@ index 5d86adc..73a3e14 100644
          const screenPublications = [...this.publications.values()].filter((publication) => publication.source === Track.Source.ScreenShare ||
              publication.source === Track.Source.ScreenShareAudio);
 diff --git a/node_modules/@gunns-dev/control-tower-client/dist/room.js b/node_modules/@gunns-dev/control-tower-client/dist/room.js
-index 0fa2493..b09f4b9 100644
+index 0fa2493..0c80a72 100644
 --- a/node_modules/@gunns-dev/control-tower-client/dist/room.js
 +++ b/node_modules/@gunns-dev/control-tower-client/dist/room.js
-@@ -163,6 +163,10 @@ export class Room extends Emitter {
+@@ -130,7 +130,8 @@ export class Room extends Emitter {
+                 await this._localParticipant._initDataChannel();
+             }
+             catch (err) {
+-                console.warn('Failed to establish data channel:', err);
++        this.emit('dataChannelFailed', err);
++        console.warn('Failed to establish data channel:', err);
+             }
+         }
+         if (generation !== this._generation)
+@@ -163,6 +164,10 @@ export class Room extends Emitter {
          ];
          return {
              state: this.state,
@@ -101,7 +111,7 @@ index 0fa2493..b09f4b9 100644
              transports: transports.map((t) => t.connectionState),
              capture: [...(this._localParticipant?.publications.values() ?? [])]
                  .filter((p) => p.kind === 'audio')
-@@ -199,7 +203,7 @@ export class Room extends Emitter {
+@@ -199,7 +204,7 @@ export class Room extends Emitter {
              return;
          const constraint = exact ? { exact: deviceId } : deviceId;
          const constraints = kind === 'audioinput'
@@ -110,7 +120,7 @@ index 0fa2493..b09f4b9 100644
              : { video: { deviceId: constraint } };
          const stream = await navigator.mediaDevices.getUserMedia(constraints);
          const newMediaTrack = kind === 'audioinput' ? stream.getAudioTracks()[0] : stream.getVideoTracks()[0];
-@@ -246,13 +250,14 @@ export class Room extends Emitter {
+@@ -246,13 +251,14 @@ export class Room extends Emitter {
          }
          this._sendTransport?.close();
          this._recvTransport?.close();
@@ -126,7 +136,27 @@ index 0fa2493..b09f4b9 100644
      }
      registerTextStreamHandler(topic, handler) {
          this._streamAssembler.registerTextHandler(topic, handler);
-@@ -563,6 +568,11 @@ export class Room extends Emitter {
+@@ -445,7 +451,8 @@ export class Room extends Emitter {
+                 rp.publications.get(producerId)?._setSubscribed(false);
+                 void this._signal.request('pauseConsumer', { consumerId: consumer.id }).catch(() => { });
+             }
+-            console.warn(`Failed to subscribe to producer ${producerId}:`, err);
++      this.emit('trackSubscriptionFailed', err);
++      console.warn(`Failed to subscribe to producer ${producerId}:`, err);
+         }
+     }
+     async _subscribeToDataProducer(dataProducerId, senderIdentity) {
+@@ -481,7 +488,8 @@ export class Room extends Emitter {
+         }
+         catch (err) {
+             this._subscribedDataProducers.delete(dataProducerId);
+-            console.warn(`Failed to subscribe to data producer ${dataProducerId}:`, err);
++      this.emit('dataChannelFailed', err);
++      console.warn(`Failed to subscribe to data producer ${dataProducerId}:`, err);
+         }
+     }
+     _handleNotify(method, data) {
+@@ -563,6 +571,11 @@ export class Room extends Emitter {
                  break;
              }
              case 'producerClosed': {
@@ -138,6 +168,35 @@ index 0fa2493..b09f4b9 100644
                  this._closeConsumerForProducer(d.producerId);
                  const rp = this.remoteParticipants.get(d.peerId);
                  if (rp) {
+@@ -676,6 +689,7 @@ export class Room extends Emitter {
+         this._activeSpeakers = [];
+     }
+     _handleClose(code) {
++        if (this._state !== ConnectionState.Disconnected && code !== 4000) this.emit('signalError', code);
+         if (code === 4001 || code === 4403) {
+             void this.disconnect();
+             return;
+@@ -811,15 +825,18 @@ export class Room extends Emitter {
+                 this._setState(ConnectionState.Connected);
+                 return;
+             }
+-            catch {
++            catch (error) {
++                if (current()) this.emit('reconnectAttemptFailed', error, attempt + 1);
+                 if (!current())
+                     return;
+                 this._signal.close();
+                 this._setState(ConnectionState.SignalReconnecting);
+             }
+         }
+-        if (current())
++        if (current()) {
++            this.emit('reconnectFailed', new Error('RECONNECT_EXHAUSTED'));
+             await this.disconnect();
++        }
+     }
+     _clearReconnectTimer() {
+         if (this._reconnectTimer) {
 diff --git a/node_modules/@gunns-dev/control-tower-client/dist/signal.js b/node_modules/@gunns-dev/control-tower-client/dist/signal.js
 index 7d9f85d..919c2f2 100644
 --- a/node_modules/@gunns-dev/control-tower-client/dist/signal.js

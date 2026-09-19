@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent } from 'react'
 import { primeCallSounds } from '../../services/callSounds'
+import { observe, reportFailure } from '../../services/observability'
 import { getMicrophoneMuted, saveMicrophoneMuted } from '../../storage/preferences'
 import { normalizeDisplayName } from '../../services/livekit'
 import { normalizeProfileNameStyle, prepareProfileAvatar } from '../../services/profile'
@@ -84,7 +85,7 @@ export const LobbyWorkspace = ({ status, connectionError, initialChannelId, init
     if (!selected.calls.some((call) => call.id === selectedCallId)) setSelectedCallId(selected.calls[0].id)
   }, [selected, selectedCallId])
 
-  const openChannel = (id: string) => { const channel = channels.find((item) => item.id === id); setChannelId(id); setSelectedCallId(channel?.calls?.[0]?.id || ''); setView('channel') }
+  const openChannel = (id: string) => { const channel = channels.find((item) => item.id === id); observe('channels.open', { channel_id: id, available: Boolean(channel) }, channel ? 'info' : 'warn'); setChannelId(id); setSelectedCallId(channel?.calls?.[0]?.id || ''); setView('channel') }
   const create = async (event: FormEvent) => { event.preventDefault(); if (!newName.trim()) return; try { const channel = await onCreateChannel(newName.trim()); setNewName(''); setCreating(false); openChannel(channel.id) } catch { setMessage('Não foi possível criar esse canal.') } }
   const rename = async (event: FormEvent, id = selected?.id) => { event.preventDefault(); if (!id || !renameName.trim()) return; try { await onRenameChannel(id, renameName.trim()); setRenameName(''); setChannelMenu(null); setChannelMenuAction(null); setToast('Canal renomeado com sucesso.') } catch { setMessage('Não foi possível renomear esse canal.') } }
   const addCall = async (event: FormEvent, id = selected?.id) => { event.preventDefault(); if (!id || !callName.trim()) return; try { const call = await onCreateCall(id, callName.trim()); setCallName(''); setSelectedCallId(call.id); setChannelMenu(null); setChannelMenuAction(null); setToast('Nova call criada no canal.') } catch { setMessage('Não foi possível criar essa call.') } }
@@ -100,7 +101,19 @@ export const LobbyWorkspace = ({ status, connectionError, initialChannelId, init
     } catch { setMessage(`Não foi possível convidar ${friend.displayName} agora.`) } finally { setInvitingFriendId('') }
   }
   const archive = async (target = selected) => { if (!target || !window.confirm(`Arquivar ${target.name}?`)) return; try { await onArchiveChannel(target.id); setChannelMenu(null); setChannelMenuAction(null); if (target.id === channelId) { setChannelId(''); setView('home') }; setToast('Canal arquivado.') } catch { setMessage('Não foi possível arquivar esse canal.') } }
-  const join = async (callId = selectedCall?.id) => { if (!selected || !callId) return; const local = { displayName: normalizeDisplayName(profile.displayName), avatarDataUrl: profile.avatarDataUrl, nameStyle: profile.nameStyle }; if (!local.displayName) { setMessage('Seu perfil ainda não possui um nome.'); return } primeCallSounds(); await onJoin(local, callId, selected.id) }
+  const join = async (callId = selectedCall?.id) => {
+    const fields = { call_id: callId, channel_id: selected?.id, operation_id: crypto.randomUUID() }
+    if (!selected || !callId) { observe('call.entry.rejected', { ...fields, reason: 'missing_call' }, 'warn'); setMessage('Selecione uma call disponível.'); return }
+    const local = { displayName: normalizeDisplayName(profile.displayName), avatarDataUrl: profile.avatarDataUrl, nameStyle: profile.nameStyle }
+    if (!local.displayName) { observe('call.entry.rejected', { ...fields, reason: 'missing_profile' }, 'warn'); setMessage('Seu perfil ainda não possui um nome.'); return }
+    observe('call.entry.requested', fields)
+    try {
+      primeCallSounds()
+      const connected = await onJoin(local, callId, selected.id)
+      observe(connected ? 'call.entry.completed' : 'call.entry.rejected', fields, connected ? 'info' : 'warn')
+      if (!connected) setMessage('Não foi possível entrar na call. Confira o aviso de conexão e tente novamente.')
+    } catch (error) { reportFailure('call.entry', error, fields); setMessage('Não foi possível entrar na call. Tente novamente.') }
+  }
   const chooseAvatar = async (event: ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; event.target.value = ''; if (!file) return; try { setProfileBusy(true); setProfileAvatar(await prepareProfileAvatar(file)); setMessage('') } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível preparar essa imagem.') } finally { setProfileBusy(false) } }
   const saveProfile = async (event: FormEvent) => { event.preventDefault(); const displayName = normalizeDisplayName(profileName); const username = profileUsername.trim().toLowerCase().replace(/^@/, ''); if (!displayName) return setMessage('Informe um nome visível.'); if (!/^[a-z0-9_]{3,24}$/.test(username)) return setMessage('Use um @username de 3 a 24 caracteres: letras minúsculas, números ou _.'); setProfileBusy(true); const usernameSaved = username === profile.username || await onUsernameChange(username); const saved = usernameSaved ? await onProfileChange({ displayName, avatarDataUrl: profileAvatar, nameStyle: profileStyle }) : null; setProfileBusy(false); if (saved) { setMessage(''); setView('home') } else setMessage('Não foi possível salvar seu perfil agora.') }
 

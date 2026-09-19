@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { RoomEvent, type Room } from '@gunns-dev/control-tower-client'
+import { reportFailure } from '../services/observability'
 import {
   PROFILE_AVATAR_TOPIC,
   parseAvatarBroadcast,
@@ -22,7 +23,8 @@ export const useParticipantProfiles = (room: Room, localAvatarDataUrl?: string) 
     if (!avatar) return
     void room.localParticipant
       .sendText(serializeAvatarBroadcast(avatar), { topic: PROFILE_AVATAR_TOPIC })
-      .catch(() => {
+      .catch((error) => {
+        reportFailure('call.avatar.send', error)
         // A dropped avatar packet only means peers keep showing initials; the
         // next ParticipantConnected re-broadcast will heal it.
       })
@@ -47,7 +49,7 @@ export const useParticipantProfiles = (room: Room, localAvatarDataUrl?: string) 
             return next
           })
         })
-        .catch(() => undefined)
+        .catch(error => reportFailure('call.avatar.receive', error))
         .finally(() => window.clearTimeout(timeoutId))
     }
 

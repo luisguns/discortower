@@ -1,5 +1,25 @@
 # Observabilidade do splotys
 
+## Entrada e reconexão — 0.8.6
+
+- `call.entry.requested/completed/rejected/failed`: inclui canal, call e operação,
+  inclusive rejeições de perfil e exceções anteriores à conexão RTC.
+- `rtc.join.failed/slow`: inclui tentativa e etapa (`previous_disconnect`,
+  `authorization`, `room_creation`, `signaling_and_media`). Eventos atrasados
+  preservam a call/tentativa original, mesmo após entrar em outra call.
+- `rtc.authorization.refresh_*`, `rtc.reconnectAttemptFailed`, `rtc.reconnectFailed`,
+  `rtc.signalError`, `rtc.disconnected_unexpectedly`: falhas e encerramentos durante a call.
+- `rtc.trackSubscriptionFailed`, `rtc.dataChannelFailed`, `call.avatar.*`,
+  `microphone.monitor.*`, `channels.list.*` e `channels.invite.*`: falhas antes
+  silenciosas agora registradas sem conteúdo de mensagens, avatares ou convites.
+- O servidor registra `call_entry_rejected`, `peer_session_replaced` e
+  `peer_signal_replaced`, correlacionados à origem WEB/DESKTOP e à sessão.
+
+A mesma tentativa reutiliza sua identidade ao renovar o token. Uma nova entrada
+substitui a conexão anterior da mesma conta na mesma call, inclusive em outro
+dispositivo. A troca preserva a sala e os demais participantes. Os limites de
+volume e a remoção de dados sensíveis descritos abaixo continuam ativos.
+
 Projeto: https://luisgustavo.sentry.io/projects/splotys/
 
 Consulta salva e favoritada: **splotys — diagnóstico WEB / DESKTOP / RTC**

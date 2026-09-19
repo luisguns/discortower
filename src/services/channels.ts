@@ -30,7 +30,7 @@ const mapCall = (row: Record<string, unknown>): ChannelCallSummary => ({
   callStartedAt: typeof row.call_started_at === 'string' ? row.call_started_at : undefined, canManage: false,
 })
 
-export const listChannels = async (currentUserId = '', canManageAll = false) => {
+export const listChannels = (currentUserId = '', canManageAll = false) => observeOperation('channels.list', async () => {
   const { data, error } = await getSupabase()
     .from('channels')
     .select('id,name,created_by,status,participant_count,call_started_at,reopen_after,channel_calls(id,channel_id,name,created_by,status,participant_count,call_started_at)')
@@ -39,7 +39,7 @@ export const listChannels = async (currentUserId = '', canManageAll = false) => 
     .order('name', { ascending: true })
   if (error) throw error
   return (data || []).map((row) => ({ ...mapChannel(row as ChannelRow), canManage: canManageAll || row.created_by === currentUserId, calls: ((row as any).channel_calls || []).map((call: Record<string, unknown>) => ({ ...mapCall(call), canManage: canManageAll || row.created_by === currentUserId })) }))
-}
+})
 
 const invoke = <T>(body: Record<string, unknown>) => observeOperation(`channels.${body.action}`, async () => {
   const { data, error } = await getSupabase().functions.invoke('channel-action', { body })

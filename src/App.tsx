@@ -16,6 +16,7 @@ import { getChannelIdFromUrl, normalizeDisplayName, replaceChannelIdInCurrentUrl
 import { normalizeProfileNameStyle } from './services/profile'
 import { acceptChannelInvite, archiveChannel, createCall, createChannel, createChannelInvite, createChannelInviteLink, listChannels, renameChannel, subscribeToChannels } from './services/channels'
 import { subscribeToChannelPresence } from './services/presence'
+import { observe, reportFailure } from './services/observability'
 import { listSocial, subscribeToSocial } from './services/social'
 import { getActivitySharingEnabled, saveActivitySharingEnabled } from './storage/preferences'
 import { isStoreDemo, storeDemoActivity, storeDemoChannels, storeDemoPresence, storeDemoSocial } from './dev/store-demo'
@@ -107,13 +108,13 @@ function App() {
     void acceptChannelInvite(invite).then(async (result) => {
       setDesktopInviteToken('')
       await goToChannel(result.channelId)
-    }).catch(() => { /* lobby surfaces the unavailable invite without leaking its token */ })
+    }).catch(error => { reportFailure('channels.invite.open', error) })
   }, [auth.status, desktopInviteToken, goToChannel, webChannelInviteReady])
 
   useEffect(() => {
     const desktop = window.splotysDesktop
     if (!desktop) return
-    void desktop.getInviteToken().then((token) => { if (token) setDesktopInviteToken(token) })
+    void desktop.getInviteToken().then((token) => { if (token) setDesktopInviteToken(token) }).catch(error => reportFailure('channels.invite.desktop', error))
     return desktop.onOpenInvite(setDesktopInviteToken)
   }, [])
 
@@ -210,7 +211,7 @@ function App() {
       (profile.avatarDataUrl ?? '') === (current!.avatarDataUrl ?? '') &&
       JSON.stringify(normalizeProfileNameStyle(profile.nameStyle)) === JSON.stringify(normalizeProfileNameStyle(current!.nameStyle))
     const savedProfile = profileUnchanged ? current : await auth.updateProfile(profile)
-    if (!savedProfile) return false
+    if (!savedProfile) { observe('rtc.join.profile_rejected', { call_id: nextCallId, channel_id: nextChannelId || channelId }, 'warn'); return false }
     const connected = await liveKit.join(nextCallId, profile)
     if (connected) {
       setLobbyDestination(undefined)

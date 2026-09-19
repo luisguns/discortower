@@ -100,10 +100,14 @@ export function observe(event: string, fields: Fields = {}, level: 'info' | 'war
 
 export function reportFailure(operation: string, error: unknown, fields: Fields = {}) {
   try {
+    const value = error && typeof error === 'object' ? error as { code?: unknown; name?: unknown; message?: unknown } : {}
+    const code = typeof value.code === 'string' ? value.code : value.message
+    fields = { error_type: typeof value.name === 'string' ? value.name.slice(0, 64) : 'UnknownError',
+      error_code: typeof code === 'string' && /^[A-Z][A-Z0-9_]{2,95}$/.test(code) ? code : undefined, ...fields }
     observe(`${operation}.failed`, fields, 'warn')
     Sentry.withScope(scope => {
       scope.setTags({ ...context, operation, origin, process: processName, session_id: sessionId,
-        ...Object.fromEntries(['call_id', 'attempt_id', 'provider', 'operation_id'].filter(key => fields[key] !== undefined).map(key => [key, String(fields[key])])) })
+        ...Object.fromEntries(['call_id', 'attempt_id', 'provider', 'operation_id', 'channel_id', 'stage', 'error_code'].filter(key => fields[key] !== undefined).map(key => [key, String(fields[key])])) })
       scope.setContext('operation', scrub(fields))
       // Preserve stack/type for Error objects. Never serialize arbitrary response bodies.
       Sentry.captureException(error instanceof Error ? error : new Error(operation))
