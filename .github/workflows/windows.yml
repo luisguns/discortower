@@ -66,4 +66,9 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" release/*.exe release/latest.yml release/*.blockmap --generate-notes --title "splotys $GITHUB_REF_NAME"
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release already published; preserving its verified binaries and update manifest."
+          else
+            gh release create "$GITHUB_REF_NAME" release/*.exe release/latest.yml release/*.blockmap --generate-notes --title "splotys $GITHUB_REF_NAME"
+          fi
