@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { observe, reportFailure } from '../services/observability'
 import type { Room } from '@gunns-dev/control-tower-client'
 import type { ChatMessage } from '../types'
 import { participantAvatarFromMetadata, participantNameStyleFromMetadata } from '../services/profile'
@@ -69,7 +70,7 @@ export const useRoomChat = (room: Room) => {
             status: 'sent',
           })
         })
-        .catch(() => setError('Uma mensagem não chegou por completo.'))
+        .catch(error => { reportFailure('chat.receive.text', error); setError('Uma mensagem não chegou por completo.') })
         .finally(timeout.clear)
     }
 
@@ -118,7 +119,7 @@ export const useRoomChat = (room: Room) => {
             status: 'sent',
           })
         })
-        .catch(() => setError('Uma imagem não chegou por completo.'))
+        .catch(error => { reportFailure('chat.receive.image', error); setError('Uma imagem não chegou por completo.') })
         .finally(timeout.clear)
     }
 
@@ -145,6 +146,7 @@ export const useRoomChat = (room: Room) => {
       setError('')
       try {
         const info = await room.localParticipant.sendText(text, { topic: TEXT_TOPIC })
+        observe('chat.send.text.completed')
         addMessage({
           id: info.id,
           kind: 'text',
@@ -158,7 +160,8 @@ export const useRoomChat = (room: Room) => {
           status: 'sent',
         })
         return true
-      } catch {
+      } catch (error) {
+        reportFailure('chat.send.text', error)
         setError('Não foi possível enviar a mensagem.')
         return false
       }
@@ -197,13 +200,15 @@ export const useRoomChat = (room: Room) => {
 
       try {
         await room.localParticipant.sendFile(file, { topic: IMAGE_TOPIC })
+        observe('chat.send.image.completed')
         setMessages((current) =>
           current.map((message) =>
             message.id === localId ? { ...message, status: 'sent' } : message,
           ),
         )
         return true
-      } catch {
+      } catch (error) {
+        reportFailure('chat.send.image', error)
         setMessages((current) =>
           current.map((message) =>
             message.id === localId ? { ...message, status: 'error' } : message,

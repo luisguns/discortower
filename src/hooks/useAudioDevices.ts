@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { observe, reportFailure } from '../services/observability'
 import {
   Room,
   RoomEvent,
@@ -82,8 +83,10 @@ export const useAudioDevices = (room: LiveKitRoom) => {
       setError('')
       try {
         await room.switchActiveDevice('audioinput', deviceId, true)
+        observe('device.microphone.changed')
         updatePreferences({ inputId: deviceId })
-      } catch {
+      } catch (error) {
+        reportFailure('device.microphone', error)
         setError('Não foi possível trocar o microfone.')
       } finally {
         setLoading(false)
@@ -103,8 +106,10 @@ export const useAudioDevices = (room: LiveKitRoom) => {
       setError('')
       try {
         await room.switchActiveDevice('videoinput', deviceId, true)
+        observe('device.camera.changed')
         updatePreferences({ videoInputId: deviceId })
-      } catch {
+      } catch (error) {
+        reportFailure('device.camera', error)
         setError('Não foi possível trocar a câmera.')
       } finally {
         setLoading(false)

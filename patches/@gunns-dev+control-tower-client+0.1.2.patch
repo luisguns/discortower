@@ -67,10 +67,21 @@ index 5d86adc..b4efecf 100644
      /**
       * @internal
 diff --git a/node_modules/@gunns-dev/control-tower-client/dist/room.js b/node_modules/@gunns-dev/control-tower-client/dist/room.js
-index 0fa2493..9ed3f82 100644
+index 0fa2493..ea93f14 100644
 --- a/node_modules/@gunns-dev/control-tower-client/dist/room.js
 +++ b/node_modules/@gunns-dev/control-tower-client/dist/room.js
-@@ -199,7 +199,7 @@ export class Room extends Emitter {
+@@ -163,6 +163,10 @@ export class Room extends Emitter {
+         ];
+         return {
+             state: this.state,
++            video: stats.flatMap(report => [...report.values()]
++                .filter(row => row.kind === 'video' && ['inbound-rtp', 'outbound-rtp'].includes(row.type))
++                .map(row => Object.fromEntries(['type', 'bytesSent', 'bytesReceived', 'packetsLost', 'framesEncoded', 'framesDecoded', 'framesDropped', 'framesPerSecond', 'frameWidth', 'frameHeight', 'freezeCount', 'totalFreezesDuration', 'pliCount', 'nackCount']
++                    .filter(key => typeof row[key] === 'number' || key === 'type').map(key => [key, row[key]])))),
+             transports: transports.map((t) => t.connectionState),
+             capture: [...(this._localParticipant?.publications.values() ?? [])]
+                 .filter((p) => p.kind === 'audio')
+@@ -199,7 +203,7 @@ export class Room extends Emitter {
              return;
          const constraint = exact ? { exact: deviceId } : deviceId;
          const constraints = kind === 'audioinput'
@@ -79,7 +90,7 @@ index 0fa2493..9ed3f82 100644
              : { video: { deviceId: constraint } };
          const stream = await navigator.mediaDevices.getUserMedia(constraints);
          const newMediaTrack = kind === 'audioinput' ? stream.getAudioTracks()[0] : stream.getVideoTracks()[0];
-@@ -246,13 +246,14 @@ export class Room extends Emitter {
+@@ -246,13 +250,14 @@ export class Room extends Emitter {
          }
          this._sendTransport?.close();
          this._recvTransport?.close();
@@ -96,10 +107,26 @@ index 0fa2493..9ed3f82 100644
      registerTextStreamHandler(topic, handler) {
          this._streamAssembler.registerTextHandler(topic, handler);
 diff --git a/node_modules/@gunns-dev/control-tower-client/dist/signal.js b/node_modules/@gunns-dev/control-tower-client/dist/signal.js
-index 7d9f85d..064e43c 100644
+index 7d9f85d..919c2f2 100644
 --- a/node_modules/@gunns-dev/control-tower-client/dist/signal.js
 +++ b/node_modules/@gunns-dev/control-tower-client/dist/signal.js
-@@ -114,7 +114,7 @@ export class Signal {
+@@ -19,9 +19,12 @@ export class Signal {
+         this._onNotify = undefined;
+         return new Promise((resolve, reject) => {
+             this._rejectConnect = reject;
+-            const protocol = serverUrl.replace(/^http/, 'ws');
+-            const url = `${protocol}/rtc/connect?access_token=${encodeURIComponent(token)}&protocol=1&data_flow=1`;
+-            const ws = new WebSocket(url);
++            const url = new URL(serverUrl.replace(/^http/, 'ws'));
++            url.pathname = `${url.pathname.replace(/\/$/, '')}/rtc/connect`;
++            url.searchParams.set('access_token', token);
++            url.searchParams.set('protocol', '1');
++            url.searchParams.set('data_flow', '1');
++            const ws = new WebSocket(url.toString());
+             this._ws = ws;
+             let welcomeResolved = false;
+             const timer = setTimeout(() => {
+@@ -114,7 +117,7 @@ export class Signal {
              this._ws.send(JSON.stringify({ t: 'req', id, method, data }));
          });
      }
@@ -108,7 +135,7 @@ index 7d9f85d..064e43c 100644
          const ws = this._ws;
          this._ws = undefined;
          this._rejectConnect?.(new Error('Connection cancelled'));
-@@ -123,7 +123,17 @@ export class Signal {
+@@ -123,7 +126,17 @@ export class Signal {
              pending.reject(new Error('Connection closed'));
          this._pendingRequests.clear();
          this._notifications.length = 0;

@@ -1,11 +1,13 @@
 import { Component, type ReactNode } from 'react'
+import { reportFailure } from '../../services/observability'
 
 export class AppErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false }
 
   static getDerivedStateFromError() { return { failed: true } }
 
-  componentDidCatch() {
+  componentDidCatch(error: Error) {
+    reportFailure('react.render', error)
     console.error('SPLOTYS_RENDERER_ERROR')
     window.splotysDesktop?.setInCall(false)
   }

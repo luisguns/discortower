@@ -1,4 +1,5 @@
 import { startAudioDiagnostics, exportAudioDiagnostics } from '../../services/audioDiagnostics'
+import { observe, reportFailure } from '../../services/observability'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RoomEvent, type Room } from '@gunns-dev/control-tower-client'
 import { useAudioDevices } from '../../hooks/useAudioDevices'
@@ -297,10 +298,12 @@ export const CallScreen = ({
         enabling,
         microphoneCaptureOptions(),
       )
+      observe('microphone.toggled', { enabled: enabling })
       saveMicrophoneMuted(!enabling)
       onMicrophoneErrorChange('')
       playCallSound(enabling ? 'unmute' : 'mute')
     } catch (error) {
+      reportFailure('microphone.toggle', error)
       if (error instanceof DOMException && error.name === 'NotAllowedError') {
         onMicrophoneErrorChange(
           window.splotysDesktop?.platform === 'win32'
@@ -321,7 +324,9 @@ export const CallScreen = ({
     setCameraError('')
     try {
       await room.localParticipant.setCameraEnabled(!room.localParticipant.isCameraEnabled)
+      observe('camera.toggled', { enabled: room.localParticipant.isCameraEnabled })
     } catch (error) {
+      reportFailure('camera.toggle', error)
       if (error instanceof DOMException && error.name === 'NotAllowedError') {
         setCameraError('Permissão da câmera negada. Libere o acesso no navegador.')
       } else if (error instanceof DOMException && error.name === 'NotFoundError') {

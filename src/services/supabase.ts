@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { observedFetch } from './observability'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.trim() || ''
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() || ''
@@ -79,6 +80,7 @@ export const initializeSupabase = async () => {
 
   clientPromise = loadInitialSession().then((initialSession) => {
     client = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      global: { fetch: observedFetch },
       auth: {
         autoRefreshToken: true,
         detectSessionInUrl: false,

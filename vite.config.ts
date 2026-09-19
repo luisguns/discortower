@@ -9,6 +9,7 @@ const appVersion = JSON.parse(
 export default defineConfig({
   plugins: [react()],
   base: './',
+  build: { sourcemap: true },
   define: {
     __SPLOTYS_VERSION__: JSON.stringify(appVersion.version),
   },

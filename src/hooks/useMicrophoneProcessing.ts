@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { reportFailure } from '../services/observability'
 import { RoomEvent, Track, type LocalAudioTrack, type Room } from '@gunns-dev/control-tower-client'
 import {
   saveNoiseSuppression,
@@ -34,7 +35,8 @@ export const useMicrophoneProcessing = (room: Room) => {
   }, [room])
 
   useEffect(() => {
-    const restore = () => void apply(microphoneCaptureOptions()).catch(() => {
+    const restore = () => void apply(microphoneCaptureOptions()).catch((error) => {
+      reportFailure('microphone.processing.restore', error)
       setError('Não foi possível restaurar o processamento do microfone. Tente ajustar os filtros novamente.')
     })
     room.on(RoomEvent.LocalTrackPublished, restore)
@@ -52,7 +54,8 @@ export const useMicrophoneProcessing = (room: Room) => {
       await apply(next)
       save[key](enabled)
       setSettings(next)
-    } catch {
+    } catch (error) {
+      reportFailure('microphone.processing.change', error)
       setError('Não foi possível alterar o processamento deste microfone. A preferência anterior foi mantida.')
     } finally {
       pending.current = false
@@ -71,7 +74,8 @@ export const useMicrophoneProcessing = (room: Room) => {
       saveMicrophoneProcessingEnabled(enabled)
       setProcessingEnabledState(enabled)
       setSettings(next)
-    } catch {
+    } catch (error) {
+      reportFailure('microphone.processing.toggle', error)
       setError('Não foi possível alterar o processamento deste microfone. A preferência anterior foi mantida.')
     } finally {
       pending.current = false

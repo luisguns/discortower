@@ -64,14 +64,18 @@ test('explicit leave sends a distinct close code and waits for the socket handsh
     static CLOSED = 3
     static latest
     readyState = 1
-    constructor() { super(); Socket.latest = this }
+    constructor(url) { super(); Socket.latest = this; this.url = url }
     close(code, reason) { this.closeRequest = { code, reason } }
   }
   globalThis.WebSocket = Socket
   t.after(() => { globalThis.WebSocket = original })
   const signal = new Signal()
-  const connected = signal.connect('ws://example.test', 'test')
+  const connected = signal.connect('ws://example.test/?client_origin=DESKTOP&client_version=0.8.3', 'test')
   const socket = Socket.latest
+  const signalUrl = new URL(socket.url)
+  assert.equal(signalUrl.pathname, '/rtc/connect')
+  assert.equal(signalUrl.searchParams.get('client_origin'), 'DESKTOP')
+  assert.equal(signalUrl.searchParams.get('access_token'), 'test')
   socket.onmessage({ data: JSON.stringify({ t: 'notify', method: 'welcome', data: {} }) })
   await connected
   let completed = false

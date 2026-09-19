@@ -1,22 +1,10 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import App from './App'
-import { AuthProvider } from './auth/AuthProvider'
-import { DesktopTitleBar } from './components/ui/DesktopTitleBar'
-import { AppErrorBoundary } from './components/ui/AppErrorBoundary'
-import './styles.css'
+import { initializeObservability, reportFailure } from './services/observability'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <div className={window.splotysDesktop ? 'desktop-app-shell' : 'web-app-shell'}>
-      <DesktopTitleBar />
-      <div className="desktop-app-shell__content">
-        <AppErrorBoundary>
-          <AuthProvider>
-            <App />
-          </AuthProvider>
-        </AppErrorBoundary>
-      </div>
-    </div>
-  </StrictMode>,
-)
+void initializeObservability()
+  .catch(() => { console.warn('OBSERVABILITY_INIT_FAILED') })
+  .then(() => import('./bootstrap'))
+  .catch(error => {
+    reportFailure('app.bootstrap', error)
+    const root = document.getElementById('root')
+    if (root) root.textContent = 'Não foi possível iniciar o splotys. Recarregue o app.'
+  })

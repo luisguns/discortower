@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { observe, reportFailure, measure } from '../services/observability'
 import { AudioPresets, RoomEvent, Track, type Room } from '@gunns-dev/control-tower-client'
 import { streamQualityPresets } from '../services/livekit'
 import type { StreamQualityId } from '../types'
@@ -94,6 +95,8 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
     }
 
     const requestId = ++requestRef.current
+    const startedAt = performance.now()
+    observe('screen.start.requested', { request_id: requestId, quality })
     pendingRef.current = true
     setIsStarting(true)
     setError('')
@@ -145,6 +148,7 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
     restoreDisplayMedia()
 
     if (outcome.kind === 'timeout') {
+      observe('screen.start.timeout', { request_id: requestId, quality }, 'warn')
       setIsStarting(false)
       setError(
         isDesktopApp
@@ -180,12 +184,15 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
 
     if (outcome.kind === 'success') {
       console.info('RTC_SCREEN_SHARE_STARTED')
+      observe('screen.start.completed', { request_id: requestId, quality, duration_ms: Math.round(performance.now() - startedAt) })
+      measure('screen.start.duration', performance.now() - startedAt)
       syncState()
     } else {
       const { shareError } = outcome
       // Keep the original error in the local console for diagnosis (the desktop
       // file logger stores only RTC event codes, never arbitrary console text).
       console.warn('RTC_SCREEN_SHARE_FAILED', shareError)
+      reportFailure('screen.start', shareError, { request_id: requestId, quality })
       if (shareError instanceof DOMException && shareError.name === 'NotAllowedError') {
         setError('Compartilhamento cancelado ou bloqueado pelo navegador.')
       } else if (shareError instanceof DOMException && shareError.name === 'NotFoundError') {
@@ -201,6 +208,7 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
   }, [isSupported, quality, room, syncState])
 
   const stop = useCallback(async () => {
+    observe('screen.stop.requested')
     if (pendingRef.current) {
       setIsStarting(false)
       setError('Feche o seletor de tela que ainda está aberto antes de encerrar ou iniciar outra transmissão.')
@@ -236,9 +244,11 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
       pendingRef.current = false
       if (outcome.kind === 'success') {
         console.info('RTC_SCREEN_SHARE_STOPPED')
+        observe('screen.stop.completed')
         syncState()
       } else {
         setError('Não foi possível encerrar a transmissão.')
+        reportFailure('screen.stop', new Error('SCREEN_STOP_FAILED'))
       }
     }
 

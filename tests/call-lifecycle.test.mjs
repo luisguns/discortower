@@ -22,6 +22,7 @@ let fixtureId = 0
 const setup = async (createRoom) => {
   const states = [], cleanup = []
   const dependencies = {
+    observe() {}, reportFailure() {}, measure() {}, setCallContext() {}, observeRoom() {}, stopObservingRoom() {}, rtcConnectionUrl: value => value,
     useCallback: (fn) => fn,
     useEffect: (fn) => cleanup.push(fn()),
     useRef: (value) => ({ current: value }),

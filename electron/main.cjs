@@ -1,3 +1,4 @@
+const telemetry = require('./observability.cjs')
 const {
   app,
   BrowserWindow,
@@ -19,7 +20,11 @@ const fs = require('node:fs/promises')
 const path = require('node:path')
 const { createDiagnostics } = require('./diagnostics.cjs')
 const { installWindowLifecycle } = require('./window-lifecycle.cjs')
-const diagnostic = createDiagnostics(path.join(app.getPath('userData'), 'logs'))
+const localDiagnostic = createDiagnostics(path.join(app.getPath('userData'), 'logs'))
+const diagnostic = (event, data = {}) => {
+  localDiagnostic(event, { ...data, origin: 'DESKTOP' })
+  telemetry.record(event, data)
+}
 
 const APP_ID = 'dev.gunns.splotys'
 const APP_SCHEME = 'splotys-app'
@@ -343,6 +348,7 @@ const installAppProtocol = () => {
 }
 
 const finishPicker = (result) => {
+  diagnostic('screen-picker-finished', { selected: Boolean(result) })
   const picker = activePicker
   if (!picker) return
   activePicker = null
@@ -840,6 +846,7 @@ const autoUpdateSupported = () =>
     process.platform === 'win32' && app.isPackaged && process.windowsStore !== true && !process.env.PORTABLE_EXECUTABLE_FILE
 
 const setUpdateState = (nextState) => {
+  if (nextState.status !== updateState.status) diagnostic('updater-state', { status: nextState.status })
   updateState = {
     currentVersion: app.getVersion(),
     ...nextState,
@@ -898,7 +905,8 @@ const configureAutoUpdater = () => {
       message: 'Atualização pronta. Instale para reiniciar com a versão nova.',
     })
   })
-  autoUpdater.on('error', () => {
+  autoUpdater.on('error', (error) => {
+    telemetry.capture(error)
     setUpdateState({
       status: 'error',
       message: 'Não foi possível buscar ou baixar a atualização. Tente novamente em instantes.',
@@ -1273,6 +1281,7 @@ app.whenReady().then(async () => {
     else void createMainWindow()
   })
 }).catch((error) => {
+  telemetry.capture(error)
   console.error('splotys failed to start', error)
   app.quit()
 })

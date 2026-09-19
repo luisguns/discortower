@@ -12,6 +12,8 @@ import { RemoteAudioRenderer } from '../AudioControls/RemoteAudioRenderer'
 import { VolumeControl } from '../AudioControls/VolumeControl'
 import { ParticipantGallery } from '../Participants/ParticipantGallery'
 import { Icon } from '../ui/Icon'
+import { observeVideo } from '../../services/rtcObservability'
+import { observe, reportFailure } from '../../services/observability'
 
 const VideoRenderer = ({
   track,
@@ -24,7 +26,9 @@ const VideoRenderer = ({
     const element = videoRef.current
     if (!element) return
     track.attach(element)
+    const stopObserving = observeVideo(element, track.mediaStreamTrack, track.source)
     return () => {
+      stopObserving()
       track.detach(element)
       element.pause()
       element.srcObject = null
@@ -218,7 +222,7 @@ export const ScreenShareStage = ({
     for (const live of lives) {
       if (!live.isLocal && live.videoPublication) {
         void Promise.resolve(live.videoPublication.setVideoQuality(live.id === selectedLive?.id ? 2 : 0))
-          .catch(() => setStageError('Não foi possível ajustar a qualidade da transmissão.'))
+          .catch(error => { reportFailure('screen.quality', error); setStageError('Não foi possível ajustar a qualidade da transmissão.') })
       }
     }
   }, [lives, selectedLive?.id])
@@ -227,7 +231,7 @@ export const ScreenShareStage = ({
     for (const live of lives) {
       if (!live.isLocal && live.videoPublication?.isDesired === false && live.audioPublication?.isDesired) {
         void Promise.resolve(live.audioPublication.setSubscribed(false))
-          .catch(() => setStageError('Não foi possível pausar o áudio da transmissão.'))
+          .catch(error => { reportFailure('screen.audio.pause', error); setStageError('Não foi possível pausar o áudio da transmissão.') })
       }
     }
   }, [lives])
@@ -254,6 +258,7 @@ export const ScreenShareStage = ({
   }, [])
 
   const changeWatching = useCallback((watching: boolean) => {
+    observe('screen.watching.changed', { watching })
     if (!selectedLive || selectedLive.isLocal) return
 
     if (!watching) {
@@ -267,7 +272,7 @@ export const ScreenShareStage = ({
     void Promise.all([
       selectedLive.videoPublication?.setSubscribed(watching),
       selectedLive.audioPublication?.setSubscribed(watching),
-    ]).catch(() => setStageError('Não foi possível atualizar a transmissão. Tente novamente.'))
+    ]).catch(error => { reportFailure('screen.subscription', error); setStageError('Não foi possível atualizar a transmissão. Tente novamente.') })
   }, [closePopout, selectedLive])
 
   useEffect(() => {

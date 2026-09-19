@@ -1,3 +1,4 @@
+import { observe, reportFailure } from '../services/observability'
 import type {
   AudioChannel,
   DevicePreferences,
@@ -36,7 +37,9 @@ const safeWrite = (key: string, value: string) => {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(key, value)
-  } catch {
+    observe('settings.saved', { setting: key })
+  } catch (error) {
+    reportFailure('settings.save', error, { setting: key })
     // Storage may be unavailable in private/restricted browser contexts.
   }
 }

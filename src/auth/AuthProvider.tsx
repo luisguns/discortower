@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { observe } from '../services/observability'
 import type { Session, User } from '@supabase/supabase-js'
 import {
   currentSession,
@@ -116,6 +117,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         await initializeSupabase()
         const { data } = getSupabase().auth.onAuthStateChange((event, nextSession) => {
+          observe('auth.state', { state: event, has_session: Boolean(nextSession) })
           if (event === 'INITIAL_SESSION') return
           if (event === 'PASSWORD_RECOVERY') { callbackEventType = 'recovery'; setCredentialSetup('recovery') }
           window.setTimeout(() => {

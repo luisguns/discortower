@@ -10,8 +10,11 @@ import { getMicrophoneMuted, saveLocalProfile } from '../storage/preferences'
 import type { ConnectionStatus, LocalProfile } from '../types'
 import { microphoneCaptureOptions } from './useMicrophoneProcessing'
 import { startMicrophoneCapture } from '../services/microphoneCapture'
+import { observe, reportFailure, measure, setCallContext, rtcConnectionUrl } from '../services/observability'
+import { observeRoom, stopObservingRoom } from '../services/rtcObservability'
 
 const disconnectRoom = async (room: Room) => {
+  stopObservingRoom(room)
   room.removeAllListeners()
   // Stop devices synchronously, even if the SDK is waiting on signaling.
   try {
@@ -19,7 +22,7 @@ const disconnectRoom = async (room: Room) => {
       room.localParticipant.getTrackPublication(source)?.track?.mediaStreamTrack.stop()
     }
   } catch { /* The Control Tower participant is unavailable before connect. */ }
-  try { await room.disconnect(true) } catch { console.warn('RTC_DISCONNECT_FAILED') }
+  try { await room.disconnect(true); observe('rtc.disconnect.completed') } catch (error) { reportFailure('rtc.disconnect', error) }
 }
 
 const toConnectionStatus = (state: ConnectionState): ConnectionStatus => {
@@ -48,6 +51,7 @@ export const useLiveKitRoom = () => {
   const captureRef = useRef<ReturnType<typeof startMicrophoneCapture> | null>(null)
 
   const leave = useCallback(async () => {
+    observe('rtc.leave.requested')
     const activeRoom = roomRef.current
     microphoneRequestRef.current += 1
     joinPendingRef.current = false
@@ -66,6 +70,7 @@ export const useLiveKitRoom = () => {
     }
 
     leavingRef.current = false
+    setCallContext()
   }, [])
 
   const join = useCallback(async (callId: string, profile: LocalProfile) => {
@@ -73,6 +78,9 @@ export const useLiveKitRoom = () => {
     joinPendingRef.current = true
     const microphoneRequest = ++microphoneRequestRef.current
     const startedAt = performance.now()
+    const attemptId = crypto.randomUUID()
+    setCallContext(callId, attemptId)
+    observe('rtc.join.requested')
     const elapsed = () => Math.round(performance.now() - startedAt)
     setError('')
     setMicrophoneError('')
@@ -97,6 +105,8 @@ export const useLiveKitRoom = () => {
       const { serverUrl, participantToken, provider } = await fetchConnectionDetails(callId)
       if (microphoneRequestRef.current !== microphoneRequest) return false
       const tokenMs = elapsed()
+      setCallContext(callId, attemptId, provider)
+      observe('rtc.authorization.completed', { duration_ms: tokenMs, provider })
       const rtcHost = new URL(serverUrl).host
       console.info(`RTC_CONNECTION_DETAILS provider=${provider} host=${rtcHost}`)
       nextRoom = await createRoom(provider, async () => {
@@ -111,6 +121,7 @@ export const useLiveKitRoom = () => {
         return false
       }
       roomRef.current = nextRoom
+      observeRoom(nextRoom)
 
       const handleConnectionState = (state: ConnectionState) => {
         if (roomRef.current !== nextRoom) return
@@ -119,6 +130,7 @@ export const useLiveKitRoom = () => {
       }
       const handleDisconnected = () => {
         if (roomRef.current !== nextRoom) return
+        if (nextRoom) stopObservingRoom(nextRoom)
         microphoneRequestRef.current += 1
         joinPendingRef.current = false
         capture.cancel()
@@ -136,12 +148,14 @@ export const useLiveKitRoom = () => {
       nextRoom.on(RoomEvent.ConnectionStateChanged, handleConnectionState)
       nextRoom.on(RoomEvent.Disconnected, handleDisconnected)
 
-      await nextRoom.connect(serverUrl, participantToken)
+      await nextRoom.connect(provider === 'torre' ? rtcConnectionUrl(serverUrl) : serverUrl, participantToken)
       if (microphoneRequestRef.current !== microphoneRequest) {
         await disconnectRoom(nextRoom)
         return false
       }
       const connectedMs = elapsed()
+      observe('rtc.join.completed', { duration_ms: connectedMs, authorization_ms: tokenMs })
+      measure('rtc.join.duration', connectedMs)
       console.info(`RTC_JOIN_TIMING provider=${provider} token_ms=${tokenMs} connect_ms=${connectedMs - tokenMs} connected_ms=${connectedMs}`)
       saveLocalProfile(profile)
       setRoom(nextRoom)
@@ -158,6 +172,7 @@ export const useLiveKitRoom = () => {
           roomRef.current === nextRoom
         ) {
           microphoneTimedOut = true
+          observe('microphone.timeout', {}, 'warn')
           capture.cancel()
           setMicrophoneStarting(false)
           setMicrophoneError('A permissão do microfone continua aberta no navegador. Feche o aviso e tente novamente pelo botão da call.')
@@ -190,6 +205,7 @@ export const useLiveKitRoom = () => {
           }
         })
         .catch((microphoneFailure) => {
+          reportFailure('microphone.publish', microphoneFailure)
           capture.cancel()
           if (
             microphoneRequestRef.current === microphoneRequest &&
@@ -210,6 +226,7 @@ export const useLiveKitRoom = () => {
 
       return true
     } catch (connectionFailure) {
+      reportFailure('rtc.join', connectionFailure)
       capture.cancel()
       const failureMessage = connectionFailure instanceof Error
         ? connectionFailure.message

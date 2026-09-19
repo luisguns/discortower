@@ -1,4 +1,5 @@
 import type { Room } from '@gunns-dev/control-tower-client'
+import { observe } from './observability'
 
 type DiagnosticEvent =
   | 'cut-marked'
@@ -20,6 +21,7 @@ const pruneWindow = () => {
 }
 
 export const recordAudioEvent = (kind: DiagnosticEvent) => {
+  observe(`audio.${kind}`, {}, /blocked|failed|stalled/.test(kind) ? 'warn' : 'info')
   if (!running) return
   events.push({ at: Date.now(), data: { kind } })
   pruneWindow()

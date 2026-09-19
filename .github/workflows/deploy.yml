@@ -36,7 +36,11 @@ jobs:
       - name: Verify call join lifecycle and RTC patch
         run: npm run test:call-join
 
+      - name: Verify telemetry redaction and budgets
+        run: npm run test:observability
+
       - name: Build
+        # Source maps match the public source repository; no upload token required.
         run: npm run build
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}

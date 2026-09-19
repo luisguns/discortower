@@ -2,7 +2,7 @@
   "name": "splotys",
   "productName": "splotys",
   "private": true,
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "Comunicação privada por voz, vídeo e compartilhamento de tela entre amigos.",
   "author": "Gunns Dev",
   "homepage": "https://splotys.com/",
@@ -28,10 +28,13 @@
     "postinstall": "patch-package --error-on-fail",
     "test:call-join": "node --experimental-strip-types --experimental-test-module-mocks --test tests/call-join.test.mjs tests/call-lifecycle.test.mjs",
     "test:desktop": "node --test tests/desktop-lifecycle.test.cjs",
+    "test:observability": "node --test tests/observability.test.cjs tests/rtc-observability.test.mjs",
     "test:presence": "node --experimental-strip-types --test tests/presence-timing.test.mjs"
   },
   "dependencies": {
     "@gunns-dev/control-tower-client": "0.1.2",
+    "@sentry/electron": "7.19.0",
+    "@sentry/react": "10.74.0",
     "@supabase/supabase-js": "^2.112.4",
     "electron-updater": "^6.8.9",
     "livekit-client": "2.22.0",
@@ -75,6 +78,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "shared/**/*",
       "package.json"
     ],
     "extraResources": [
