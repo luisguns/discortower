@@ -374,6 +374,7 @@ export const CallScreen = ({
       setCopyState('Link copiado')
       window.setTimeout(() => setCopyState('Copiar link'), 1600)
     } catch {
+      observe('call.clipboard_unavailable', {}, 'warn')
       setCopyState('Copie pela barra do navegador')
     }
   }
@@ -382,7 +383,8 @@ export const CallScreen = ({
     try {
       await room.startAudio()
       setAudioBlocked(false)
-    } catch {
+    } catch (error) {
+      reportFailure('audio.unlock', error)
       setAudioBlocked(true)
     }
   }

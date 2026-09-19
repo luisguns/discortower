@@ -35,6 +35,7 @@ export const useAudioDevices = (room: LiveKitRoom) => {
       setInputs(nextInputs)
       setVideoInputs(nextVideoInputs)
       setOutputs(nextOutputs)
+      observe('devices.enumerated', { inputs: nextInputs.length, cameras: nextVideoInputs.length, outputs: nextOutputs.length })
       setError('')
 
       if (
@@ -54,7 +55,8 @@ export const useAudioDevices = (room: LiveKitRoom) => {
         restoredVideoInput.current = true
         await room.switchActiveDevice('videoinput', preferences.videoInputId, true)
       }
-    } catch {
+    } catch (error) {
+      reportFailure('devices.enumerate_or_restore', error)
       setError('Não foi possível listar os dispositivos de mídia.')
     } finally {
       setLoading(false)

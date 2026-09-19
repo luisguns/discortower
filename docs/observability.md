@@ -2,6 +2,9 @@
 
 Projeto: https://luisgustavo.sentry.io/projects/splotys/
 
+Consulta salva e favoritada: **splotys — diagnóstico WEB / DESKTOP / RTC**
+(Explore > All Queries, ID `2428651`), com timestamp, mensagem, origem e processo.
+
 O SDK inicia antes do React. WEB usa Sentry React; DESKTOP usa Sentry Electron
 no main e no renderer (mesma versão do SDK base). O servidor RTC envia logs
 estruturados ao mesmo projeto. A DSN no repositório é pública e só permite ingestão.
@@ -9,7 +12,7 @@ Nenhum token administrativo Sentry é necessário para executar ou compilar.
 
 ## Localizar uma falha
 
-1. Em Issues, filtre `origin:WEB` ou `origin:DESKTOP` e a release `splotys@0.8.3`.
+1. Em Issues, filtre `origin:WEB` ou `origin:DESKTOP` e a release `splotys@0.8.4`.
 2. Abra o erro e leia os breadcrumbs. Copie `call_id`, `session_id` e o horário.
 3. Em Explore > Logs, use o mesmo `call_id` para juntar os participantes. Use
    `session_id` para um cliente e `process:rtc-server` para a sinalização.
@@ -40,6 +43,37 @@ campos são dicas de diagnóstico não confiáveis, nunca autorização. O log
   seletor de tela, updater, exceções main e renderer.
 - SFU: sessão/socket, comandos e duração, limites, falhas, workers e webhooks.
 
+### Falhas sem crash (0.8.4)
+
+| Ponto | Evidência registrada |
+| --- | --- |
+| Captura inconsistente | `screen.capture_mismatch`: compartilhamento ativo sem track viva por 5s |
+| Duplicata | `rtc.duplicate_account_candidate`: múltiplas sessões da mesma conta por 5s; somente contagens, pode ser intencional |
+| Assinatura sem mídia | `rtc.subscription_no_media`: track desejada e não mutada ausente/encerrada por 15s |
+| Conexão | `rtc.connection_stuck` após 20s; `rtc.connection_flapping` com 6 transições em 60s |
+| Reprodução | `video.no_first_frame` após 15s visível, inclusive autoplay pausado; waiting/stalled/playing/pause/emptied; câmera e tela |
+| Transporte de vídeo | Campos numéricos em `rtc.health`: bytes enviados/recebidos, frames codificados/decodificados/descartados, freezes e perdas |
+| Compartilhar de novo | seletor já pendente, cancelamento/permissão, timeout ao parar, conclusão/falha tardia e limpeza de captura obsoleta |
+| Qualidade | `screen.quality_request_burst`: 20 ajustes em até 10s, para investigar efeitos React repetidos |
+| APIs/operações | started/completed/failed, `operation_id`, duração e aviso slow após 10s sem modificar/cancelar a operação |
+| Presença | sequência de falhas, idade do último sucesso, recuperação e heartbeat ausente |
+| Realtime social/canais | estado anterior/atual, conexão lenta após 15s e recuperação; fechamento intencional separado |
+| Autenticação/perfil | callback, acesso, login, recuperação, convite, perfil, credenciais e logout, sem argumentos privados |
+| Mensagens/amigos/canais | ação de domínio, listagem/leitura/download/exclusão, limpeza de anexos, além do HTTP |
+| Dispositivos/UI | enumeração/restauração, detecção de atividade, desbloqueio de áudio, clipboard, PiP, fullscreen e pop-up bloqueado |
+| Responsividade | tarefas acima de 500ms no foreground, agregadas por 30s, sem DOM/URLs |
+
+Detectores RTC verificam a cada 5s. Condições persistentes emitem uma vez por
+incidente; `.recovered` indica normalização, `.ended` indica remoção da publicação
+sem afirmar recuperação. Eventos preservam o contexto da call que iniciou o
+observador/operação. Ausência de frames também pode ser tela estática; os logs
+não afirmam automaticamente que houve falha de transmissão.
+
+Erros HTTP 4xx e cancelamento de captura são avisos pesquisáveis; 5xx e falhas
+inesperadas geram Issues. Operações de domínio usam códigos de erro genéricos
+para não enviar mensagens privadas do backend. Diagnósticos não coletam nomes,
+conteúdo de mensagens, nomes de canais ou processos/jogos detectados.
+
 ## Privacidade e volume
 
 Sem replays, screenshots, dumps nativos, conteúdo de mensagens, mídia,
@@ -52,6 +86,9 @@ Erros: até 20/min por renderer (30/min main). Logs: até 180/min por processo
 cliente e 300/min no servidor. Traces: amostra de 20%; breadcrumbs: últimos 80.
 Limites locais protegem contra loops; o plano gratuito também aplica quotas
 compartilhadas pela organização. Não foi ativado plano pago nem overage.
+No renderer, são 120 logs rotineiros e 60 avisos/erros por minuto, para reservar
+espaço durante uma tempestade de eventos. Esses limites podem omitir eventos;
+o plano gratuito não garante retenção completa de todas as sessões.
 
 Source maps web são publicados junto aos assets, coerente com o repositório
 público. O Sentry pode buscá-los em produção. Mapas de localhost/arquivos

@@ -18,15 +18,19 @@ import { observe, reportFailure } from '../../services/observability'
 const VideoRenderer = ({
   track,
   videoRef,
+  publicationId,
+  local,
 }: {
   track: LocalVideoTrack | RemoteVideoTrack
   videoRef: RefObject<HTMLVideoElement | null>
+  publicationId?: string
+  local: boolean
 }) => {
   useEffect(() => {
     const element = videoRef.current
     if (!element) return
     track.attach(element)
-    const stopObserving = observeVideo(element, track.mediaStreamTrack, track.source)
+    const stopObserving = observeVideo(element, track.mediaStreamTrack, track.source, { publication_id: publicationId, local })
     return () => {
       stopObserving()
       track.detach(element)
@@ -35,7 +39,7 @@ const VideoRenderer = ({
       element.removeAttribute('src')
       element.load()
     }
-  }, [track, videoRef])
+  }, [track, videoRef, publicationId, local])
 
   return <video autoPlay muted playsInline ref={videoRef} />
 }
@@ -179,6 +183,7 @@ export const ScreenShareStage = ({
   const [controlsOpen, setControlsOpen] = useState(false)
   const [controlsPoint, setControlsPoint] = useState<ContextMenuPoint | null>(null)
   const knownIds = useRef<Set<string>>(new Set())
+  const qualityRequests = useRef({ since: 0, count: 0 })
   const stageRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const popoutWindowRef = useRef<Window | null>(null)
@@ -221,6 +226,9 @@ export const ScreenShareStage = ({
   useEffect(() => {
     for (const live of lives) {
       if (!live.isLocal && live.videoPublication) {
+        const requests = qualityRequests.current
+        if (performance.now() - requests.since > 10_000) { requests.since = performance.now(); requests.count = 0 }
+        if (++requests.count === 20) observe('screen.quality_request_burst', { requests: requests.count, interval_ms: Math.round(performance.now() - requests.since), streams: lives.length }, 'warn')
         void Promise.resolve(live.videoPublication.setVideoQuality(live.id === selectedLive?.id ? 2 : 0))
           .catch(error => { reportFailure('screen.quality', error); setStageError('Não foi possível ajustar a qualidade da transmissão.') })
       }
@@ -311,7 +319,8 @@ export const ScreenShareStage = ({
     try {
       if (document.pictureInPictureElement) await document.exitPictureInPicture()
       else await video.requestPictureInPicture()
-    } catch {
+    } catch (error) {
+      reportFailure('screen.picture_in_picture', error)
       setPipActive(false)
     }
   }
@@ -321,7 +330,8 @@ export const ScreenShareStage = ({
       if (document.fullscreenElement) await document.exitFullscreen()
       else await stageRef.current?.requestFullscreen()
       setStageError('')
-    } catch {
+    } catch (error) {
+      reportFailure('screen.fullscreen', error)
       setStageError('O navegador não conseguiu alterar o modo de tela cheia.')
     }
   }
@@ -339,6 +349,7 @@ export const ScreenShareStage = ({
       'popup=yes,width=1120,height=720,resizable=yes,scrollbars=no',
     )
     if (!popup) {
+      observe('screen.popout_blocked', {}, 'warn')
       setStageError('O navegador bloqueou a janela da transmissão. Libere pop-ups para este site e tente novamente.')
       return
     }
@@ -381,7 +392,8 @@ export const ScreenShareStage = ({
       popup.focus()
       setPopoutActive(true)
       setStageError('')
-    } catch {
+    } catch (error) {
+      reportFailure('screen.popout', error)
       closePopout()
       setStageError('Não foi possível mover a transmissão para uma janela separada.')
     }
@@ -498,7 +510,7 @@ export const ScreenShareStage = ({
           title="Botão direito para controles da transmissão"
         >
           {watchingSelectedLive && selectedLive.videoTrack ? (
-            <VideoRenderer track={selectedLive.videoTrack} videoRef={videoRef} />
+            <VideoRenderer track={selectedLive.videoTrack} videoRef={videoRef} local={selectedLive.isLocal} publicationId={selectedLive.videoPublication?.trackSid} />
           ) : watchingSelectedLive ? (
             <div className="stream-stage__subscription-state" role="status">
               <span className="spinner" />

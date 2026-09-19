@@ -1,6 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { DirectMessage, SocialOverview } from '../types'
 import { getSupabase } from './supabase'
+import { observeOperation, observeRealtime } from './operationObservability'
 import { isStoreDemo, storeDemoMessages, storeDemoSocial } from '../dev/store-demo'
 
 const imageBucket = 'direct-message-images'
@@ -26,7 +27,7 @@ type RawMessage = {
   deleted_at: string | null
 }
 
-const invoke = async <T>(body: Record<string, unknown>) => {
+const invoke = <T>(body: Record<string, unknown>) => observeOperation(`social.${body.action}`, async () => {
   const { data, error } = await getSupabase().functions.invoke('social-action', { body })
   if (error) {
     let message = error.message
@@ -40,7 +41,7 @@ const invoke = async <T>(body: Record<string, unknown>) => {
     throw new Error(message)
   }
   return data as T
-}
+})
 
 const messageFromRaw = (message: RawMessage): DirectMessage => ({
   id: message.id,
@@ -64,20 +65,20 @@ export const searchSocialUser = (username: string) => invoke<{ profile: SocialOv
 export const socialAction = (action: SocialAction, targetUserId: string) => invoke<{ ok: true }>({ action, targetUserId })
 export const submitContentReport = (targetUserId: string, reason: ContentReportReason, details: string) => invoke<{ ok: true }>({ action: 'report_user', targetUserId, reason, details })
 
-export const listDirectMessages = async (conversationId: string, beforeId?: number) => {
+export const listDirectMessages = (conversationId: string, beforeId?: number) => observeOperation('messages.list', async () => {
   if (isStoreDemo()) return storeDemoMessages.filter((message) => message.conversationId === conversationId)
   let query = getSupabase().from('direct_messages').select('*').eq('conversation_id', conversationId).order('id', { ascending: false }).limit(50)
   if (beforeId) query = query.lt('id', beforeId)
   const { data, error } = await query
   if (error) throw error
   return (data as RawMessage[]).reverse().map(messageFromRaw)
-}
+})
 
-const imageUrl = async (path: string) => {
+const imageUrl = (path: string) => observeOperation('messages.image_download', async () => {
   const { data, error } = await getSupabase().storage.from(imageBucket).download(path)
   if (error) throw error
   return URL.createObjectURL(data)
-}
+})
 
 export const resolveDirectMessageImage = async (message: DirectMessage) => {
   if (!message.storagePath || message.deletedAt) return message
@@ -123,31 +124,35 @@ export const inviteFriendToChannel = async (conversationId: string, channelId: s
 export const respondChannelInvite = (messageId: number | string, accept: boolean) =>
   invoke<{ ok: true; channelId: string | null; status: string | null }>({ action: 'respond_channel_invite', messageId, accept })
 
-export const deleteDirectMessage = async (message: DirectMessage) => {
+export const deleteDirectMessage = (message: DirectMessage) => observeOperation('messages.delete', async () => {
   const { error } = await getSupabase().from('direct_messages').update({ deleted_at: new Date().toISOString() }).eq('id', message.id)
   if (error) throw error
-  if (message.storagePath) await getSupabase().storage.from(imageBucket).remove([message.storagePath])
-}
+  if (message.storagePath) await observeOperation('messages.image_delete', async () => {
+    const { error: storageError } = await getSupabase().storage.from(imageBucket).remove([message.storagePath!])
+    if (storageError) throw storageError
+  }).catch(() => undefined) // Message deletion succeeded; retain best-effort attachment cleanup.
+})
 
-export const markDirectConversationRead = async (conversationId: string, throughMessageId: number) => {
+export const markDirectConversationRead = (conversationId: string, throughMessageId: number) => observeOperation('messages.mark_read', async () => {
   if (isStoreDemo()) return
   const { data: auth } = await getSupabase().auth.getUser()
   if (!auth.user) return
   const { error } = await getSupabase().from('direct_conversation_state').update({ last_read_message_id: throughMessageId }).eq('conversation_id', conversationId).eq('user_id', auth.user.id)
   if (error) throw error
-}
+})
 
 export const subscribeToSocial = (userId: string, onChange: () => void, onIncomingMessage?: (message: DirectMessage) => void) => {
   const client = getSupabase()
+  const telemetry = ['friends_low', 'friends_high', 'messages_incoming', 'messages_outgoing'].map(scope => observeRealtime(scope))
   const incomingMessage = (payload: { new: unknown; eventType?: string }) => {
     onChange()
     if (payload.eventType === 'INSERT' && payload.new && typeof payload.new === 'object') onIncomingMessage?.(messageFromRaw(payload.new as RawMessage))
   }
   const channels: RealtimeChannel[] = [
-    client.channel(`social-friendships-low-${userId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'friendships', filter: `user_low_id=eq.${userId}` }, onChange).subscribe(),
-    client.channel(`social-friendships-high-${userId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'friendships', filter: `user_high_id=eq.${userId}` }, onChange).subscribe(),
-    client.channel(`social-messages-recipient-${userId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'direct_messages', filter: `recipient_id=eq.${userId}` }, incomingMessage).subscribe(),
-    client.channel(`social-messages-sender-${userId}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'direct_messages', filter: `sender_id=eq.${userId}` }, onChange).subscribe(),
+    client.channel(`social-friendships-low-${userId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'friendships', filter: `user_low_id=eq.${userId}` }, onChange).subscribe(telemetry[0].status),
+    client.channel(`social-friendships-high-${userId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'friendships', filter: `user_high_id=eq.${userId}` }, onChange).subscribe(telemetry[1].status),
+    client.channel(`social-messages-recipient-${userId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'direct_messages', filter: `recipient_id=eq.${userId}` }, incomingMessage).subscribe(telemetry[2].status),
+    client.channel(`social-messages-sender-${userId}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'direct_messages', filter: `sender_id=eq.${userId}` }, onChange).subscribe(telemetry[3].status),
   ]
-  return () => { for (const channel of channels) void client.removeChannel(channel) }
+  return () => { telemetry.forEach(observer => observer.stop()); for (const channel of channels) void client.removeChannel(channel) }
 }

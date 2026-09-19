@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { observe } from '../services/observability'
+import { observeOperation } from '../services/operationObservability'
 import type { Session, User } from '@supabase/supabase-js'
 import {
   currentSession,
@@ -65,7 +66,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     setSession(nextSession)
     try {
-      const nextAccess = await getAccessContext(nextSession.user)
+      const nextAccess = await observeOperation('auth.access', () => getAccessContext(nextSession.user))
       setAccess(nextAccess)
       setStatus(nextAccess.profile.status === 'disabled' ? 'disabled' : 'authenticated')
       setError('')
@@ -86,7 +87,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         await initializeSupabase()
         const callbackType = getAuthCallbackType(callbackUrl)
-        const exchanged = await exchangeAuthCallback(callbackUrl)
+        const exchanged = await observeOperation('auth.callback', () => exchangeAuthCallback(callbackUrl))
         const nextSession = await currentSession()
         const setupType = callbackType === 'invite' || callbackType === 'recovery'
           ? callbackType
@@ -109,6 +110,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return
       }
       if (!isSupabaseConfigured) {
+        observe('auth.configuration_missing', {}, 'warn')
         setStatus('error')
         setError('O serviço de autenticação ainda não foi configurado.')
         return
@@ -133,6 +135,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           void consumeCallback(callbackUrl)
         }) || (() => undefined)
       } catch {
+        observe('auth.bootstrap_failed', {}, 'warn')
         if (mounted) {
           setStatus('error')
           setError('Não foi possível iniciar a autenticação. Confira a configuração do Supabase.')
@@ -150,7 +153,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = useCallback(async (email: string, password: string) => {
     try {
-      const result = await signInWithPassword(email, password)
+      const result = await observeOperation('auth.sign_in', () => signInWithPassword(email, password))
+      if (!result.ok) observe('auth.sign_in.rejected', {}, 'warn')
       if (!result.ok) return result
       return { ok: true }
     } catch {
@@ -160,7 +164,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const resetPassword = useCallback(async (email: string) => {
     try {
-      return await requestPasswordReset(email)
+      return await observeOperation('auth.recovery_request', () => requestPasswordReset(email))
     } catch {
       // Keep the same response for existing and unknown addresses.
       return { ok: true }
@@ -174,7 +178,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return nextProfile
     }
     try {
-      const nextProfile = await updateMyProfile(profile)
+      const nextProfile = await observeOperation('profile.update', () => updateMyProfile(profile))
       setAccess((current) => current ? { ...current, profile: nextProfile } : current)
       return nextProfile
     } catch (profileError) {
@@ -190,7 +194,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return nextProfile
     }
     try {
-      const nextProfile = await claimMyUsername(username)
+      const nextProfile = await observeOperation('profile.claim', () => claimMyUsername(username))
       setAccess((current) => current ? { ...current, profile: nextProfile } : current)
       return nextProfile
     } catch (profileError) {
@@ -201,7 +205,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const redeemInviteCode = useCallback(async (code: string, email: string, password: string) => {
     try {
-      return await redeemInviteCodeService(code, email, password)
+      return await observeOperation('auth.invite_redeem', () => redeemInviteCodeService(code, email, password))
     } catch {
       return { ok: false, message: 'Não foi possível criar a conta. Tente novamente.' }
     }
@@ -215,7 +219,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return
     }
     try {
-      await signOutFromSupabase()
+      await observeOperation('auth.sign_out', () => signOutFromSupabase())
     } finally {
       setSession(null)
       setAccess(null)
@@ -227,7 +231,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const completeCredentialSetup = useCallback(async (password: string) => {
     try {
-      const result = await updatePassword(password)
+      const result = await observeOperation('auth.credential_setup', () => updatePassword(password))
       if (result.ok) setCredentialSetup(null)
       return result
     } catch {

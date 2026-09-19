@@ -1,12 +1,14 @@
 import type { ActivityCatalogItem, ChannelPresence } from '../types'
 import { getSupabase } from './supabase'
 import { presenceRefreshDelay } from './presenceTiming'
+import { observeOperation } from './operationObservability'
+import { observe } from './observability'
 
-const invoke = async <T>(body: Record<string, unknown>) => {
+const invoke = <T>(body: Record<string, unknown>) => observeOperation(`presence.${body.action}`, async () => {
   const { data, error } = await getSupabase().functions.invoke('channel-presence', { body })
   if (error) throw error
   return data as T
-}
+})
 
 export const listChannelPresence = () =>
   invoke<{ channels: ChannelPresence[] }>({ action: 'summary' }).then((result) => result.channels)
@@ -32,6 +34,7 @@ export const subscribeToChannelPresence = (
   let stopped = false
   let timer = 0
   let inFlight: Promise<void> | undefined
+  let failures = 0, lastSuccess = performance.now()
 
   const schedule = () => {
     if (stopped) return
@@ -41,8 +44,15 @@ export const subscribeToChannelPresence = (
     if (inFlight) return inFlight
     window.clearTimeout(timer)
     inFlight = listChannelPresence()
-      .then((presence) => { if (!stopped) onPresence(presence) })
-      .catch(() => undefined)
+      .then((presence) => {
+        if (stopped) return
+        if (failures) observe('presence.recovered', { failures, stale_ms: Math.round(performance.now() - lastSuccess) })
+        failures = 0; lastSuccess = performance.now()
+        onPresence(presence)
+      })
+      .catch(() => {
+        if (!stopped) observe('presence.stale', { failures: ++failures, stale_ms: Math.round(performance.now() - lastSuccess), visibility: document.visibilityState }, 'warn')
+      })
       .finally(() => {
         inFlight = undefined
         schedule()

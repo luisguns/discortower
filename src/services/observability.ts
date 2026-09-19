@@ -6,7 +6,8 @@ export const origin = typeof window !== 'undefined' && window.splotysDesktop ? '
 const sessionId = crypto.randomUUID()
 const release = `splotys@${__SPLOTYS_VERSION__}`
 const processName = origin === 'DESKTOP' ? 'renderer' : 'browser'
-const logBudget = createBudget(180, 60_000)
+const logBudget = createBudget(120, 60_000)
+const warningBudget = createBudget(60, 60_000)
 const errorBudget = createBudget(20, 60_000)
 let context: Record<string, string> = {}
 let initialized = false
@@ -42,7 +43,7 @@ export async function initializeObservability() {
     ],
     beforeSend: event => errorBudget() ? prepareEvent(event, origin, processName, sessionId) : null,
     beforeSendTransaction: event => prepareEvent(event, origin, processName, sessionId),
-    beforeSendLog: log => logBudget() ? { ...scrub(log), attributes: { ...scrub(log.attributes), origin, process: processName, session_id: sessionId, release } } : null,
+    beforeSendLog: log => (['warn', 'error', 'fatal'].includes(log.level) ? warningBudget() : logBudget()) ? { ...scrub(log), attributes: { ...scrub(log.attributes), origin, process: processName, session_id: sessionId, release } } : null,
     beforeSendSpan: span => ({ ...scrub(span), data: { ...scrub(span.data), origin, process: processName, session_id: sessionId, release } }),
     beforeBreadcrumb: crumb => crumb.category?.startsWith('splotys') ? scrub(crumb) : null,
   }
@@ -56,6 +57,22 @@ export async function initializeObservability() {
     window.addEventListener(event, () => observe(`app.${event}`))
   }
   document.addEventListener('visibilitychange', () => observe('app.visibility', { visibility: document.visibilityState }))
+  // Aggregate responsiveness problems without collecting DOM nodes or task URLs.
+  if (typeof PerformanceObserver !== 'undefined' && PerformanceObserver.supportedEntryTypes?.includes('longtask')) {
+    let count = 0, maximum = 0, pending = false
+    try {
+      new PerformanceObserver(list => {
+        if (document.hidden) return
+        for (const entry of list.getEntries()) if (entry.duration >= 500) { count++; maximum = Math.max(maximum, entry.duration) }
+        if (!count || pending) return
+        pending = true
+        window.setTimeout(() => {
+          observe('app.unresponsive_tasks', { count, max_duration_ms: Math.round(maximum) }, 'warn')
+          count = 0; maximum = 0; pending = false
+        }, 30_000)
+      }).observe({ type: 'longtask' })
+    } catch { /* Unsupported engines must remain usable. */ }
+  }
   // Explicitly opt-in smoke test: harmless event, no crash and no media capture.
   if (new URLSearchParams(location.search).get('observability-test') === '1') {
     observe('observability.smoke', { synthetic: true })
@@ -67,6 +84,10 @@ export async function initializeObservability() {
 export function setCallContext(callId?: string, attemptId?: string, provider?: string) {
   context = callId ? { call_id: callId, attempt_id: attemptId || '', provider: provider || '' } : {}
   for (const key of ['call_id', 'attempt_id', 'provider']) Sentry.setTag(key, context[key])
+}
+
+export function getCallContext() {
+  return { call_id: context.call_id || '', attempt_id: context.attempt_id || '', provider: context.provider || '' }
 }
 
 export function observe(event: string, fields: Fields = {}, level: 'info' | 'warn' = 'info') {
@@ -81,7 +102,8 @@ export function reportFailure(operation: string, error: unknown, fields: Fields 
   try {
     observe(`${operation}.failed`, fields, 'warn')
     Sentry.withScope(scope => {
-      scope.setTags({ ...context, operation, origin, process: processName, session_id: sessionId })
+      scope.setTags({ ...context, operation, origin, process: processName, session_id: sessionId,
+        ...Object.fromEntries(['call_id', 'attempt_id', 'provider', 'operation_id'].filter(key => fields[key] !== undefined).map(key => [key, String(fields[key])])) })
       scope.setContext('operation', scrub(fields))
       // Preserve stack/type for Error objects. Never serialize arbitrary response bodies.
       Sentry.captureException(error instanceof Error ? error : new Error(operation))
@@ -102,17 +124,21 @@ export const observedFetch: typeof fetch = async (input, init) => {
     route = path.match(/\/(auth|rest|functions)\/v1\/(?:rpc\/)?[a-z_-]+/i)?.[0] || 'storage-or-other'
   } catch { /* Invalid URLs are handled by fetch. */ }
   const started = performance.now()
+  const fields = { ...getCallContext(), route, operation_id: crypto.randomUUID() }
+  const timer = window.setTimeout(() => observe('api.slow', { ...fields, duration_ms: Math.round(performance.now() - started) }, 'warn'), 10_000)
   return Sentry.startSpan({ name: route, op: 'http.client', attributes: { origin } }, async () => {
     try {
       const response = await fetch(input, init)
       const duration = Math.round(performance.now() - started)
-      observe('api.response', { route, status: response.status, duration_ms: duration }, response.ok ? 'info' : 'warn')
+      observe('api.response', { ...fields, status: response.status, duration_ms: duration }, response.ok ? 'info' : 'warn')
       measure('api.duration', duration)
-      if (!response.ok) reportFailure('api.response', new Error(`HTTP_${response.status} ${route}`), { route, status: response.status })
+      // Expected validation/auth rejections remain searchable logs, not crash issues.
+      if (response.status >= 500) reportFailure('api.response', new Error(`HTTP_${response.status} ${route}`), { ...fields, status: response.status })
       return response
     } catch (error) {
-      reportFailure('api.network', error, { route })
+      if (error instanceof Error && error.name === 'AbortError') observe('api.aborted', fields)
+      else reportFailure('api.network', error, fields)
       throw error
-    }
+    } finally { window.clearTimeout(timer) }
   })
 }

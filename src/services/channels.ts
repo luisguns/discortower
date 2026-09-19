@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getSupabase } from './supabase'
+import { observeOperation, observeRealtime } from './operationObservability'
 import type { ChannelCallSummary, ChannelSummary } from '../types'
 
 type ChannelRow = {
@@ -40,16 +41,16 @@ export const listChannels = async (currentUserId = '', canManageAll = false) => 
   return (data || []).map((row) => ({ ...mapChannel(row as ChannelRow), canManage: canManageAll || row.created_by === currentUserId, calls: ((row as any).channel_calls || []).map((call: Record<string, unknown>) => ({ ...mapCall(call), canManage: canManageAll || row.created_by === currentUserId })) }))
 }
 
-const invoke = async <T>(body: Record<string, unknown>) => {
+const invoke = <T>(body: Record<string, unknown>) => observeOperation(`channels.${body.action}`, async () => {
   const { data, error } = await getSupabase().functions.invoke('channel-action', { body })
   if (error) throw error
   return data as T
-}
-const invokeManagement = async <T>(body: Record<string, unknown>) => {
+})
+const invokeManagement = <T>(body: Record<string, unknown>) => observeOperation(`channels.${body.action}`, async () => {
   const { data, error } = await getSupabase().functions.invoke('channel-management', { body })
   if (error) throw error
   return data as T
-}
+})
 
 export const createChannel = (name: string) =>
   invoke<{ channel: ChannelSummary }>({ action: 'create', name }).then((result) => result.channel)
@@ -75,9 +76,10 @@ export const unblockCallParticipant = (channelId: string, callId: string, userId
 
 export const subscribeToChannels = (onChange: () => void) => {
   const client: SupabaseClient = getSupabase()
+  const telemetry = observeRealtime('channels')
   const channel = client
     .channel('public-channel-presence')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'channels' }, onChange)
-    .subscribe()
-  return () => { void client.removeChannel(channel) }
+    .subscribe(telemetry.status)
+  return () => { telemetry.stop(); void client.removeChannel(channel) }
 }

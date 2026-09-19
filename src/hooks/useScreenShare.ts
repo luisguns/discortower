@@ -84,11 +84,13 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
 
   const start = useCallback(async () => {
     if (!isSupported) {
+      observe('screen.start.unsupported', {}, 'warn')
       setError('Este navegador móvel não oferece compartilhamento de tela para páginas web. Você ainda pode assistir às transmissões e usar a câmera.')
       return
     }
 
     if (pendingRef.current) {
+      observe('screen.start.already_pending', {}, 'warn')
       setIsStarting(false)
       setError('O seletor de tela anterior ainda está aberto. Feche-o ou pressione Esc antes de tentar novamente.')
       return
@@ -165,7 +167,7 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
             await room.localParticipant.setScreenShareEnabled(false)
           }
         })
-        .catch(() => undefined)
+        .catch(error => reportFailure('screen.late_start_cleanup', error, { request_id: requestId }))
         .finally(() => {
           pendingRef.current = false
           if (requestRef.current === requestId) syncState()
@@ -177,7 +179,7 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
     pendingRef.current = false
     if (requestRef.current !== requestId) {
       if (outcome.kind === 'success') {
-        await room.localParticipant.setScreenShareEnabled(false).catch(() => undefined)
+        await room.localParticipant.setScreenShareEnabled(false).catch(error => reportFailure('screen.superseded_cleanup', error, { request_id: requestId }))
       }
       return
     }
@@ -192,7 +194,8 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
       // Keep the original error in the local console for diagnosis (the desktop
       // file logger stores only RTC event codes, never arbitrary console text).
       console.warn('RTC_SCREEN_SHARE_FAILED', shareError)
-      reportFailure('screen.start', shareError, { request_id: requestId, quality })
+      if (shareError instanceof DOMException && shareError.name === 'NotAllowedError') observe('screen.start.cancelled_or_denied', { request_id: requestId, quality }, 'warn')
+      else reportFailure('screen.start', shareError, { request_id: requestId, quality })
       if (shareError instanceof DOMException && shareError.name === 'NotAllowedError') {
         setError('Compartilhamento cancelado ou bloqueado pelo navegador.')
       } else if (shareError instanceof DOMException && shareError.name === 'NotFoundError') {
@@ -208,8 +211,10 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
   }, [isSupported, quality, room, syncState])
 
   const stop = useCallback(async () => {
+    const startedAt = performance.now()
     observe('screen.stop.requested')
     if (pendingRef.current) {
+      observe('screen.stop.already_pending', {}, 'warn')
       setIsStarting(false)
       setError('Feche o seletor de tela que ainda está aberto antes de encerrar ou iniciar outra transmissão.')
       return
@@ -224,7 +229,7 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
     const outcome = await Promise.race([
       stopOperation.then(
         () => ({ kind: 'success' as const }),
-        () => ({ kind: 'error' as const }),
+        (error: unknown) => ({ kind: 'error' as const, error }),
       ),
       new Promise<{ kind: 'timeout' }>((resolve) => {
         timeoutId = window.setTimeout(() => resolve({ kind: 'timeout' }), 8_000)
@@ -232,9 +237,11 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
     ])
 
     if (outcome.kind === 'timeout') {
+      observe('screen.stop.timeout', { request_id: requestId, duration_ms: Math.round(performance.now() - startedAt) }, 'warn')
       setError('O navegador demorou para encerrar a transmissão. O controle foi liberado para você tentar novamente.')
       void stopOperation
-        .catch(() => undefined)
+        .then(() => observe('screen.stop.late_completion', { request_id: requestId, duration_ms: Math.round(performance.now() - startedAt) }))
+        .catch(error => reportFailure('screen.stop.late_failure', error, { request_id: requestId }))
         .finally(() => {
           pendingRef.current = false
           if (requestRef.current === requestId) syncState()
@@ -244,11 +251,11 @@ export const useScreenShare = (room: Room, quality: StreamQualityId) => {
       pendingRef.current = false
       if (outcome.kind === 'success') {
         console.info('RTC_SCREEN_SHARE_STOPPED')
-        observe('screen.stop.completed')
+        observe('screen.stop.completed', { request_id: requestId, duration_ms: Math.round(performance.now() - startedAt) })
         syncState()
       } else {
         setError('Não foi possível encerrar a transmissão.')
-        reportFailure('screen.stop', new Error('SCREEN_STOP_FAILED'))
+        reportFailure('screen.stop', outcome.error, { request_id: requestId })
       }
     }
 

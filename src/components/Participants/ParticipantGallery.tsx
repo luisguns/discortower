@@ -8,6 +8,7 @@ import type {
 import { Icon } from '../ui/Icon'
 import { ProfileAvatar } from '../ui/ProfileAvatar'
 import { StyledProfileName } from '../ui/StyledProfileName'
+import { observeVideo } from '../../services/rtcObservability'
 
 const CameraRenderer = ({
   isLocal,
@@ -22,14 +23,16 @@ const CameraRenderer = ({
     const element = videoRef.current
     if (!element) return
     track.attach(element)
+    const stopObserving = observeVideo(element, track.mediaStreamTrack, track.source, { local: isLocal })
     return () => {
+      stopObserving()
       track.detach(element)
       element.pause()
       element.srcObject = null
       element.removeAttribute('src')
       element.load()
     }
-  }, [track])
+  }, [track, isLocal])
 
   return <video autoPlay className={isLocal ? 'is-local' : ''} muted playsInline ref={videoRef} />
 }
